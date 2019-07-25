@@ -21,7 +21,6 @@ Follow the instructions for installation given [here.](http://astrometry.net/doc
 
 If you are on `irulan`, you only need to add the following to your .bashrc: 
 
-.. ::
      export PATH="/sbin/:$PATH"
      export PATH="/data/irulan/astrometry:$PATH"
      export PATH="/data/irulan/astrometry/bin:$PATH"
