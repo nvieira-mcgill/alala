@@ -21,9 +21,10 @@ Follow the instructions for installation given [here.](http://astrometry.net/doc
 
 If you are on `irulan`, you only need to add the following to your .bashrc: 
 
-.. code-block:: sh
      export PATH="/sbin/:$PATH"
+     
      export PATH="/data/irulan/astrometry:$PATH"
+     
      export PATH="/data/irulan/astrometry/bin:$PATH"
 
 Ensuring that iraf works correctly 
@@ -32,9 +33,13 @@ Ensuring that iraf works correctly
 We assume here that you installed iraf correctly. `pyraf` is a Python wrapper which is used to simplify operation of `iraf`. In order to run `alala` you will need an `iraf` directory in your **home directory**, with a `login.cl` file and `pyraf` and `uparm` directories inside this directory. You can use the `login.cl` included [here](https://github.com/nvieira-mcgill/alala/tree/master/iraf_setup), remembering to change the following lines at the beginning of the file:
 
      set	home		= "/home/johndoe/iraf/"
+     
      set	imdir		= "/tmp/johndoe/"
+     
      set	cache		= "U_CACHEDIR"
+     
      set	uparm		= "home$uparm/"
+     
      set	userid		= "johndoe"
 
 To match your home directory and user id. 
