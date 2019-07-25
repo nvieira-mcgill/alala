@@ -63,10 +63,12 @@ Images from WIRCam arrive largely de-trended via CFHT's pipeline 'I'iwi. WIRCam 
 Importantly, the convention for WIRCam is to treat each of these 4 detectors separately. This means that the same star, observed on different detectors, can have a widely varying flux. For this reason, it's important to decide which detector you want to work with. 
 
 Let's say you've put your data in some directory ``/data/myWIRCam/``. Let's initialize a ``RawData`` object:
-     
-     >>> import alala 
-     >>> datadir = "/data/myWIRCam/" 
-     >>> rawdata = alala.RawData(datadir)
+
+.. highlight:: python
+   :linenothreshold: 5
+   import alala 
+   datadir = "/data/myWIRCam/" 
+   rawdata = alala.RawData(datadir)
 
 This will examine all of the data in your ``datadir`` and store it in attributes of the object based on filter and dates. The filters typically in use are Y, J, H, Ks. If you want to see all the files in the Y filter, in order of acquisition time:
 
