@@ -163,4 +163,5 @@ And, again, the stack will first be produced if it does not already exist. A con
      >>> j = alala.Stack("/data/myWIRCam/divided_det3_WIRCam_20181106", 
                          "/exports/myWIRCam/working_dir", qso_grade_limit=2)
 
-### Performing astrometry, photometry 
+Performing astrometry, photometry
+---------------------------------
