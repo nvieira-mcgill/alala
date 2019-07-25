@@ -1,5 +1,5 @@
 ======
-ʻAlalā
+Alala
 ======
 
 A pipeline for the Wide-field Infra-Red Camera (WIRCam) and MegaCam instruments at the Canada-France-Hawaii Telescope (CFHT). Does stacking, astrometry, PSF photometry and aperture photometry. 
@@ -22,17 +22,20 @@ Modules you'll need
 
 This software makes use of certain modules you may not already have. These are:
 
-     * `astropy <http://docs.astropy.org/en/stable/install.html>`_ - Widely-used software for astrophysical programming. Download the whole thing. 
+     * `astropy <http://docs.astropy.org/en/stable/install.html>`_ - Widely-used software for astrophysical programming. 
+     
+     * `astroquery <https://astroquery.readthedocs.io/en/latest/#installation>`_ - A tool for querying online catalogues. 
 
-     * ``pyraf (iraf)`` - An industry standard tool for all sorts of astrophysical programming. Used here to stack images.
+     * `photutils <https://photutils.readthedocs.io/en/stable/install.html>`_ - Software affiliated with astropy, used specifically for photometry. 
 
-     * ``astrometry.net`` -- A tool for source detection and astrometric calibration of images.
+     * `pyraf (iraf) <http://www.stsci.edu/institute/software_hardware/pyraf>`_ - An industry standard tool for all sorts of astrophysical programming. Used here to stack images.
 
-     * ``astroquery`` -- A tool for querying online catalogues. 
+     * `astrometry.net <http://astrometry.net/doc/readme.html#installing>`_ - A tool for source detection and astrometric calibration of images.
 
-     * ``photutils`` -- Software affiliated with astropy, used specifically for photometry. 
+astropy, astroquery, photutils 
+------------------------------
 
- 
+Installing these is straightforward with `conda`, `pip`, etc. See the links above. You likely already have at least `astropy` on your own machine/on whichever server you're accessing. 
 
 astrometry.net 
 --------------
@@ -59,11 +62,6 @@ We assume here that you installed iraf correctly. `pyraf` is a Python wrapper wh
      | set	userid		= "johndoe"
 
 To match your home directory and user id. 
-
-astropy, astroquery, photutils 
-------------------------------
-
-Installing these is straightforward with `conda`, `pip`, etc. and you likely already have at least `astropy` on your own machine/on whichever server you're accessing. 
 
 --------------------------
 
