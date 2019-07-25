@@ -6,6 +6,11 @@ A pipeline for the Wide-field Infra-Red Camera (WIRCam) and MegaCam instruments 
 
 Named after the ʻAlalā, the Hawaiian crow, known for its intelligence and flying ability.
 
+Sections:
+     * `Installing the required dependencies <https://alala.readthedocs.io/en/latest/#installing-the-required-dependencies>`_
+     * `Using the pipeline <https://alala.readthedocs.io/en/latest/#using-the-pipeline>`_
+     * `Making light curves <https://alala.readthedocs.io/en/latest/#making-light-curves>`_
+
 ====================================
 Installing the required dependencies
 ====================================
@@ -17,8 +22,8 @@ Installing the required dependencies
 astrometry.net 
 --------------
 
-Make sure to get the **bleeding edge** version from `_github <https://github.com/dstndstn/astrometry.net>`_.
-Older versions of astrometry impose a limit on the number of sources that can be detected in an image, and this poses problems for the typically very dense images taken by WIRCam/MegaCam. Follow the instructions for installation given `here.
+Make sure to get the **bleeding edge** version from `github <https://github.com/dstndstn/astrometry.net>`_.
+Older versions of astrometry impose a limit on the number of sources that can be detected in an image, and this poses problems for the typically very dense images taken by WIRCam/MegaCam. Follow the instructions for installation given `here
 <http://astrometry.net/doc/readme.html#installing>`_.
 
 If you are on `irulan`, you only need to add the following to your .bashrc: 
@@ -30,7 +35,7 @@ If you are on `irulan`, you only need to add the following to your .bashrc:
 Ensuring that iraf works correctly 
 ----------------------------------
 
-We assume here that you installed iraf correctly. `pyraf` is a Python wrapper which is used to simplify operation of `iraf`. In order to run `alala` you will need an `iraf` directory in your **home directory**, with a `login.cl` file and `pyraf` and `uparm` directories inside this directory. You can use the `login.cl` included [here](https://github.com/nvieira-mcgill/alala/tree/master/iraf_setup), remembering to change the following lines at the beginning of the file:
+We assume here that you installed iraf correctly. `pyraf` is a Python wrapper which is used to simplify operation of `iraf`. In order to run `alala` you will need an `iraf` directory in your **home directory**, with a `login.cl` file and `pyraf` and `uparm` directories inside this directory. You can use the `login.cl` included `here <https://github.com/nvieira-mcgill/alala/tree/master/iraf_setup>`_, remembering to change the following lines at the beginning of the file:
 
      | set	home		= "/home/johndoe/iraf/"
      | set	imdir		= "/tmp/johndoe/" 
