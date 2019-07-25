@@ -306,16 +306,22 @@ This line will do the following:
 
 
 Note that the instrumental magnitude is computed as: 
+
 .. math:: 
 
      m_{ins} = -2.5 * \\log(FLUX)
      
-     
-     
-     
-With some important optional arguments: 
+          
+When calling ``PSF_photometry()``, important optional arguments are:
 
-    | plot_
+     * ``plot_ePSF`` (bool, default True) Plot the ePSF
+     * ``plot_residuals`` (bool, default True) Plot the residuals of the ePSF fit 
+     * ``plot_corr`` (bool, default True) Plot the instrumental versus catalog magnitudes, with a linear fit 
+     * ``plot_source_offsets`` (bool, default True) Plot the RA, Dec offsets for all sources matched with an external catalogue 
+     * ``plot_field_offsets`` (bool, default True) Plot the image with the intensity showing the relative overall (RA and Dec) offset from the external catalogue, with a Gaussian blur applied to the image
+     
+The ePSF plot and the residuals plot are measures of the quality of the PSF fit. The correlation is a measure of the accuracy of the PSF calibration: the slope of the linear fit should be very close to 1, although outliers are always present. Finally, the offset plots are measures of the difference between the astrometry of the queried catalogue and our solved image.  
+
 
 --------------------------------------------------------
 
