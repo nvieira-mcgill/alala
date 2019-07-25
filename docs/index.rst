@@ -82,6 +82,7 @@ Importantly, the convention for WIRCam is to treat each of these 4 detectors sep
 
 Let's say you've put your data in some directory ``/data/myWIRCam/``. Let's initialize a ``RawData`` object:
 
+.. code-block:: python
      >>> import alala
      >>> datadir = "/data/myWIRCam/" 
      >>> rawdata = alala.RawData(datadir)
