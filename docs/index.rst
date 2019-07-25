@@ -35,7 +35,7 @@ This software makes use of certain modules you may not already have. These are:
 astropy, astroquery, photutils 
 ------------------------------
 
-Installing these is straightforward with `conda`, `pip`, etc. See the links above. You likely already have at least `astropy` on your own machine/on whichever server you're accessing. 
+Installing these is straightforward with ``conda``, ``pip``, etc. See the links above. You likely already have at least ``astropy`` on your own machine/on whichever server you're accessing. 
 
 astrometry.net 
 --------------
@@ -123,7 +123,7 @@ If your data spans multiple dates, this will output ``'multidate'``, in which ca
      J_file1.fits.fz J               15.0
      # and many more 
 
-To decide which detector you want to use, if you know the RA and Dec of the source you care about: 
+Finally, to decide which detector you want to use, if you know the RA and Dec of the source you care about: 
 
 .. code-block:: python
 
@@ -241,13 +241,13 @@ Will produce only those we care about. **Note:** IRAF has a limit on the number 
 
 .. code-block:: python
 
-     >>> j = finalrawdata.extract_stack("J")
+     >>> j_stack = finalrawdata.extract_stack("J")
 
 Note that, if you try to extract a stack before it has been made, the stack will automatically be produced. A Stack object can also be initialized directly:
 
 .. code-block:: python
 
-     >>> j = alala.Stack(finaldatadir, workingdir, filt="J")
+     >>> j_stack = alala.Stack(finaldatadir, workingdir, filt="J")
 
 And, again, the stack will first be produced if it does not already exist. A condensed example of the process from raw data to stack follows: 
 
@@ -269,12 +269,27 @@ And, again, the stack will first be produced if it does not already exist. A con
      >>> finalrawdata.make_badpix_masks()
      >>>
      >>> # let's say we only care about the J band 
-     >>> j = alala.Stack("/data/myWIRCam/divided_det3_WIRCam_20181106", "/exports/myWIRCam/working_dir", qso_grade_limit=2)
-
+     >>> j_stack = alala.Stack("/data/myWIRCam/divided_det3_WIRCam_20181106", "/exports/myWIRCam/working_dir", qso_grade_limit=2)
 
 
 Performing astrometry, photometry
 ---------------------------------
+
+In this section, we'll assume you have the ``j_stack`` object as defined above. Recall that, in our stack working directory, we have a file ``J_stack_20181106.fits``. First, let's refine the astrometric solution for the stack and extract as many sources as possible:
+
+.. code-block:: python
+
+     >>> j_stack.astrometry()
+     
+This line will do the following: 
+
+     1. Extract as many stars as possible, solve the field, and output an updated WCS header to ``J_stack_20181106_updated.fits``
+     2. Produce a background-subtracted, clean image and output it to ``J_stack_20181106_clean.fits``
+     3. Output a list of the pixel coordinates and background-subtracted flux for all the previously extracted sources in the fits bintable ``J_stack_20181106_updated.xy.fits``
+     4. Produce an image in which all sources are masked and output it to ``J_stack_20181106_mask.fits``
+     
+
+These 4 files will be output to a new directory ``calibration`` within the stack directory. 
 
 --------------------------------------------------------
 
