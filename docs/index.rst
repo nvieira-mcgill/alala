@@ -6,6 +6,47 @@ A pipeline for the Wide-field Infra-Red Camera (WIRCam) and MegaCam instruments 
 
 Named after the ʻAlalā, the Hawaiian crow, known for its intelligence and flying ability.
 
+====================================
+Installing the required dependencies
+====================================
+
+``alala.py`` and ``stack.py`` were optimized for use on the ``irulan`` server of McGill University. Using this software is much easier if you have access to this server or some other, but installation instructions are given for those who do not. If you do have access to this server, you should still read the instructions below so that your dependencies are placed in the right location.
+
+``lightcurve.py``, conversely, can be used on any machine that has ``astropy`` (which comes with most scientific python installations, such as anaconda).  
+
+astrometry.net 
+--------------
+
+Follow the instructions for installation given [here.](http://astrometry.net/doc/readme.html#installing) **Make sure to use the bleeding edge version from github**, as older versions of astrometry impose a limit on the number of sources that can be detected in an image, and this poses problems for the typically very dense images taken by WIRCam/MegaCam. 
+
+If you are on `irulan`, you only need to add the following to your .bashrc: 
+
+     export PATH="/sbin/:$PATH"
+     export PATH="/data/irulan/astrometry:$PATH"
+     export PATH="/data/irulan/astrometry/bin:$PATH"
+
+Ensuring that iraf works correctly 
+----------------------------------
+
+We assume here that you installed iraf correctly. `pyraf` is a Python wrapper which is used to simplify operation of `iraf`. In order to run `alala` you will need an `iraf` directory in your **home directory**, with a `login.cl` file and `pyraf` and `uparm` directories inside this directory. You can use the `login.cl` included [here](https://github.com/nvieira-mcgill/alala/tree/master/iraf_setup), remembering to change the following lines at the beginning of the file:
+
+     set	home		= "/home/johndoe/iraf/"
+     set	imdir		= "/tmp/johndoe/"
+     set	cache		= "U_CACHEDIR"
+     set	uparm		= "home$uparm/"
+     set	userid		= "johndoe"
+
+To match your home directory and user id. 
+
+astropy, astroquery, photutils 
+------------------------------
+
+Installing these is straightforward with `conda`, `pip`, etc. and you likely already have at least `astropy` on your own machine/on whichever server you're accessing. 
+
+.. raw:: pdf
+
+   PageBreak oneColumn
+
 ==================
 Using the pipeline
 ==================
