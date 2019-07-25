@@ -15,9 +15,24 @@ Sections:
 Installing the required dependencies
 ====================================
 
-``alala.py`` and ``stack.py`` were optimized for use on the ``irulan`` server of McGill University. Using this software is much easier if you have access to this server or some other, but installation instructions are given for those who do not. If you do have access to this server, you should still read the instructions below so that your dependencies are placed in the right location.
+Modules you'll need 
+-------------------
 
-``lightcurve.py``, conversely, can be used on any machine that has ``astropy`` (which comes with most scientific python installations, such as anaconda).  
+``alala.py`` and ``stack.py`` were optimized for use on the ``irulan`` server of McGill University. Using this software is much easier if you have access to this server or some other, but installation instructions are given for those who do not. If you do have access to this server, you should still read the instructions below so that your dependencies are placed in the right location. ``lightcurve.py``, conversely, can be used on any machine that has ``astropy`` (which comes with most scientific python installations, such as anaconda). 
+
+This software makes use of certain modules you may not already have. These are:
+
+     * `astropy <http://docs.astropy.org/en/stable/install.html>`_ - Widely-used software for astrophysical programming. Download the whole thing. 
+
+     * ``pyraf (iraf)`` - An industry standard tool for all sorts of astrophysical programming. Used here to stack images.
+
+     * ``astrometry.net`` -- A tool for source detection and astrometric calibration of images.
+
+     * ``astroquery`` -- A tool for querying online catalogues. 
+
+     * ``photutils`` -- Software affiliated with astropy, used specifically for photometry. 
+
+ 
 
 astrometry.net 
 --------------
@@ -34,8 +49,9 @@ If you are on `irulan`, you only need to add the following to your .bashrc:
 
 Ensuring that iraf works correctly 
 ----------------------------------
+IRAF is an industry standard for all sorts of astrophysical programming. It's used here to stack images.
 
-We assume here that you installed iraf correctly. `pyraf` is a Python wrapper which is used to simplify operation of `iraf`. In order to run `alala` you will need an `iraf` directory in your **home directory**, with a `login.cl` file and `pyraf` and `uparm` directories inside this directory. You can use the `login.cl` included `here <https://github.com/nvieira-mcgill/alala/tree/master/iraf_setup>`_, remembering to change the following lines at the beginning of the file:
+We assume here that you installed iraf correctly. `pyraf` is a Python wrapper which is used to simplify operation of ``iraf``. In order to run ``alala`` you will need an ``iraf`` directory in your **home directory**, with a ``login.cl`` file and ``pyraf`` and ``uparm`` directories inside this directory. You can use the ``login.cl`` included `here <https://github.com/nvieira-mcgill/alala/tree/master/iraf_setup>`_, remembering to change the following lines at the beginning of the file:
 
      | set	home		= "/home/johndoe/iraf/"
      | set	imdir		= "/tmp/johndoe/" 
