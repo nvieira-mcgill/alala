@@ -11,3 +11,6 @@ This project was begun in May 2019 by Nicholas Vieira, working under the supervi
 
 This pipeline was built specifically with multi-messenger astrophysics in mind. The pipeline will, hopefully, be used to process WIRCam & MegaPrime electromagnetic follow-up of some gravitational wave source in the future. 
 
+## Acknowledgements
+Thanks go to Dr. Daryl Haggard, Dr. John Ruan, and the rest of the Haggard research group. We are very grateful for assistance from Dr. Laurie Rousseau-Nepton, instrument specialist for WIRCam, and Dr. Dustin Lang (Perimeter) for his assistance with `astrometry.net`.
+
