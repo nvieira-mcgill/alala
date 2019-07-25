@@ -100,14 +100,14 @@ The last step we have to take before stacking is to make a bad pixel mask of eac
 This updates the raw data to point to these masks and creates a new directory, ``/data/myWIRCam/badpixels_divided_det3_WIRCam_20181106``, to store the masks. With these steps complete, we can now make a stack. Note that the above steps **do not** need to be redone unless any of the directories are deleted. A condensed example of all the above follows. 
 
      >>> import alala
-     >>> # the first object 
+     >>> # the entire 4-detector mosaic
      >>> rawdata = alala.RawData("/data/myWIRCam")
      >>> exten = raw.locate_WCS(303.5, 15.6)
      >>> rawdata.write_extension(exten) # let's say exten is 3
-     >>> # second object
+     >>> # only one of the detectors
      >>> newrawdata = alala.RawData("/data/myWIRCam/det3_WIRCam_20181106") # second object
      >>> newrawdata.divide_WIRCam()
-     >>> # final object 
+     >>> # divided cubes 
      >>> finalrawdata = alala.RawData("/data/myWIRCam/divided_det3_WIRCam_20181106", qso_grade_limit=2)
      >>> finalrawdata.make_badpix_masks()
 
@@ -143,14 +143,14 @@ Note that, if you try to extract a stack before it has been made, the stack will
 And, again, the stack will first be produced if it does not already exist. A condensed example of the process from raw data to stack follows: 
 
      >>> import alala
-     >>> # the first object 
+     >>> # the entire 4-detector mosaic 
      >>> rawdata = alala.RawData("/data/myWIRCam")
      >>> exten = raw.locate_WCS(303.5, 15.6)
      >>> rawdata.write_extension(exten) # let's say exten is 3
-     >>> # second object
+     >>> # only one of the detectors
      >>> newrawdata = alala.RawData("/data/myWIRCam/det3_WIRCam_20181106") # second object
      >>> newrawdata.divide_WIRCam()
-     >>> # final object 
+     >>> # divided cubes 
      >>> finalrawdata = alala.RawData("/data/myWIRCam/divided_det3_WIRCam_20181106", qso_grade_limit=2)
      >>> finalrawdata.make_badpix_masks()
      >>> # let's say we only care about the J band 
