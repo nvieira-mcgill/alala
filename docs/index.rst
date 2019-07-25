@@ -13,7 +13,7 @@ RawData
 
 Images from WIRCam arrive largely de-trended via CFHT's pipeline 'I'iwi. WIRCam is an array of 4 detectors, each approximately 10' (arcmin) x 10'.  Every file from WIRCam will be a multi-extension fits file, with one extension for each detector. These extensions are usually cubes themselves. The correspondence between the detectors and extensions is:
 
-.. image:: https://github.com/nvieira-mcgill/alala/blob/master/images/wircam_detectors.png?raw=true
+.. image:: https://github.com/nvieira-mcgill/alala/blob/master/images/wircam_detectors_50.png?raw=true
 
 Importantly, the convention for WIRCam is to treat each of these 4 detectors separately. This means that the same star, observed on different detectors, can have a widely varying flux. For this reason, it's important to decide which detector you want to work with. 
 
@@ -143,23 +143,20 @@ Note that, if you try to extract a stack before it has been made, the stack will
 And, again, the stack will first be produced if it does not already exist. A condensed example of the process from raw data to stack follows: 
 
      >>> import alala
-     >>>
      >>> # the first object 
      >>> rawdata = alala.RawData("/data/myWIRCam")
      >>> exten = raw.locate_WCS(303.5, 15.6)
      >>> rawdata.write_extension(exten) # let's say exten is 3
-     >>>
      >>> # second object
      >>> newrawdata = alala.RawData("/data/myWIRCam/det3_WIRCam_20181106") # second object
      >>> newrawdata.divide_WIRCam()
-     >>>
      >>> # final object 
      >>> finalrawdata = alala.RawData("/data/myWIRCam/divided_det3_WIRCam_20181106", qso_grade_limit=2)
      >>> finalrawdata.make_badpix_masks()
-     >>>
      >>> # let's say we only care about the J band 
-     >>> j = alala.Stack("/data/myWIRCam/divided_det3_WIRCam_20181106", 
-                         "/exports/myWIRCam/working_dir", qso_grade_limit=2)
+     >>> j = alala.Stack("/data/myWIRCam/divided_det3_WIRCam_20181106", "/exports/myWIRCam/working_dir", qso_grade_limit=2)
+
+
 
 Performing astrometry, photometry
 ---------------------------------
