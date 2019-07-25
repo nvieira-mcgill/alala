@@ -42,9 +42,7 @@ astropy, astroquery, photutils
 
 Installing these is straightforward with `conda`, `pip`, etc. and you likely already have at least `astropy` on your own machine/on whichever server you're accessing. 
 
-.. raw:: pdf
-
-   PageBreak oneColumn
+--------------------------
 
 ==================
 Using the pipeline
@@ -209,7 +207,40 @@ And, again, the stack will first be produced if it does not already exist. A con
 Performing astrometry, photometry
 ---------------------------------
 
+--------------------------------------------------------
+
 ===================
 Making light curves
 ===================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
