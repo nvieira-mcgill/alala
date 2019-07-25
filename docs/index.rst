@@ -7,7 +7,8 @@ alala.py
 
 This script is object-oriented and contains two classes: the `RawData` class and its subclass the `Stack`. Here, we will work through an example using WIRCam data. 
 
-## RawData
+RawData
+-------
 
 Images from WIRCam arrive largely de-trended via CFHT's pipeline 'I'iwi. WIRCam is an array of 4 detectors, each approximately 10' (arcmin) x 10'.  Every file from WIRCam will be a multi-extension fits file, with one extension for each detector. These extensions are usually cubes themselves. The correspondence between the detectors and extensions is:
 
@@ -112,7 +113,8 @@ This updates the raw data to point to these masks and creates a new directory, `
      >>> finalrawdata = alala.RawData("/data/myWIRCam/divided_det3_WIRCam_20181106", qso_grade_limit=2)
      >>> finalrawdata.make_badpix_masks()
 
-## Stack
+Stack
+-----
 
 We need to tell the object where to put stacks. We can do this via:
 
