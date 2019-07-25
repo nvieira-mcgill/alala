@@ -104,9 +104,11 @@ This updates the raw data to point to these masks and creates a new directory, `
      >>> rawdata = alala.RawData("/data/myWIRCam")
      >>> exten = raw.locate_WCS(303.5, 15.6)
      >>> rawdata.write_extension(exten) # let's say exten is 3
+     >>>
      >>> # only one of the detectors
-     >>> newrawdata = alala.RawData("/data/myWIRCam/det3_WIRCam_20181106") # second object
+     >>> newrawdata = alala.RawData("/data/myWIRCam/det3_WIRCam_20181106") 
      >>> newrawdata.divide_WIRCam()
+     >>>
      >>> # divided cubes 
      >>> finalrawdata = alala.RawData("/data/myWIRCam/divided_det3_WIRCam_20181106", qso_grade_limit=2)
      >>> finalrawdata.make_badpix_masks()
@@ -147,9 +149,11 @@ And, again, the stack will first be produced if it does not already exist. A con
      >>> rawdata = alala.RawData("/data/myWIRCam")
      >>> exten = raw.locate_WCS(303.5, 15.6)
      >>> rawdata.write_extension(exten) # let's say exten is 3
+     >>>
      >>> # only one of the detectors
-     >>> newrawdata = alala.RawData("/data/myWIRCam/det3_WIRCam_20181106") # second object
+     >>> newrawdata = alala.RawData("/data/myWIRCam/det3_WIRCam_20181106") 
      >>> newrawdata.divide_WIRCam()
+     >>>
      >>> # divided cubes 
      >>> finalrawdata = alala.RawData("/data/myWIRCam/divided_det3_WIRCam_20181106", qso_grade_limit=2)
      >>> finalrawdata.make_badpix_masks()
