@@ -17,8 +17,8 @@ Installing the required dependencies
 astrometry.net 
 --------------
 
-Make sure to get the **bleeding edge** version from github `here <https://github.com/dstndstn/astrometry.net>`_.
-Older versions of astrometry impose a limit on the number of sources that can be detected in an image, and this poses problems for the typically very dense images taken by WIRCam/MegaCam. Follow the instructions for installation given `here_.
+Make sure to get the **bleeding edge** version from `_github <https://github.com/dstndstn/astrometry.net>`_.
+Older versions of astrometry impose a limit on the number of sources that can be detected in an image, and this poses problems for the typically very dense images taken by WIRCam/MegaCam. Follow the instructions for installation given `here.
 <http://astrometry.net/doc/readme.html#installing>`_.
 
 If you are on `irulan`, you only need to add the following to your .bashrc: 
