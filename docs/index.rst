@@ -275,7 +275,7 @@ And, again, the stack will first be produced if it does not already exist. A con
 Performing astrometry, photometry
 ---------------------------------
 
-In this section, we'll assume you have the ``j_stack`` object as defined above. Recall that, in our stack working directory, we have a file ``J_stack_20181106.fits``. First, let's refine the astrometric solution for the stack and extract as many sources as possible:
+In this section, we'll assume you have the ``j_stack`` object as defined above. Recall that, in our stack working directory, we have a file ``J_stack_20181106.fits``. First, let's refine the **astrometry** for the stack and extract as many sources as possible:
 
 .. code-block:: python
 
@@ -289,7 +289,7 @@ This line will do the following:
      4. Produce an image in which all sources are masked and output it to ``J_stack_20181106_mask.fits``
      
 
-These 4 files will be output to a new directory ``calibration`` within the stack directory. It is useful now to take a look at the actual stack itself. We can do so with the make_image() function, which has many options: 
+These 4 files will be output to a new directory ``calibration`` within the stack directory. It is useful now to take a look at the actual stack itself. We can do so with the ``make_image()`` function, which has many options: 
 
 .. code-block:: python
 
@@ -298,10 +298,11 @@ These 4 files will be output to a new directory ``calibration`` within the stack
      >>> j_stack.make_image(sources=True) # put circles around all extracted sources
      >>> j_stack.make_image(ra=275.15, dec=7.15) # plot a cross-hair at this RA, Dec
      >>> j_stack.make_image(scale="log") # use a log_10 scale 
+     >>> j_stack.make_image(output="test.png")
     
 These arguments, of course, can all be used in conjunction with each other. The default is to plot the unsubtracted data in a linear scale, with none of the additional features. 
 
-Returning to our analysis, we now have all the files needed to perform PSF photometry. This is another one-liner: 
+Returning to our analysis, we now have all the files needed to perform **PSF photometry**. This is another one-liner: 
 
 .. code-block:: python
 
@@ -340,41 +341,57 @@ With this step complete, you will have the calibrated magnitudes for several tho
 
      >>> j_stack.make_image(border=True)
 
+The border used is a circle with a radius equal to the `x` dimension of the image, centered on the image center. This concludes our PSF photometry. To look for a particular source in our list of calibrated magnitudes, we can use: 
+
+.. code-block:: python
+
+     >>> ra = 275.15
+     >>> dec = 7.15
+     >>> j_stack.source_select(ra, dec)
+     
+This will return a table containing any source(s) within 1 pixel of the input RA, Dec. This radius can be increased via the optional ``radius`` argument. If we find the source(s) we care about, we can write this table with 
+
+.. code-block:: python
+
+     >>> j_stack.write_source_selection(ra, dec)
+
+However, our source could easily be too dim or very close to the edges. In this case, we can also do **aperture photometry**. Suppose we know the RA and Dec of the source we care about:
+
+.. code-block:: python 
+
+     >>> j_stack.aperture_photometry(ra, dec)
+     
+This will do the following: 
+
+     1. Drop an aperture of radius 1.2'' (arcsec) at this RA, Dec and compute the **unsubtracted** flux in this aperture and the area spanned by this aperture
+     2. Drop an annulus of inner radius 2.0'' and outer radius 5.0'' at this RA, Dec, compute the median background (with sources masked), and subtract this median background per pixel from the aperture flux 
+     3. If this background-subtracted flux is positive, convert into an instrumental magnitude and use the zero point obtained from the previous PSF photometry to convert to a usable catalog magnitude 
+     4. Propagate errors and compute a detection sigma 
+
+The aperture radius, inner annulus radius, and outer annulus radius can be set via the optional arguments ``ap_radius``, ``r1``, and ``r2``, respectively. Furthermore, if we want to see the aperture and annulus drawn around the source and/or the data in the annulus only:
+
+.. code-block:: python
+
+     >>> j_stack.aperture_photometry(ra, dec, plot_aperture=True, plot_annulus=True)
+     
+Will yield these plots. Finally, if neither PSF nor aperture photometry work, we can compute a **limiting magnitude**. For example: 
+
+.. code-block:: python
+
+     >>> j_stack.limiting_magnitude(ra, dec)
+     
+Will compute the magnitude which would be needed for a 3 sigma detection. This sigma can be set using the optional ``sigma`` argument when calling the function. 
+
+Additional notes
+----------------
+
+Note that, by default, all images are saved as ``.png`` files. To change this: 
+
+
 
 --------------------------------------------------------
 
 ===================
 Making light curves
 ===================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
