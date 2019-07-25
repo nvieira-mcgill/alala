@@ -13,7 +13,6 @@ RawData
 Images from WIRCam arrive largely de-trended via CFHT's pipeline 'I'iwi. WIRCam is an array of 4 detectors, each approximately 10' (arcmin) x 10'.  Every file from WIRCam will be a multi-extension fits file, with one extension for each detector. These extensions are usually cubes themselves. The correspondence between the detectors and extensions is:
 
 .. image:: /images/wircam_detectors.png
-![](https://github.com/nvieira-mcgill/alala/blob/master/images/wircam_detectors.png?raw=true)
 
 Importantly, the convention for WIRCam is to treat each of these 4 detectors separately. This means that the same star, observed on different detectors, can have a widely varying flux. For this reason, it's important to decide which detector you want to work with. 
 
