@@ -299,13 +299,17 @@ This line will do the following:
 
      1. From the list of detected sources, take those within the 80th and 90th percentile flux, and use them to build an empirical effective point-spread-function (ePSF)
      2. Fit this ePSF to **all** detected sources to obtain a PSF-fit flux 
-     3. Compute the instrumental magnitude of **all** detected sources with the following
-     
+     3. Compute the instrumental magnitude of **all** detected sources 
+     4. Query an external catalog for sources whose RA and Dec puts them within 2 pixels of our detected sources, and for all matches, obtain the catalog magnitude 
+     5. Use sigma-clipping to obtain the mean, median and standard deviation of the offset between the instrumental and catalog magnitudes, i.e., the zero point 
+     6. Add this zero point to the instrumental magnitude to obtain the calibrated magnitudes for **all** sources 
+
+
+Note that the instrumental magnitude is computed as: 
 .. math:: 
 
-     m_{ins} = -2.5 * \log(FLUX)
+     m_{ins} = -2.5 * \\log(FLUX)
      
-     4. Blah blah
      
      
      
