@@ -284,12 +284,24 @@ In this section, we'll assume you have the ``j_stack`` object as defined above. 
 This line will do the following: 
 
      1. Extract as many stars as possible, solve the field, and output an updated WCS header to ``J_stack_20181106_updated.fits``
-     2. Produce a background-subtracted, clean image and output it to ``J_stack_20181106_clean.fits``
+     2. Produce a background-subtracted, "clean" image and output it to ``J_stack_20181106_clean.fits``
      3. Output a list of the pixel coordinates and background-subtracted flux for all the previously extracted sources in the fits bintable ``J_stack_20181106_updated.xy.fits``
      4. Produce an image in which all sources are masked and output it to ``J_stack_20181106_mask.fits``
      
 
-These 4 files will be output to a new directory ``calibration`` within the stack directory. We now have all the files needed to perform PSF photometry. This is another one-liner: 
+These 4 files will be output to a new directory ``calibration`` within the stack directory. It is useful now to take a look at the actual stack itself. We can do so with the make_image() function, which has many options: 
+
+.. code-block:: python
+
+     >>> j_stack.make_image() # make a plain image with the raw, unsubtracted data
+     >>> j_stack.make_image(clean=True) # use the cleaned data
+     >>> j_stack.make_image(sources=True) # put circles around all extracted sources
+     >>> j_stack.make_image(ra=275.15, dec=7.15) # plot a cross-hair at this RA, Dec
+     >>> j_stack.make_image(scale="log") # use a log_10 scale 
+    
+These arguments, of course, can all be used in conjunction with each other. The default is to plot the unsubtracted data in a linear scale, with none of the additional features. 
+
+Returning to our analysis, we now have all the files needed to perform PSF photometry. This is another one-liner: 
 
 .. code-block:: python
 
@@ -321,6 +333,12 @@ When calling ``PSF_photometry()``, important optional arguments are:
      * ``plot_field_offsets`` (bool, default True) Plot the image with the intensity showing the relative overall (RA and Dec) offset from the external catalogue, with a Gaussian blur applied to the image
      
 The ePSF plot and the residuals plot are measures of the quality of the PSF fit. The correlation is a measure of the accuracy of the PSF calibration: the slope of the linear fit should be very close to 1, although outliers are always present. Finally, the offset plots are measures of the difference between the astrometry of the queried catalogue and our solved image.  
+
+With this step complete, you will have the calibrated magnitudes for several thousand stars in your image. **Note that in the above steps, sources near the edges of the image are ignored.** To see the border which delimits the sources which are used in photometry: 
+
+.. code-block:: python 
+
+     >>> j_stack.make_image(border=True)
 
 
 --------------------------------------------------------
