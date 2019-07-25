@@ -194,6 +194,7 @@ This updates the raw data to point to these masks and creates a new directory, `
 .. code-block:: python
 
      >>> import alala
+     >>>
      >>> # the entire 4-detector mosaic
      >>> rawdata = alala.RawData("/data/myWIRCam")
      >>> exten = raw.locate_WCS(303.5, 15.6)
@@ -253,6 +254,7 @@ And, again, the stack will first be produced if it does not already exist. A con
 .. code-block:: python
 
      >>> import alala
+     >>>
      >>> # the entire 4-detector mosaic 
      >>> rawdata = alala.RawData("/data/myWIRCam")
      >>> exten = raw.locate_WCS(303.5, 15.6)
@@ -265,6 +267,7 @@ And, again, the stack will first be produced if it does not already exist. A con
      >>> # divided cubes 
      >>> finalrawdata = alala.RawData("/data/myWIRCam/divided_det3_WIRCam_20181106", qso_grade_limit=2)
      >>> finalrawdata.make_badpix_masks()
+     >>>
      >>> # let's say we only care about the J band 
      >>> j = alala.Stack("/data/myWIRCam/divided_det3_WIRCam_20181106", "/exports/myWIRCam/working_dir", qso_grade_limit=2)
 
