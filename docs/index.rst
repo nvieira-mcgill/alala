@@ -17,10 +17,10 @@ Images from WIRCam arrive largely de-trended via CFHT's pipeline 'I'iwi. WIRCam 
 Importantly, the convention for WIRCam is to treat each of these 4 detectors separately. This means that the same star, observed on different detectors, can have a widely varying flux. For this reason, it's important to decide which detector you want to work with. 
 
 Let's say you've put your data in some directory ``/data/myWIRCam/``. Let's initialize a ``RawData`` object:
-
-     import alala 
-     datadir = "/data/myWIRCam/" 
-     rawdata = alala.RawData(datadir)
+     
+     >>> import alala 
+     >>> datadir = "/data/myWIRCam/" 
+     >>> rawdata = alala.RawData(datadir)
 
 This will examine all of the data in your ``datadir`` and store it in attributes of the object based on filter and dates. The filters typically in use are Y, J, H, Ks. If you want to see all the files in the Y filter, in order of acquisition time:
 
@@ -99,16 +99,13 @@ The last step we have to take before stacking is to make a bad pixel mask of eac
 This updates the raw data to point to these masks and creates a new directory, ``/data/myWIRCam/badpixels_divided_det3_WIRCam_20181106``, to store the masks. With these steps complete, we can now make a stack. Note that the above steps **do not** need to be redone unless any of the directories are deleted. A condensed example of all the above follows. 
 
      >>> import alala
-     >>>
      >>> # the first object 
      >>> rawdata = alala.RawData("/data/myWIRCam")
      >>> exten = raw.locate_WCS(303.5, 15.6)
      >>> rawdata.write_extension(exten) # let's say exten is 3
-     >>>
      >>> # second object
      >>> newrawdata = alala.RawData("/data/myWIRCam/det3_WIRCam_20181106") # second object
      >>> newrawdata.divide_WIRCam()
-     >>>
      >>> # final object 
      >>> finalrawdata = alala.RawData("/data/myWIRCam/divided_det3_WIRCam_20181106", qso_grade_limit=2)
      >>> finalrawdata.make_badpix_masks()
