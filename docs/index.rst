@@ -289,7 +289,29 @@ This line will do the following:
      4. Produce an image in which all sources are masked and output it to ``J_stack_20181106_mask.fits``
      
 
-These 4 files will be output to a new directory ``calibration`` within the stack directory. 
+These 4 files will be output to a new directory ``calibration`` within the stack directory. We now have all the files needed to perform PSF photometry. This is another one-liner: 
+
+.. code-block:: python
+
+     >>> j_stack.PSF_photometry()
+     
+This line will do the following: 
+
+     1. From the list of detected sources, take those within the 80th and 90th percentile flux, and use them to build an empirical effective point-spread-function (ePSF)
+     2. Fit this ePSF to **all** detected sources to obtain a PSF-fit flux 
+     3. Compute the instrumental magnitude of **all** detected sources with the following
+     
+.. math:: 
+
+     m_{ins} = -2.5 * \log(FLUX)
+     
+     4. Blah blah
+     
+     
+     
+With some important optional arguments: 
+
+    | plot_
 
 --------------------------------------------------------
 
