@@ -1,9 +1,13 @@
+====================================
+alala: a WIRCam and MegaCam pipeline
+====================================
+
 ==================
 Using the pipeline
 ==================
 
 alala.py
-========
+--------
 
 This script is object-oriented and contains two classes: the ``RawData`` class and its subclass the ``Stack``. Here, we will work through an example using WIRCam data. 
 
@@ -162,8 +166,6 @@ And, again, the stack will first be produced if it does not already exist. A con
 
 Performing astrometry, photometry
 ---------------------------------
-
-
 
 
 ===================
