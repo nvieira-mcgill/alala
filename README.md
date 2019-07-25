@@ -3,9 +3,6 @@ A pipeline for the Wide-field Infra-Red Camera (WIRCam) and MegaCam instruments 
 
 Named after the ʻAlalā, the Hawaiian crow, known for its intelligence and flying ability.
 
-# Documentation
-https://alala.readthedocs.io/en/latest/
-
 # Modules you'll need 
 This software makes use of certain modules you may not already have. These are:
 
