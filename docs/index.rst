@@ -28,7 +28,7 @@ This software makes use of certain modules you may not already have. These are:
 
      * `photutils <https://photutils.readthedocs.io/en/stable/install.html>`_ - Software affiliated with astropy, used specifically for photometry. 
 
-     * `pyraf (iraf) <http://www.stsci.edu/institute/software_hardware/pyraf>`_ - An industry standard tool for all sorts of astrophysical programming. Used here to stack images.
+     * `pyraf (iraf) <http://www.stsci.edu/institute/software_hardware/pyraf>`_ - A Python wrapper for an industry standard tool. Used here to stack images.
 
      * `astrometry.net <http://astrometry.net/doc/readme.html#installing>`_ - A tool for source detection and astrometric calibration of images.
 
@@ -52,9 +52,9 @@ If you are on `irulan`, you only need to add the following to your .bashrc:
 
 Ensuring that iraf works correctly 
 ----------------------------------
-IRAF is an industry standard for all sorts of astrophysical programming. It's used here to stack images.
+Installing this correctly can be very difficult. Follow the instructions above very carefully to download ``iraf`` and ``pyraf`` via AstroConda. If you have access to the ``irulan`` server of McGill University, this will already be done. If your institution has a server dedicated to physics/astrophysics, it will probably already have iraf as well.
 
-We assume here that you installed iraf correctly. `pyraf` is a Python wrapper which is used to simplify operation of ``iraf``. In order to run ``alala`` you will need an ``iraf`` directory in your **home directory**, with a ``login.cl`` file and ``pyraf`` and ``uparm`` directories inside this directory. You can use the ``login.cl`` included `here <https://github.com/nvieira-mcgill/alala/tree/master/iraf_setup>`_, remembering to change the following lines at the beginning of the file:
+Once you have installed ``iraf`` correctly, in order to run ``alala`` you will need an ``iraf`` directory in your **home directory**, with a ``login.cl`` file and ``pyraf`` and ``uparm`` directories inside this directory. You can use the ``login.cl`` included `here <https://github.com/nvieira-mcgill/alala/tree/master/iraf_setup>`_, remembering to change the following lines at the beginning of the file:
 
      | set	home		= "/home/johndoe/iraf/"
      | set	imdir		= "/tmp/johndoe/" 
