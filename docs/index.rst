@@ -164,7 +164,7 @@ And, again, the stack will first be produced if it does not already exist. A con
 Performing astrometry, photometry
 ---------------------------------
 
-
+===================
 Making light curves
 ===================
 
