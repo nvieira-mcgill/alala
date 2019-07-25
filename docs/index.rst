@@ -1,15 +1,11 @@
-====================================
-alala: a WIRCam and MegaCam pipeline
-====================================
+======
+ʻAlalā
+======
 
-==================
 Using the pipeline
 ==================
 
-alala.py
---------
-
-This script is object-oriented and contains two classes: the ``RawData`` class and its subclass the ``Stack``. Here, we will work through an example using WIRCam data. 
+The pipeline's main script, ``alala.py``, is object-oriented and contains two classes: the ``RawData`` class and its subclass the ``Stack``. Here, we will work through an example using WIRCam data. 
 
 RawData
 -------
@@ -168,7 +164,6 @@ Performing astrometry, photometry
 ---------------------------------
 
 
-===================
 Making light curves
 ===================
 
