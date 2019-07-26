@@ -9,43 +9,56 @@ Created on Wed May 29 16:43:27 2019
 import os 
 import numpy as np
 import matplotlib.pyplot as plt
-plt.switch_backend('agg')
 from collections import OrderedDict
-from astropy.table import Table, Column
+from astropy.table import Table
 
 def fromfile(readfile):
     """
     Input: a single file from which to build a LightCurve object
-    Output: the new LightCurve object
+    Output: a new LightCurve object
     """
     tab = Table.read(readfile, format="ascii.ecsv")
     return LightCurve(tab)
+
 
 def fromdirectory(directory):
     """
     Input: a single directory to look for .fits files and use all of them to
     build a LightCurve object
-    Output: the new LightCurve object
+    Output: a new LightCurve object
     """
     all_files = np.array(os.listdir(directory))
     files = tuple([directory+"/"+f for f in all_files if ".fits" in f])
     ret = fromfile(files[0]) # load in first
-    ret.add_points_from_files(*(files[1:])) # load in the rest 
+    ret.add_fromfiles(*(files[1:])) # load in the rest 
     return ret
+
 
 def frompoint(ra, dec, mag, mag_err, filt, mjd):
     """
     Input: the RA and Dec, magnitude and its error, the filter used, and 
     the time of observation in MJD for a point to initialize a LightCurve
-    Output: the new LightCurve object
+    Output: a new LightCurve object
     """
     tab = Table(names=["ra","dec","mag_calib","mag_calib_unc","filter","MJD"], 
                data=[[ra],[dec],[mag],[mag_err],[filt],[mjd]])
     return LightCurve(tab)
 
+
 class LightCurve:
-    def __init__(self, source_table=Table()):
-        self.source_table = source_table
+    def __init__(self, tab=None):
+
+        self.source_table = Table()
+        
+        if tab: # if a table is provided
+            self.source_table["ra"] = tab["ra"]
+            self.source_table["dec"] = tab["dec"]
+            self.source_table["mag_calib"] = tab["mag_calib"]
+            self.source_table["mag_calib_unc"] = tab["mag_calib_unc"]
+            self.source_table["filter"] = tab["filter"]
+            self.source_table["MJD"] = tab["MJD"]
+        
+        
         # a dictionary containing instructions on how to plot the lightcurve 
         # based on the filter being used (marker color, marker style) 
         self.plot_instructions = {"u":["#9a0eea","o"], 
@@ -53,10 +66,12 @@ class LightCurve:
                                   "r":["#ff2100","o"],
                                   "i":["#ffb07c","o"],
                                   "z":["#ff796c","o"],
-                                  "Y":["#c65102","o"],
-                                  "J":["#ff028d","*"],
-                                  "H":["#fac205","*"],
-                                  "Ks":["#0652ff","*"]}
+                                  "Y":["#c65102","s"],
+                                  "J":["#ff028d","s"],
+                                  "H":["#fac205","s"],
+                                  "K":["#0652ff","s"]}
+                                        
+        # instructions for limiting magnitudes
         self.plot_instructions_lim_mags = {"u":["#9a0eea",7], 
                                            "g":["green",7],
                                            "r":["#ff2100",7],
@@ -65,23 +80,31 @@ class LightCurve:
                                            "Y":["#c65102",7],
                                            "J":["#ff028d",7],
                                            "H":["#fac205",7],
-                                           "Ks":["#0652ff",7]}
+                                           "K":["#0652ff",7]}
+                                                 
         self.limiting_mags = Table(names=["ra", "dec", "mag", "filter", "MJD"],
-                                   dtype=[np.dtype(float),np.dtype(float),
-                                          np.dtype(float),np.dtype(str),
+                                   dtype=[np.dtype(float), np.dtype(float),
+                                          np.dtype(float), np.dtype(str),
                                           np.dtype(float)])
-        self.exist_limiting_mags = False                               
+        self.__exist_limiting_mags = False                               
     
     
     def read(self, readfile):
         """
         Input: a file to read table data from
-        Reads a table from a .fits file and sets this table to be the source 
-        table of the given LightCurve object. 
+        Reads a table from a .fits file and uses it to build a table for the 
+        given LightCurve object. 
         Output: None
         """
         read_table = Table.read(readfile, format="ascii.ecsv")
-        self.source_table = read_table
+        self.source_table["ra"] = read_table["ra"]
+        self.source_table["dec"] = read_table["dec"]
+        self.source_table["mag_calib"] = read_table["mag_calib"]
+        self.source_table["mag_calib_unc"] = read_table["mag_calib_unc"]
+        self.source_table["filter"] = read_table["filter"]
+        self.source_table["MJD"] = read_table["MJD"]
+        
+        #self.source_table = read_table
 
     
     def write(self, datafile, overwrite=False):
@@ -122,7 +145,10 @@ class LightCurve:
         Output: None 
         """
         for r in table_new:
+            # only extract relevant columns
+            r = r["ra","dec","mag_calib","mag_calib_unc","filter","MJD"]
             self.source_table.add_row(r)
+
 
     def __file_append(self, file):
         """
@@ -132,19 +158,26 @@ class LightCurve:
         """
         t = Table.read(file, format="ascii.ecsv")
         LightCurve.__table_append(self, t)
-           
             
-    def add_points_from_tables(self, *tables):
+        
+    def add_fromtables(self, *tables):
         """
         Input: one or more tables to append to the end of the the object's 
         table of data. 
         Output: None
         """
         for t in tables:
-            LightCurve.__table_append(self, t)
+            t_temp = Table()
+            t_temp["ra"] = t["ra"]
+            t_temp["dec"] = t["dec"]
+            t_temp["mag_calib"] = t["mag_calib"]
+            t_temp["mag_calib_unc"] = t["mag_calib_unc"]
+            t_temp["filter"] = t["filter"]
+            t_temp["MJD"] = t["MJD"]
+            LightCurve.__table_append(self, t_temp)
 
 
-    def add_points_from_files(self, *files):
+    def add_fromfiles(self, *files):
         """
         Input: one or more files to read from, appending the tables in each 
         file to the end of the object's existing table 
@@ -164,7 +197,8 @@ class LightCurve:
         pt = Table(names=["ra","dec","mag_calib","mag_calib_unc","filter","MJD"], 
                    data=[[ra],[dec],[mag],[mag_err],[filt],[mjd]])
         
-        LightCurve.add_points_from_tables(self, pt)
+        LightCurve.add_fromtables(self, pt)
+     
         
     def add_limiting_magnitude(self, ra, dec, mag, filt, mjd):
         """
@@ -174,24 +208,21 @@ class LightCurve:
         """
         lm = Table(names=["ra","dec","mag_calib","filter","MJD"], 
                    data=[[ra],[dec],[mag],[filt],[mjd]])        
-        
-        #### NOT WORKING YET ####
-        print(lm)
+
         self.limiting_mags.add_row(lm[0])
-        self.limiting_mags[-1]["filter"] = filt
-        self.exist_limiting_mags = True
+        self.__exist_limiting_mags = True
         
         
-    def plot(self, filename, *filters):
+    def plot(self, *filters, filename="lightcurve.png", title=None):
         """
-        Input: a filename to which the plot is saved and a filter/filters of 
-        choice to plot the lightcurve for only these filters (optional; 
-        default is to plot for all filters)
+        Input: a filter/filters of choice to plot the lightcurve for only these 
+        filters (optional; default is to plot for all filters), a name for 
+        the file to be saved (optional; default lightcurve.png), and a title 
+        for the plot (optional; default no title)
         Output: None
         """
+        plt.switch_backend("Qt5agg")
         sources = self.source_table
-        ra_to_avg = sources["ra"].data
-        dec_to_avg = sources["dec"].data
         
         if filters: # if a filters argument is given
             mask = sources["filter"] == filters[0]
@@ -203,14 +234,15 @@ class LightCurve:
         mag = sources["mag_calib"].data
         mag_err = sources["mag_calib_unc"].data
         
-        plt.figure()
-        for i in range(len(t)):
+        plt.figure(figsize=(18,12))
+        for i in range(len(t)): # plot mags 
             filt = str(sources["filter"].data[i])
             color, form = self.plot_instructions[filt]
             plt.errorbar(t[i], mag[i], mag_err[i], fmt=form, mfc=color, 
-                         mec=color, ls="", color="black", label=filt)
+                         mec=color, ls="", color="black", label=filt, ms=12.0,
+                         capsize=5.0)
             
-        if self.exist_limiting_mags:
+        if self.__exist_limiting_mags: # plot limiting mags if given
             lims = self.limiting_mags
             t = lims["MJD"].data
             mag = lims["mag"].data
@@ -218,24 +250,31 @@ class LightCurve:
             for i in range(len(lims)):
                 filt = str(lims["filter"].data[i])
                 color, form = self.plot_instructions_lim_mags[filt]
-                plt.plot(t[i], mag[i], ls="", mfc=color, mec=color, ms=10.0,
-                         marker=form, label=filt)
-            
-            ra_to_avg = np.append(ra_to_avg, self.limiting_mags["ra"])
-            dec_to_avg = np.append(dec_to_avg, self.limiting_mags["dec"])        
+                plt.plot(t[i], mag[i], ls="", mfc=color, mec=color, ms=12.0,
+                         marker=form, label=filt)      
 
-        ra = np.mean(sources["ra"].data)
-        dec = np.mean(sources["dec"].data)
-        
-        # remove duplicate labels/handles 
+        # remove duplicate labels/handles and put legend on top of the plot
         handles, labels = plt.gca().get_legend_handles_labels()
         by_label = OrderedDict(zip(labels,handles))
-        plt.legend(by_label.values(), by_label.keys(), loc="upper left")
+        ax = plt.gca() # get current axes
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0 + box.height * 0.1, 
+                         box.width, box.height * 0.9])
+        ax.legend(by_label.values(), by_label.keys(), loc="upper center", 
+                  bbox_to_anchor=(0.5, 1.10), fontsize=14, ncol=len(by_label), 
+                  fancybox=True)
         
-        plt.xlabel("MJD", fontsize=14)
-        plt.ylabel("Magnitude", fontsize=14)
-        plt.gca().invert_yaxis()
-        plt.title("Source at RA=%.5f, Dec=%.5f"%(ra,dec))
-        plt.savefig(filename)
+        if title:  # set a title if one is given
+            plt.title(title, fontsize=16)     
+        plt.xlabel("MJD", fontsize=16)
+        plt.ylabel("Magnitude", fontsize=16)
+        plt.rcParams["xtick.labelsize"] = 14
+        plt.rcParams["ytick.labelsize"] = 14
+        plt.gca().invert_yaxis() # invert so brighter stars higher up
+        plt.gca().xaxis.set_ticks_position("both") # ticks on both sides
+        plt.gca().yaxis.set_ticks_position("both")
+        
+        plt.savefig(filename, bbox_inches="tight")
+        plt.show() 
                 
         
