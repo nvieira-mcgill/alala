@@ -327,7 +327,7 @@ Note that the instrumental magnitude is computed as:
 
 .. math:: 
 
-     m_{ins} = -2.5 * \log(FLUX)
+     m_{ins} = -2.5\cdot\log(FLUX)
      
           
 When calling ``PSF_photometry()``, important optional arguments are:
