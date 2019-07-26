@@ -234,7 +234,9 @@ Stacking is now a one-liner. If we have data in all four Y, J, H and Ks filters:
 
      >>> finalrawdata.make_stacks()
 
-Will copy all raw data to the stack directory, save lists of the files in each filter in text files, initiate IRAF via the script ``stack.py``, and produce stacks for each filter. These files will all have the form ``H_stack_20181106.fits``, where the "H" and "20181106" are the filter and date, respectively. If we only care about one or more of the filters, e.g. J and H, 
+Will copy all raw data to the stack directory, save lists of the files in each filter in text files, initiate IRAF via the script ``stack.py``, and produce stacks for each filter. The final stacks are each the **median** of the input files, with all bad pixels ignored and sigma clipping employed for any data more than 6 sigma away. 
+
+These files will all have the form ``H_stack_20181106.fits``, where the "H" and "20181106" are the filter and date, respectively. If we only care about one or more of the filters, e.g. J and H, 
 
 .. code-block:: python
 
@@ -422,7 +424,7 @@ And that's it. The tables output by these write functions can then be used with 
 Additional notes
 ----------------
 
-By default, all images are saved as ``png`` files. To change this: 
+**NOTE:** By default, all images are saved as ``png`` files. To change this: 
 
 .. code-block:: python 
 
@@ -430,7 +432,7 @@ By default, all images are saved as ``png`` files. To change this:
 
 Valid options are ``png``, ``pdf``, ``bmp``, and ``jpg``. 
 
-Note that there is a function ``adjust_astrometry()`` which can be called to adjust the astrometric solution of the data based on the offsets computed during PSF photometry: 
+**NOTE:** There is a function ``adjust_astrometry()`` which can be called to adjust the astrometric solution of the data based on the offsets computed during PSF photometry: 
 
 .. code-block:: python
 
@@ -438,7 +440,9 @@ Note that there is a function ``adjust_astrometry()`` which can be called to adj
      
 One can then re-do PSF photometry. In practice, almost nothing is gained, as the solution obtained by ``astrometry.net`` is already quite accurate. 
 
-Finally, note that ``PSF_photometry()`` can take a while for images which contain many sources. For example, the function requires ~ 1000 s to complete for an image with ~ 10 000 sources, **on irulan**. Speed will of course vary from machine to machine, but do not be surprised if this part of the analysis takes ~ an order of magnitude more time than the astrometry. 
+**NOTE:** The catalogues used to match sources during PSF photometry are the Sloan Digital Sky Survey Data Release 12 (SDSS DR12) for the `u` band, PanStarrs 1 (PS1) for `grizy`, and 2MASS for `JHKs`. 2MASS is an all-sky survey and PS1 is carried out from Hawaii, so it is not an issue to match sources for the `grizy1 and `JHKs` bands. However, SDSS is based in New Mexico, so it is possible that a source observed by CFHT is simply nowhere near the regions of the sky observed by SDSS. 
+
+**NOTE:** ``PSF_photometry()`` can take a while for images which contain many sources. For example, the function requires ~ 1000 s to complete for an image with ~ 10 000 sources, **on irulan**. Speed will of course vary from machine to machine, but do not be surprised if this part of the analysis takes ~ an order of magnitude more time than the astrometry. 
 
 --------------------------------------------------------
 
