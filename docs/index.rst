@@ -335,7 +335,7 @@ When calling ``PSF_photometry()``, important optional arguments are:
      
 The ePSF plot and the residuals plot are measures of the quality of the PSF fit. The correlation is a measure of the accuracy of the PSF calibration: the slope of the linear fit should be very close to 1, although outliers are always present. Finally, the offset plots are measures of the difference between the astrometry of the queried catalogue and our solved image.  
 
-With this step complete, you will have the calibrated magnitudes for several thousand stars in your image. **Note that in the above steps, sources near the edges of the image are ignored.** To see the border which delimits the sources which are used in photometry: 
+With this step complete, you will have the calibrated magnitudes for several thousand stars in your image. A table of all of these sources is stored in the attribute ``j_stack.psf_sources``. **Note that in the above steps, sources near the edges of the image are ignored.** To see the border which delimits the sources which are used in photometry: 
 
 .. code-block:: python 
 
@@ -353,7 +353,7 @@ This will return a table containing any source(s) within 1 pixel of the input RA
 
 .. code-block:: python
 
-     >>> j_stack.write_source_selection(ra, dec)
+     >>> j_stack.write_selection(ra, dec)
 
 However, our source could easily be too dim or very close to the edges. In this case, we can also do **aperture photometry**. Suppose we know the RA and Dec of the source we care about:
 
@@ -374,13 +374,42 @@ The aperture radius, inner annulus radius, and outer annulus radius can be set v
 
      >>> j_stack.aperture_photometry(ra, dec, plot_aperture=True, plot_annulus=True)
      
-Will yield these plots. Finally, if neither PSF nor aperture photometry work, we can compute a **limiting magnitude**. For example: 
+Will yield these plots. Aperture photometry can be performed as many times as desired. All results are appended to a table stored in the attribute ``j_stack.aperture_sources``. Finally, if neither PSF nor aperture photometry work, we can compute a **limiting magnitude**. For example: 
 
 .. code-block:: python
 
      >>> j_stack.limiting_magnitude(ra, dec)
      
-Will compute the magnitude which would be needed for a 3 sigma detection. This sigma can be set using the optional ``sigma`` argument when calling the function. 
+Will return the magnitude which would be needed for a 3-sigma detection. This sigma can be set using the optional ``sigma`` argument when calling the function. 
+
+------------------------------------------------------------
+
+Let's summarize all the steps we took above with an example. 
+
+.. code-block:: python
+
+     >>> ra, dec = 303.85, 11.06 
+     >>> j_stack.astrometry()
+     >>> j_stack.PSF_photometry()
+     >>> j_stack.source_select(ra, dec)
+     
+Let's say we get no results from that last line. We decide to try aperture photometry, and plot the region around the source so that we can see what it looks like: 
+
+.. code-block:: python 
+
+     >>> j_stack.aperture_photometry(ra, dec, plot_aperture=True, plot_annulus=True)
+     
+We get a detection -- but it's only 2-sigma. We decide to get a limiting magnitude: 
+
+     >>> j_stack.limiting_magnitude(ra, dec)
+     22.51
+     
+That's the best we can do. We decide to write out PSF photometry and aperture photometry results to tables anyways:
+
+     >>> j_stack.write_PSF_photometry()
+     >>> j_stack.write_aperture_photometry()
+     
+And we move on with our lives. 
 
 Additional notes
 ----------------
