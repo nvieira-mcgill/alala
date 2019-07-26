@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu May 9 11:08:26 2019
-
 @author: Nicholas Vieira
+@alala.py
+
 """
 import os
 import glob
@@ -27,12 +28,13 @@ from astropy.visualization import simple_norm
 from photutils import Background2D, MMMBackground
 
 class RawData:
-    def __init__(self, location, stack_directory, qso_grade_limit=5):
+    def __init__(self, location, stack_directory=None, qso_grade_limit=4):
         """
-        Input: location of the raw data, directory to store potential stacks, 
-        and the limit on the QSO grade for the observations (optional; default 
-        is 5 where 1=good and 5=unusable, so that no data is ignored unless 
-        explicitly desired by the user)
+        Input: location of the raw data, directory to store potential stacks 
+        (optional; not needed if no intention to stack), and the limit on the 
+        QSO grade for the observations (optional; default is 5 where 1=good and 
+        5=unusable, so that no data is ignored unless explicitly desired by the 
+        user)
         Initializes a raw data object for CFHT WIRCam or MegaPrime data.
         Output: a RawData object
         """
@@ -45,8 +47,9 @@ class RawData:
         # remove / from end of location/stack_dir if necessary
         if self.loc[-1] == "/":
             self.loc = self.loc[:-1]
-        if self.stack_dir[-1] == "/":
-            self.stack_dir = self.stack_dir[:-1]
+        if stack_directory: 
+            if self.stack_dir[-1] == "/":
+                self.stack_dir = self.stack_dir[:-1]
                     
         # ***assume all extensions and files have same instrument/nextend:
         file = self.files[0]
@@ -239,6 +242,14 @@ class RawData:
             print("\nPlease input a valid filetype from "+str(valid_ext)+". "+
                   "Exiting.")
             
+            
+    def set_stackdir(self, stackdir):
+        """
+        Input: the directory to store stacked files
+        Output: None
+        """
+        self.stack_dir = stackdir
+            
 ###############################################################################
             
     def print_headers(self, ext, *headers):
@@ -319,7 +330,7 @@ class RawData:
         bg_levels = []
         for f in self.files:
             data = fits.getdata(l+"/"+f)
-            bg_levels.append(np.mean(data))
+            bg_levels.append(np.median(data))
         return bg_levels
 
 
@@ -1525,7 +1536,8 @@ class Stack(RawData):
         to visualize large-scale structure (optional; default True), the 
         sigma to apply to the Gaussian filter (optional; default 30.0), and 
         a Vizier catalog number to choose which catalog to cross-match 
-        (optional; defaults are 2MASS and PanStarrs 1 for relevant filters)
+        (optional; defaults are PanStarrs 1, SDSS DR12, and 2MASS for relevant 
+        filters)
         
         Uses astroquery and Vizier to query an online catalog for sources 
         which match those detected by astrometry. Computes the offset between
@@ -1536,15 +1548,9 @@ class Stack(RawData):
         Output: None
         """
         
-        if not(self.psf_fit):
-            print("\nPlease call fit_PSF() before trying to extract the "+
-                  "zero point for photometry, or call photometry() to call "+
-                  "both functions.")
-        
         from astroquery.vizier import Vizier
         
         # determine the catalog to compare to for photometry
-        # II/349/ps1 is PanStarrs 1, II/246/out is 2MASS
         if cat_num: # if a Vizier catalog number is given 
             self.ref_cat = cat_num
             self.ref_cat_name = cat_num
@@ -1554,9 +1560,9 @@ class Stack(RawData):
                 self.ref_cat = "II/349/ps1"
                 self.ref_cat_name = "PS1" # PanStarrs 1
             elif self.filter == 'u':
-                zp_filter = 'g' # closest option right now 
-                self.ref_cat = "II/349/ps1" 
-                self.ref_cat_name = "PS1 (g band, not u)"
+                zp_filter = 'u' # closest option right now 
+                self.ref_cat = "V/147" 
+                self.ref_cat_name = "SDSS DR12"
             else: 
                 zp_filter = self.filter[0] # Ks must be K for 2MASS 
                 self.ref_cat = "II/246/out" # 2MASS
@@ -1587,6 +1593,13 @@ class Stack(RawData):
         Q = v.query_region(SkyCoord(ra=ra_centre, dec=dec_centre, 
                             unit = (u.deg, u.deg)), radius = str(radius)+'m', 
                             catalog=self.ref_cat, cache=False)
+    
+        if len(Q) == 0: # if no matches
+            print("\nNo matches were found in the "+self.ref_cat_name+
+                  " catalog. The requested region may be in an unobserved"+
+                  " region of this catalog. Exiting.")
+            return 
+            
         
         # pixel coords of found sources
         cat_coords = w.all_world2pix(Q[0]['RAJ2000'], Q[0]['DEJ2000'], 1)
@@ -1814,9 +1827,12 @@ class Stack(RawData):
         Output: None 
         """
         Stack.__fit_PSF(self, plot_ePSF, plot_resid, source_lim)
-        Stack.__zero_point(self, plot_corr, plot_source_offsets, 
-                           plot_field_offsets, gaussian_blur_sigma, cat_num)
-        self.photometric_calib = True
+        zp_success = Stack.__zero_point(self, plot_corr, plot_source_offsets, 
+                                        plot_field_offsets,gaussian_blur_sigma, 
+                                        cat_num)
+        
+        if zp_success: # if matches were found by Vizier 
+            self.photometric_calib = True
         
         
     def write_PSF_photometry(self, plot_ePSF=True, plot_resid=True, 

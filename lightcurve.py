@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed May 29 16:43:27 2019
-
-@author: nvieira
+@author: Nicholas Vieira
+@lightcurve.py
 """
 
 import os 
@@ -213,7 +213,7 @@ class LightCurve:
         self.__exist_limiting_mags = True
         
         
-    def plot(self, *filters, filename="lightcurve.png", title=None):
+    def plot(self, *filters, output="lightcurve.png", title=None):
         """
         Input: a filter/filters of choice to plot the lightcurve for only these 
         filters (optional; default is to plot for all filters), a name for 
@@ -274,7 +274,7 @@ class LightCurve:
         plt.gca().xaxis.set_ticks_position("both") # ticks on both sides
         plt.gca().yaxis.set_ticks_position("both")
         
-        plt.savefig(filename, bbox_inches="tight")
+        plt.savefig(output, bbox_inches="tight")
         plt.show() 
                 
         

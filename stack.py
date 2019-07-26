@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri May 10 10:55:43 2019
-
-@author: nvieira
+@author: Nicholas Vieira
+@stack.py
 """
 
 # run iraf in terminal-only mode (no graphics):
