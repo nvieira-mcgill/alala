@@ -446,3 +446,28 @@ Finally, note that ``PSF_photometry()`` can take a while for images which contai
 Making light curves
 ===================
 
+The script ``lightcurve.py`` is also object-oriented. The script allows you to:
+
+* Read data which has been output by ``write_PSF_photometry()``, ``write_aperture_photometry()``, or ``write_selection()``
+* Build a table with the coordinates, magnitudes with errors, filters, and MJD of all read sources
+* Plot a light curve
+
+To build a ``LightCurve`` object directly from a single point/file/directory:
+
+.. code-block:: python
+
+     >>> import lightcurve
+     >>> single_pt_lc = lightcurve.frompoint(303.8325417, 15.5173611, 17.7, 0.3, "g", 55950) # from a point
+     >>> lc = lightcurve.fromfile("my_data/H_stack_20181106_aperture_photometry.fits") # from a file 
+     >>> bigger_lc = lightcurve.fromdirectory("my_data") # from a directory 
+     
+Alternatively, build the light curve and then read in data:
+
+.. code-block:: python
+
+     >>> lg = lightcurve.LightCurve()
+     >>> lg.read("H_stack_20181106_aperture_photometry.fits")
+
+And finally, to add new data to an existing ``LightCurve`` object:
+
+
