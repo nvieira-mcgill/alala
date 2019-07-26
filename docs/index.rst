@@ -207,6 +207,9 @@ This updates the raw data to point to these masks and creates a new directory, `
      >>> # divided cubes 
      >>> finalrawdata = alala.RawData("/data/myWIRCam/divided_det3_WIRCam_20181106", qso_grade_limit=2)
      >>> finalrawdata.make_badpix_masks()
+     
+     
+Note that for MegaCam data, the data does **not** need to be divided. 
 
 Stack
 -----
@@ -401,22 +404,41 @@ Let's say we get no results from that last line. We decide to try aperture photo
      
 We get a detection -- but it's only 2-sigma. We decide to get a limiting magnitude: 
 
+.. code-block:: python
+
      >>> j_stack.limiting_magnitude(ra, dec)
      22.51
      
 That's the best we can do. We decide to write out PSF photometry and aperture photometry results to tables anyways:
 
+.. code-block:: python
+
      >>> j_stack.write_PSF_photometry()
      >>> j_stack.write_aperture_photometry()
      
-And we move on with our lives. 
+And that's it. The tables output by these write functions can then be used with ``lightcurve.py``, which is handled in a different section. Finally, the above walkthrough was for WIRCam, but the steps are largely unchanged for MegaCam. Happy pipelining!
+
 
 Additional notes
 ----------------
 
-Note that, by default, all images are saved as ``.png`` files. To change this: 
+By default, all images are saved as ``png`` files. To change this: 
 
+.. code-block:: python 
 
+     >>> j_stack.set_plot_ext("pdf")
+
+Valid options are ``png``, ``pdf``, ``bmp``, and ``jpg``. 
+
+Note that there is a function ``adjust_astrometry()`` which can be called to adjust the astrometric solution of the data based on the offsets computed during PSF photometry: 
+
+.. code-block:: python
+
+     >>> j_stack.adjust_astrometry()
+     
+When this is called, you can then re-do PSF photometry. In practice, almost nothing is gained from doing so, as the solution obtained by ``astrometry.net`` is already quite accurate. 
+
+Finally, note that PSF_photometry() can take a while for images which contain many sources. For example, the function requires ~ 1000 s to complete for an image with ~ 10 000 sources, **on irulan**. Speed will of course vary from machine to machine, but do not be surprised if this part of the analysis takes ~ an order of magnitude more time than the astrometry. 
 
 --------------------------------------------------------
 
