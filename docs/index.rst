@@ -69,16 +69,16 @@ To match your home directory and user id.
 Using the pipeline
 ==================
 
-The pipeline's main script, ``alala.py``, is object-oriented and contains two classes: the ``RawData`` class and its subclass the ``Stack``. Here, we will work through an example using WIRCam data. 
+The pipeline's main script, ``alala.py``, is object-oriented and contains two classes: the ``RawData`` class and its subclass the ``Stack``. **Here, we will work through an example using WIRCam data**. 
 
 RawData
 -------
 
-Images from WIRCam arrive largely de-trended via CFHT's pipeline 'I'iwi. WIRCam is an array of 4 detectors, each approximately 10' (arcmin) x 10'.  Every file from WIRCam will be a multi-extension fits file, with one extension for each detector. These extensions are usually cubes themselves. The correspondence between the detectors and extensions is:
+Images from WIRCam arrive largely de-trended via CFHT's pipeline 'I'iwi. WIRCam is an array of 4 detectors, each approximately 10' (arcmin) x 10'.  Every file from WIRCam will be a multi-extension fits file, with one extension for each detector. These extensions are also usually cubes themselves. The correspondence between the detectors and extensions is:
 
 .. image:: https://github.com/nvieira-mcgill/alala/blob/master/images/wircam_detectors.png?raw=true
 
-Importantly, the convention for WIRCam is to treat each of these 4 detectors separately. This means that the same star, observed on different detectors, can have a widely varying flux. For this reason, it's important to decide which detector you want to work with. 
+Importantly, the convention for WIRCam is to treat each of these 4 detectors separately. This means that the same star, observed on different detectors, can have a widely varying flux. For this reason, it is important to decide which detector you want to work with. 
 
 Let's say you've put your data in some directory ``/data/myWIRCam/``. Let's initialize a ``RawData`` object:
 
@@ -110,7 +110,7 @@ If you want to see the date(s) spanned by data:
      >>> rawdata.date
      '20181106'
 
-If your data spans multiple dates, this will output ``'multidate'``, in which case the attribute ``rawdata.dates`` will contain a list of these dates in chronological order and the attribute ``rawdata.dates_dict`` will contain these dates, and their corresponding files, in a dictionary. If you want to examine one or more headers in, say, the 2nd extension of these multiextension fits files:
+If your data spans multiple dates, this will output ``'multidate'``, in which case the attribute ``rawdata.dates`` will contain a list of these dates in chronological order and the attribute ``rawdata.dates_dict`` will contain these dates and their corresponding files in a dictionary. If you want to examine one or more headers in, say, the 2nd extension of these multiextension fits files:
 
 .. code-block:: python
 
@@ -123,7 +123,7 @@ If your data spans multiple dates, this will output ``'multidate'``, in which ca
      J_file1.fits.fz J               15.0
      # and many more 
 
-Finally, to decide which detector you want to use, if you know the RA and Dec of the source you care about: 
+Finally, to decide which detector you want to use, if you know the RA and Dec of your source: 
 
 .. code-block:: python
 
@@ -278,7 +278,7 @@ And, again, the stack will first be produced if it does not already exist. A con
 Performing astrometry, photometry
 ---------------------------------
 
-In this section, we'll assume you have the ``j_stack`` object as defined above. Recall that, in our stack working directory, we have a file ``J_stack_20181106.fits``. First, let's refine the **astrometry** for the stack and extract as many sources as possible:
+In this section, we will assume you have the ``j_stack`` object as defined above. Recall that, in our stack working directory, we have a file ``J_stack_20181106.fits``. First, let's refine the **astrometry** for the stack and extract as many sources as possible:
 
 .. code-block:: python
 
@@ -301,7 +301,7 @@ These 4 files will be output to a new directory ``calibration`` within the stack
      >>> j_stack.make_image(sources=True) # put circles around all extracted sources
      >>> j_stack.make_image(ra=275.15, dec=7.15) # plot a cross-hair at this RA, Dec
      >>> j_stack.make_image(scale="log") # use a log_10 scale 
-     >>> j_stack.make_image(output="test.png")
+     >>> j_stack.make_image(output="test.png") # set the name for the output file
     
 These arguments, of course, can all be used in conjunction with each other. The default is to plot the unsubtracted data in a linear scale, with none of the additional features. 
 
@@ -325,20 +325,20 @@ Note that the instrumental magnitude is computed as:
 
 .. math:: 
 
-     m_{ins} = -2.5 * \\log(FLUX)
+     m_{ins} = -2.5 * \log(FLUX)
      
           
 When calling ``PSF_photometry()``, important optional arguments are:
 
-     * ``plot_ePSF`` (bool, default True) Plot the ePSF
-     * ``plot_residuals`` (bool, default True) Plot the residuals of the ePSF fit 
-     * ``plot_corr`` (bool, default True) Plot the instrumental versus catalog magnitudes, with a linear fit 
-     * ``plot_source_offsets`` (bool, default True) Plot the RA, Dec offsets for all sources matched with an external catalogue 
-     * ``plot_field_offsets`` (bool, default True) Plot the image with the intensity showing the relative overall (RA and Dec) offset from the external catalogue, with a Gaussian blur applied to the image
+     * ``plot_ePSF`` `(bool, default True)` Plot the ePSF
+     * ``plot_residuals`` `(bool, default True)` Plot the residuals of the ePSF fit 
+     * ``plot_corr`` `(bool, default True)` Plot the instrumental versus catalog magnitudes, with a linear fit 
+     * ``plot_source_offsets`` `(bool, default True)` Plot the RA, Dec offsets for all sources matched with an external catalogue 
+     * ``plot_field_offsets`` `(bool, default True)` Plot the image with the intensity showing the relative overall (RA and Dec) offset from the external catalogue, with a Gaussian blur applied to the image
      
 The ePSF plot and the residuals plot are measures of the quality of the PSF fit. The correlation is a measure of the accuracy of the PSF calibration: the slope of the linear fit should be very close to 1, although outliers are always present. Finally, the offset plots are measures of the difference between the astrometry of the queried catalogue and our solved image.  
 
-With this step complete, you will have the calibrated magnitudes for several thousand stars in your image. A table of all of these sources is stored in the attribute ``j_stack.psf_sources``. **Note that in the above steps, sources near the edges of the image are ignored.** To see the border which delimits the sources which are used in photometry: 
+With this step complete, we have calibrated magnitudes for several thousand stars in your image. A table of all of these sources is stored in the attribute ``j_stack.psf_sources``. **Note that in the above steps, sources near the edges of the image are ignored.** To see the border which delimits the sources which are used in photometry: 
 
 .. code-block:: python 
 
@@ -352,7 +352,7 @@ The border used is a circle with a radius equal to the `x` dimension of the imag
      >>> dec = 7.15
      >>> j_stack.source_select(ra, dec)
      
-This will return a table containing any source(s) within 1 pixel of the input RA, Dec. This radius can be increased via the optional ``radius`` argument. If we find the source(s) we care about, we can write this table with 
+This will return a table containing any source(s) within 1 pixel of the input RA, Dec. This radius can be increased via the optional ``radius`` argument. If we find the source(s) of interest, we can write this table: 
 
 .. code-block:: python
 
@@ -416,7 +416,7 @@ That's the best we can do. We decide to write out PSF photometry and aperture ph
      >>> j_stack.write_PSF_photometry()
      >>> j_stack.write_aperture_photometry()
      
-And that's it. The tables output by these write functions can then be used with ``lightcurve.py``, which is handled in a different section. Finally, the above walkthrough was for WIRCam, but the steps are largely unchanged for MegaCam. Happy pipelining!
+And that's it. The tables output by these write functions can then be used with ``lightcurve.py``, which is handled in a different section. The above walkthrough was for WIRCam, but the steps are largely unchanged for MegaCam. Happy pipelining!
 
 
 Additional notes
@@ -436,9 +436,9 @@ Note that there is a function ``adjust_astrometry()`` which can be called to adj
 
      >>> j_stack.adjust_astrometry()
      
-When this is called, you can then re-do PSF photometry. In practice, almost nothing is gained from doing so, as the solution obtained by ``astrometry.net`` is already quite accurate. 
+One can then re-do PSF photometry. In practice, almost nothing is gained, as the solution obtained by ``astrometry.net`` is already quite accurate. 
 
-Finally, note that PSF_photometry() can take a while for images which contain many sources. For example, the function requires ~ 1000 s to complete for an image with ~ 10 000 sources, **on irulan**. Speed will of course vary from machine to machine, but do not be surprised if this part of the analysis takes ~ an order of magnitude more time than the astrometry. 
+Finally, note that ``PSF_photometry()`` can take a while for images which contain many sources. For example, the function requires ~ 1000 s to complete for an image with ~ 10 000 sources, **on irulan**. Speed will of course vary from machine to machine, but do not be surprised if this part of the analysis takes ~ an order of magnitude more time than the astrometry. 
 
 --------------------------------------------------------
 
