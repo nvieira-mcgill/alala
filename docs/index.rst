@@ -52,7 +52,7 @@ If you are on `irulan`, you only need to add the following to your .bashrc:
 
 Ensuring that iraf works correctly 
 ----------------------------------
-Installing this correctly can be very difficult. Follow the instructions above very carefully. If you have access to the ``irulan`` server of McGill University, this will already be done. If your institution has a server dedicated to physics/astrophysics, it will probably already have ``iraf`` as well.
+Installing this correctly can be very difficult. If you have access to the ``irulan`` server of McGill University, this will already be done. If your institution has a server dedicated to physics/astrophysics, it will probably already have ``iraf`` as well.
 
 Once you have installed ``iraf`` correctly, in order to stack images you will need an ``iraf`` directory in your **home directory**, with a ``login.cl`` file and ``pyraf`` and ``uparm`` directories inside this directory. You can use the ``login.cl`` included `here <https://github.com/nvieira-mcgill/alala/tree/master/iraf_setup>`_, remembering to change the following lines at the beginning of the file:
 
