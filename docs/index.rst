@@ -181,7 +181,7 @@ This will save plots of the radial PSFs to a new directory for all of the raw da
 
      >>> finalrawdata = alala.RawData(finaldatadir, qso_grade_limit=2)
 
-The queue service observer (QSO) grade is a grade provided by the QSO which rates the image quality at the time of acquisition, where 1=Good and 5=Unusable. A QSO grade of 1 or 2 is good, but feel free to lower the quality to 3 or even 4 if you don't have much data to work with. **The default value is 4**, so that no data is excluded, but it is strongly recommended to apply a more strict limit if possible.
+The queue service observer (QSO) grade is a grade provided by the QSO which rates the image quality at the time of acquisition, where 1=Good and 5=Unusable. **Note that the QSO grade is not available for older data, e.g. 2008 and before.** QSO grade of 1 or 2 is good, but quality can be lowered to 3 or even 4 if you don't have much data to work with. The default is to apply no limit, so that no data is excluded, but it is strongly recommended to apply a more strict limit if possible.
 
 The last step we have to take before stacking is to make a bad pixel mask of each of the images. CFHT helpfully flags bad pixels with a value of 0 for us. This is done with:
 
