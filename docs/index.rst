@@ -280,7 +280,11 @@ And, again, the stack will first be produced if it does not already exist. A con
 Performing astrometry, photometry
 ---------------------------------
 
-In this section, we will assume you have the ``j_stack`` object as defined above. Recall that, in our stack working directory, we have a file ``J_stack_20181106.fits``. First, let's refine the **astrometry** for the stack and extract as many sources as possible:
+In this section, we will assume you have the ``j_stack`` object as defined above. Recall that, in our stack working directory, we have a file ``J_stack_20181106.fits``. First, let's refine the **astrometry** for the stack and extract as many sources as possible. To do so, we need the correct **index files** for our field. These are the files which astrometry.net uses to solve the field. For WIRCam and MegaCam images, we can use the 4201 series of 2MASS images from `here_ <http://data.astrometry.net/4200/>`_. (The 2 numbers immediately following 42 indicate the scale of the image, with larger numbers indicating wider fields). We must then determine which healpix number corresponds to the approximate RA, Dec of our image. To do see, we consult the following image:
+
+.. image:: https://github.com/nvieira-mcgill/alala/blob/master/images/astrometry.net_hp2.png?raw=true
+
+For example, for a source at an RA ~ 150 degrees, Dec ~ 10 degrees, we would want the index file ``index-4201-25.fits``. Once this is in the ``data`` directory in your astrometry install (for ``irulan``, this is ``/data/irulan/astrometry/data/``), we can get back to pipelining: 
 
 .. code-block:: python
 
