@@ -498,7 +498,7 @@ Alternatively, build the light curve and then read in data:
 To add new data to an existing ``LightCurve`` object:
 
      >>> lc.add_fromtables(table1, table2) # add a table/tables
-     >>> lc.add_fromfiles("J_stack_20181106_aperture_photometry.fits", "Ks_stack_20181106_aperture_photometry.fits") # add a file
+     >>> lc.add_fromfiles("J_stack_20181106_aperture_photometry.fits", "Ks_stack_20181106_aperture_photometry.fits") # a file
      >>> lc.add_point(157.777, 30.789, 18.3, 0.5, "r", 58010) # add a single point 
      
 And to add a limiting magnitude, provide the RA, Dec, limiting magnitude, filter, and MJD manually:
