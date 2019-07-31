@@ -12,8 +12,8 @@ capable.OF_GRAPHICS = False
 
 import sys
 import os
-#from iraf import noao, imred, ccdred
-#from iraf import immatch
+#from pyraf.iraf import noao, imred, ccdred
+#from pyraf.iraf import immatch
 from pyraf.iraf import imcombine
 #from astropy.io import fits
 #import numpy as np

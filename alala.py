@@ -28,13 +28,13 @@ from astropy.visualization import simple_norm
 from photutils import Background2D, MMMBackground
 
 class RawData:
-    def __init__(self, location, stack_directory=None, qso_grade_limit=4):
+    def __init__(self, location, stack_directory=None, qso_grade_limit=None):
         """
         Input: location of the raw data, directory to store potential stacks 
         (optional; not needed if no intention to stack), and the limit on the 
-        QSO grade for the observations (optional; default is 5 where 1=good and 
-        5=unusable, so that no data is ignored unless explicitly desired by the 
-        user)
+        QSO grade for the observations (optional; default is to apply no limit 
+        where 1=good and 5=unusable, so that no data is ignored unless 
+        explicitly desired by the user)
         Initializes a raw data object for CFHT WIRCam or MegaPrime data.
         Output: a RawData object
         """
@@ -63,7 +63,7 @@ class RawData:
         # check the QSO grade of the files and remove from the list any which 
         # have a QSO grade of 5 (unusable); this DOES NOT delete the files
         self.qso_grade_limit = qso_grade_limit
-        if "WIRCam" in self.instrument:
+        if "WIRCam" in self.instrument and qso_grade_limit:
             temp = []
             for f in self.files:
                 if self.nextend == 0: # if a single image
@@ -123,7 +123,8 @@ class RawData:
                 self.i = [] # 776 +/- 77.5
                 self.z = [] # 925 +/- 76.5
                 # since 2015A, old filters denoted with trailing S
-                # GRB061122 is pre-2015A -> currently not in use
+                # they were retired in 2017, but for a brief period, PIs could
+                # use both the old and the new 
                 self.uS = [] # 375 +/- 37
                 self.gS = [] # 487 +/- 71.5
                 self.rS = [] # 630 +/- 62
@@ -192,9 +193,23 @@ class RawData:
                     self.i.append(f)
                 elif 'z' in hdu.header["FILTER"]:
                     self.z.append(f)
+                elif 'uS' in hdu.header["FILTER"]:
+                    self.uS.append(f)
+                elif 'gS' in hdu.header["FILTER"]:
+                    self.gS.append(f)
+                elif 'rS' in hdu.header["FILTER"]:
+                    self.rS.append(f)
+                elif 'iS' in hdu.header["FILTER"]:
+                    self.iS.append(f)
+                elif 'zS' in hdu.header["FILTER"]:
+                    self.zS.append(f)
                 hdu_temp.close()
             
-            filter_vals = [self.u, self.g, self.r, self.i, self.z]
+            if self.mjdate > 57023: # if after 1 January 2015
+                filter_vals = [self.u, self.g, self.r, self.i, self.z, 
+                               self.uS, self.gS, self.rS, self.iS, self.zS]
+            else: 
+                filter_vals = [self.u, self.g, self.r, self.i, self.z]
             
         self.filters_dict = dict(zip(filter_keys, filter_vals))
         
@@ -243,14 +258,18 @@ class RawData:
                   "Exiting.")
             
             
-    def set_stackdir(self, stackdir):
+    def set_stack_dir(self, stackdir):
         """
         Input: the directory to store stacked files
         Output: None
         """
         self.stack_dir = stackdir
+        
+        if self.stack_dir[-1] == "/": # get rid of / at end if needed 
+            self.stack_dir = self.stack_dir[:-1]
             
 ###############################################################################
+    #### IMAGE DIAGNOSTICS #### 
             
     def print_headers(self, ext, *headers):
         """
@@ -332,62 +351,6 @@ class RawData:
             data = fits.getdata(l+"/"+f)
             bg_levels.append(np.median(data))
         return bg_levels
-
-
-    def solve_all(self):
-        """
-        Input: None
-        Using astrometry.net, solve all files, and put them in a new 
-        directory. Not necessary unless you wish to plot the radial PSFs of 
-        raw data images. 
-        Output: None
-        """
-        l = self.loc
-        script_dir = os.getcwd()
-        os.chdir(l)
-        
-        image_header = fits.getheader(l+"/"+self.files[0])
-        pixscale = image_header["PIXSCAL1"]
-        pixmin = pixscale-0.05
-        pixmax = pixscale+0.05
-        
-        for f in self.files: # astrometry on each file 
-            options = "--no-verify --overwrite --no-plot --fits-image"
-            options += " --new-fits "+f.replace(".fits","_solved.fits")
-            options += " --scale-low "+str(pixmin)
-            options += " --scale-high "+str(pixmax)
-            options += " --scale-units app"
-            options += " --cancel "+f.replace(".fits","_solved.fits")
-            
-            # run astrometry 
-            run("solve-field "+options+" "+f, shell=True)
-            # get rid of all non-fits files
-            run("find . -type f ! -name '*.fits' -delete", shell=True)
-        
-        # make a list of solved files, move them to a new directory, 
-        # and make a list of unsolved files 
-        topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
-        solved_dir = l+"/../solved_"+topfile
-        run("mkdir "+solved_dir, shell=True)
-        
-        unsolved = []
-        files = [f.replace(".fits","_solved.fits") for f in self.files]
-        for f in files: 
-            if os.path.exists(l+"/"+f):
-                run("mv "+l+"/"+f+" "+solved_dir, shell=True)
-            else:
-                unsolved.append(f.replace("_solved.fits", ".fits"))
-        
-        # save a text file w list of unsolved files, if necessary
-        if len(unsolved) != 0:
-            np.savetxt(solved_dir+"/unsolved.txt", unsolved, fmt="%s")
-            print("The following files could not be solved:")
-            for f in unsolved:
-                print(f)
-            print("They have been written to a file "+solved_dir+
-                  "/unsolved.txt")
-            
-        os.chdir(script_dir)
         
     
     def radial_PSFs(self, ra, dec, solved=True, adu_min=4000, adu_max=66000):
@@ -406,17 +369,18 @@ class RawData:
         """
         l = self.loc
         topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
-        plots_dir = l+"/../profs_ra%.3f_dec%.3f_"%(ra, dec)+topfile
+        plots_dir = os.path.abspath(l+"/..")
+        plots_dir +="/profs_RA%.3f_DEC%.3f_"%(ra, dec)+topfile
         run("mkdir "+plots_dir, shell=True)
         
         if not solved: # if astrometry hasn't been done yet
-            solved_dir = l+"/../solved_"+topfile
+            solved_dir = os.path.abspath(l+"/..")+"/solved_"+topfile
             print("A refined astrometric solution is required for this "+
                   "function to work. Using astrometry.net to solve the "+
                   "images now. Solved .fits files will be saved in "+
                   solved_dir+"\n")
             RawData.solve_all(self)
-            files = os.listdir(l+"/../solved_"+topfile)
+            files = os.listdir(os.path.abspath(l+"/..")+"/solved_"+topfile)
             
         else: # if astrometry has already been done
             files = self.files
@@ -457,12 +421,70 @@ class RawData:
             box_y = adu_min + 0.85*(adu_max-adu_min)
             txt = obs_date+"\n"+f+"\n"+filt 
             output_fig = f.replace(".fits", 
-                                   "_prof_ra%.3f_dec%.3f."%(ra, dec)+
+                                   "_prof_RA%.3f_DEC%.3f."%(ra, dec)+
                                    self.plot_ext)
             plt.text(3, box_y, s=txt, bbox=box,fontsize=14)
             plt.savefig(plots_dir+"/"+output_fig)
-                
+
+
+    def solve_all(self):
+        """
+        Input: None
+        Using astrometry.net, solve all files, and put them in a new 
+        directory. Not necessary unless you wish to plot the radial PSFs of 
+        raw data images. 
+        Output: None
+        """
+        l = self.loc
+        script_dir = os.getcwd()
+        os.chdir(l)
+        
+        image_header = fits.getheader(l+"/"+self.files[0])
+        pixscale = image_header["PIXSCAL1"]
+        pixmin = pixscale-0.05
+        pixmax = pixscale+0.05
+        
+        for f in self.files: # astrometry on each file 
+            options = "--no-verify --overwrite --no-plot --fits-image"
+            options += " --new-fits "+f.replace(".fits","_solved.fits")
+            options += " --scale-low "+str(pixmin)
+            options += " --scale-high "+str(pixmax)
+            options += " --scale-units app"
+            options += " --cancel "+f.replace(".fits","_solved.fits")
+            
+            # run astrometry 
+            run("solve-field "+options+" "+f, shell=True)
+            # get rid of all non-fits files
+            run("find . -type f ! -name '*.fits' -delete", shell=True)
+        
+        # make a list of solved files, move them to a new directory, 
+        # and make a list of unsolved files 
+        topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
+        solved_dir = os.path.abspath(l+"/..")+"/solved_"+topfile
+        run("mkdir "+solved_dir, shell=True)
+        
+        unsolved = []
+        files = [f.replace(".fits","_solved.fits") for f in self.files]
+        for f in files: 
+            if os.path.exists(l+"/"+f):
+                run("mv "+l+"/"+f+" "+solved_dir, shell=True)
+            else:
+                unsolved.append(f.replace("_solved.fits", ".fits"))
+        
+        # save a text file w list of unsolved files, if necessary
+        if len(unsolved) != 0:
+            np.savetxt(solved_dir+"/unsolved.txt", unsolved, fmt="%s")
+            print("The following files could not be solved:")
+            for f in unsolved:
+                print(f)
+            print("They have been written to a file "+solved_dir+
+                  "/unsolved.txt")
+            
+        os.chdir(script_dir)
              
+###############################################################################
+    #### WCS LOCATING & EXTENSION WRITING ####
+    
     def locate_WCS(self, ra, dec):
         """
         Input: The RA and Dec of some coordinate of interest 
@@ -477,34 +499,30 @@ class RawData:
             return
         
         l = self.loc
-        # assume the instruments track correctly and WCS does not change 
-        # significantly from one image to another 
+        # assume the instruments do not drift and WCS does not significantly 
+        # change from one image to another 
         testfile = self.files[0]
         hdu_list_test = fits.open(l+"/"+testfile)
         
         for n in range(self.nextend): # for all extensions
             w = wcs.WCS(hdu_list_test[n+1].header) # WCS object
             
-            #x_size = int(hdu_list_test[n+1].header['NAXIS1'])
-            #y_size = int(hdu_list_test[n+1].header['NAXIS2'])
-            
             # compute x and y limits of each detector
             if "WIRCam" in self.instrument: 
                 x_lim = [0.0, 2048.0]
                 y_lim = [0.0, 2048.0] 
-                    
-                pix_coords = np.array(w.all_world2pix(ra,dec,1,1))
+                
+                naxis = int(hdu_list_test[n+1].header["NAXIS"])
+                if naxis == 3: # if a cube
+                    pix_coords = np.array(w.all_world2pix(ra,dec,1,1))
+                else : # if just one image 
+                    pix_coords = np.array(w.all_world2pix(ra,dec,1))
             
             elif "MegaPrime" in self.instrument:
                 x_lim = [32.0, 2080.0]
                 y_lim = [0.0, 4612.0] 
                 
-                # difference from world2pix call above is intentional
-                # because WIRCam data is composed of cubes 
                 pix_coords = np.array(w.all_world2pix(ra,dec,1))
-            
-            #x_lim = [0.0, x_size]
-            #y_lim = [0.0, y_size]
             
             # for debugging
             print("n="+str(n+1)+"\t [%.2f, %.2f]"%(
@@ -527,7 +545,6 @@ class RawData:
         
         # WIRCam: 1 to 4
         # MegaPrime: 1 to 36 pre-2015A, 1 to 40 post-2015A 
-        # ==> for megaprime, need to add 1 to n_ext to get the correct detector
         
         new_hdu_list = fits.open(l+"/"+fits_file)
         new_hdu = new_hdu_list[n_ext] # compressed
@@ -541,7 +558,7 @@ class RawData:
     
     def write_extensions(self, n_ext):
         """
-        Input: The extension number of interest.
+        Input: The extension number of interest
         Gets the header and image data for the given extension and writes them
         to a new .fits file. Does so for all raw data files. 
         Stores them in a new subdirectory. Used to extract image data for one 
@@ -557,7 +574,8 @@ class RawData:
         l = self.loc
         
         # exten_dir encodes the detector number, instrument, and date
-        exten_dir = l+"/../det"+str(n_ext)+"_"+self.instrument+"_"+self.date
+        exten_dir = os.path.abspath(l+"/..")+"/det"+str(n_ext)+"_"
+        exten_dir += self.instrument+"_"+self.date
         run(['mkdir','-p',exten_dir]) # make exten_dir
         
         for f in self.files: 
@@ -569,8 +587,87 @@ class RawData:
         print("Extracted headers/images for detector "+str(n_ext)+
               " of "+self.instrument+" on "+self.date)
         print("Written to new .fits files in "+exten_dir)
+        
+        
+    def write_extensions_all(self):
+        """
+        Input: None
+        Gets the header and image data for ALL extensions of a multi-extension
+        fits file and writes each extension to a new .fits file. Useful for 
+        MegaPrime data where the scope moves a lot and the detectors are all 
+        calibrated to the same ADU level. 
+        Output: None 
+        """
+        l = self.loc
+        
+        # all_exten_dir encodes the instrument and date
+        all_exten_dir = os.path.abspath(l+"/..")+"/dets_ALL_"+self.instrument
+        all_exten_dir += "_"+self.date
+        run(['mkdir','-p',all_exten_dir]) # make all_exten_dir
+        
+        for f in self.files:
+            for n in range(self.nextend):
+                exten = RawData.__get_extension(self, f, n+1)
 
-###############################################################################     
+                new_f = f.replace(".fits.fz","_det"+str(n+1)+".fits")
+                exten.writeto(all_exten_dir+"/"+new_f, overwrite=True, 
+                              output_verify="ignore") # write them
+            
+        print("Extracted headers/images for all detectors of "+self.instrument+
+              " on "+self.date)
+        print("Written to new .fits files in "+all_exten_dir)
+    
+    
+    def write_extensions_by_WCS(self, ra, dec):
+        """
+        Input: the RA, Dec of the source of interest 
+        For a directory full of multi-extension fits files, gets the extension
+        which contains the input RA, Dec and writes it to a new file 
+        Output: None
+        """
+        l = self.loc
+        
+        # wcs_exten_dir encodes the wcs of interest, the instrument, and date
+        wcs_exten_dir = os.path.abspath(l+"/..")
+        wcs_exten_dir += "/dets_RA%.3f_DEC%.3f_"%(ra,dec)
+        wcs_exten_dir += self.instrument+"_"+self.date
+        run(['mkdir','-p',wcs_exten_dir]) # make wcs_exten_dir
+        
+        if "WIRCam" in self.instrument: 
+            x_lim = [0.0, 2048.0]
+            y_lim = [0.0, 2048.0] 
+        elif "MegaPrime" in self.instrument:
+            x_lim = [32.0, 2080.0]
+            y_lim = [0.0, 4612.0]
+        
+        for f in self.files:
+            for n in range(self.nextend):
+                exten = RawData.__get_extension(self, f, n+1)
+                w = wcs.WCS(exten.header) # WCS object
+                 
+                naxis = int(exten.header["NAXIS"])
+                if naxis == 3: # if a cube
+                    pix_coords = np.array(w.all_world2pix(ra,dec,1,1))
+                else : # if just one image 
+                    pix_coords = np.array(w.all_world2pix(ra,dec,1))
+                
+                # check if located in detector n 
+                if not((x_lim[0]<pix_coords[0]<x_lim[1]) and (
+                        y_lim[0]<pix_coords[1]<y_lim[1])):
+                    continue # continue to next extension if not 
+                else: 
+                    new_f = f.replace(".fits.fz","_det"+str(n+1)+".fits")
+                    exten.writeto(wcs_exten_dir+"/"+new_f, overwrite=True, 
+                                  output_verify="ignore") # write them
+                    break # exit this for loop
+                    
+        print("Extracted headers/images for detectors which contain"+
+              "RA %.3f, Dec %.3f"%(ra,dec)+" for all data from "+
+              self.instrument+" on "+self.date)
+        print("Written to new .fits files in "+wcs_exten_dir)
+
+###############################################################################    
+    #### COMBINING/DIVIDING CUBES ####
             
     def __combine_cube(self, fits_file):
         """
@@ -636,7 +733,7 @@ class RawData:
             return
         
         # combin_dir encodes the detector number, instrument, and date
-        combin_dir = l+"/../combined_"+topfile
+        combin_dir = os.path.abspath(l+"/..")+"/combined_"+topfile
         run(['mkdir','-p',combin_dir]) # make combin_dir
         
         for f in self.files: 
@@ -696,7 +793,7 @@ class RawData:
             return
         
         # div_dir encodes the detector number, instrument, date
-        div_dir = l+"/../divided_"+topfile
+        div_dir = os.path.abspath(l+"/..")+"/divided_"+topfile
         run(['mkdir','-p',div_dir]) # make div_dir
         
         for f in self.files: 
@@ -715,39 +812,8 @@ class RawData:
                 temp[0].header["SLICEID"] = "01"
                 temp.close()
 
-
 ###############################################################################
-                
-    def fill_mask(self):
-        """
-        Input: None
-        For all fits files spanned by some RawData object, finds all locations 
-        in the data where the ADU is set to 0.0 (i.e., masked by the pre-
-        processing pipelines used at CFHT) and sets them to be equal to the 
-        background. Background estimated as the median. For WIRCam, this 
-        prevents the stacked images from exhibiting a "plaid" pattern in areas
-        where the crosshair created by the guider weighs down the average. 
-        Output: None
-        """
-        l = self.loc
-        topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
-        
-        new_dir = l+"/../filledmask_"+topfile
-        run(['mkdir','-p',new_dir]) # make new_dir
-
-        for f in self.files:
-            image_data = fits.getdata(l+"/"+f) # a single slice 
-            mask = (image_data==0) # mask of 0 ADU locations
-            bkg_est = np.median(image_data) # estimate background
-            image_data = np.where(mask, bkg_est, image_data) # set 0s to bkg
-            image_hdr = fits.getheader(l+"/"+f)
-            
-            new_f = f.replace(".fits","_filledmask.fits")
-            new_hdu = fits.PrimaryHDU(data=image_data, header=image_hdr)
-            new_hdu.writeto(new_dir+"/"+new_f, overwrite=True, 
-                        output_verify="ignore") # write new fits file 
-         
-###############################################################################
+    #### CROP IMAGES BASED ON PIXEL FRACTIONS/WCS ####
         
     def __get_crop(self, fits_file, frac_hori=[0,1], frac_vert=[0,1]):
         """
@@ -792,7 +858,7 @@ class RawData:
         topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
         
         # crop_dir encodes the detector number, instrument, date
-        crop_dir = l+"/../cropped_"+topfile
+        crop_dir = os.path.abspath(l+"/..")+"/cropped_"+topfile
         run(['mkdir','-p',crop_dir]) # make crop_dir
         
         for f in self.files:  
@@ -819,7 +885,7 @@ class RawData:
         topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
         
         # crop_dir encodes the detector number, instrument, date
-        crop_dir = l+"/../cropped_WCS_"+topfile
+        crop_dir = os.path.abspath(l+"/..")+"/cropped_"+topfile
         run(['mkdir','-p',crop_dir]) # make crop_dir
         
         crop_counter = 0
@@ -871,6 +937,7 @@ class RawData:
               " images could be cropped.\n")           
         
 ###############################################################################
+    #### STACKING AND STACK PREPARATION/EXTRACTION ####
 
     def make_badpix_masks(self):
         """
@@ -883,7 +950,7 @@ class RawData:
         topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
         
         # bp_dir contains the bad pixel masks
-        self.bp_dir = l+"/../badpixels_"+topfile
+        self.bp_dir = os.path.abspath(l+"/..")+"/badpixels_"+topfile
         run(['mkdir','-p',self.bp_dir]) # make bp_dir
         
         for f in self.files:
@@ -912,7 +979,12 @@ class RawData:
         Output: None
         """
         sd = self.stack_dir
-        run(['mkdir','-p',sd]) # create it
+        if sd:
+            run(['mkdir','-p',sd]) # create it
+        else: # if not yet defined
+            print("\nPlease set a stack directory using set_stack_dir() "+
+                  "before attempting to stack images. Exiting.\n")
+            return 
         # get rid of astrom_photom if it exists:
         run('rm -rf '+sd+'/calibration', shell=True) 
         
@@ -934,16 +1006,18 @@ class RawData:
         for fil in self.filters:
             np.savetxt(sd+'/'+fil+'_list.txt', self.filters_dict[fil], 
                        fmt="%s")
-            run('chmod 777 '+sd+'/*', shell=True)
-            
+
         # location of bad pixel masks
         l = self.loc
         topfile = re.sub(".*/", "", l)
-        self.bp_dir = l+"/../badpixels_"+topfile
+        self.bp_dir = os.path.abspath(l+"/..")+"/badpixels_"+topfile
 
         # copy fits files
         run("cp "+self.loc+"/*.fits "+self.stack_dir, shell=True)
         run("cp "+self.bp_dir+"/*.fits "+self.stack_dir, shell=True)
+        run('chmod 777 '+sd+'/*', shell=True) # give full perms
+        
+        return True
         
 
     def make_stacks(self, *filters):
@@ -963,7 +1037,10 @@ class RawData:
         except KeyError:
             RawData.make_badpix_masks(self) # make bad pixel masks    
             
-        RawData.__make_stack_directory(self) # make stack directory
+        ret = RawData.__make_stack_directory(self) # make stack directory
+        
+        if not(ret): # if stack directory not successfully made
+            return 
         
         script_dir = os.getcwd() # script directory
         run('cp stack.py '+self.stack_dir, shell=True)
@@ -1014,6 +1091,7 @@ class RawData:
         return Stack(self.loc, self.stack_dir, self.qso_grade_limit, filt)
         
 ###############################################################################
+    #### STACKS, MAKING IMAGES & ASTROMETRY ####
 
 class Stack(RawData):
     def __init__(self, location, stack_directory, qso_grade_limit, filt):
@@ -1034,6 +1112,9 @@ class Stack(RawData):
             print("\nSince the stacked image is not yet present, it will be "+
                   "produced now.")
             Stack.make_stacks(self, filt)
+            
+        #if not(Stack.stack_made): # if stack was not successfuly made 
+        #    exit
             
         delattr(self, "filters") # don't need a list anymore 
         self.filter = filt # just one filter 
@@ -2067,7 +2148,7 @@ class Stack(RawData):
                  fontsize=14)
         
         figname = self.filter+"_"+self.instrument+"_"+self.date
-        figname += "_annulus_ra%.5f_dec%.5f"%(ra, dec)+"."+self.plot_ext
+        figname += "_annulus_RA%.5f_DEC%.5f"%(ra, dec)+"."+self.plot_ext
         plt.savefig(figname, bbox_inches="tight")
         
         
@@ -2118,7 +2199,7 @@ class Stack(RawData):
         plt.ylabel("Dec (J2000)", fontsize=16)
         
         figname = self.filter+"_"+self.instrument+"_"+self.date
-        figname += "_aperture_ra%.5f_dec%.5f"%(ra, dec)+"."+self.plot_ext
+        figname += "_aperture_RA%.5f_DEC%.5f"%(ra, dec)+"."+self.plot_ext
         
         ax.coords["ra"].set_ticklabel(size=15)
         ax.coords["dec"].set_ticklabel(size=15)
