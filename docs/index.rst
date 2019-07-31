@@ -218,7 +218,7 @@ This updates the raw data to point to these masks and creates a new directory, `
      >>> finalrawdata.make_badpix_masks()
      
      
-Note that for MegaCam data, the data does **not** need to be divided. 
+**MegaCam Note:** For MegaCam data, the data does **not** need to be divided. The data never consists of cubes.
 
 Stack
 -----
