@@ -443,6 +443,9 @@ class RawData:
         pixscale = image_header["PIXSCAL1"]
         pixmin = pixscale-0.05
         pixmax = pixscale+0.05
+        ra = image_header["CRVAL1"] # rough RA
+        dec = image_header["CRVAL2"] # rough Dec
+        radius = 1.0 # look in a radius of 1 degree
         
         for f in self.files: # astrometry on each file 
             options = "--no-verify --overwrite --no-plot --fits-image"
@@ -450,6 +453,8 @@ class RawData:
             options += " --scale-low "+str(pixmin)
             options += " --scale-high "+str(pixmax)
             options += " --scale-units app"
+            options += " --ra "+str(ra)+" --dec "+str(dec)
+            options += " --radius "+str(radius)
             options += " --cancel "+f.replace(".fits","_solved.fits")
             
             # run astrometry 
@@ -661,7 +666,7 @@ class RawData:
                                   output_verify="ignore") # write them
                     break # exit this for loop
                     
-        print("Extracted headers/images for detectors which contain"+
+        print("Extracted headers/images for detectors which contain "+
               "RA %.3f, Dec %.3f"%(ra,dec)+" for all data from "+
               self.instrument+" on "+self.date)
         print("Written to new .fits files in "+wcs_exten_dir)
@@ -1328,6 +1333,18 @@ class Stack(RawData):
                 ".fits", "_updated.fits")
         if downsample: # if a downsampling fraction is given
             solve_options += " --downsample "+str(downsample)
+            
+        # options to speed up astrometry:
+        pixmin = self.pixscale-0.05
+        pixmax = self.pixscale+0.05
+        ra = self.image_header["CRVAL1"] # rough RA
+        dec = self.image_header["CRVAL2"] # rough Dec
+        radius = 1.0 # look in a radius of 1 degree
+        solve_options += " --scale-low "+str(pixmin)
+        solve_options += " --scale-high "+str(pixmax)
+        solve_options += " --scale-units app"
+        solve_options += " --ra "+str(ra)+" --dec "+str(dec)
+        solve_options += " --radius "+str(radius)
         
         # solve the field: 
         run("solve-field "+solve_options+" "+self.stack_name, shell=True)
