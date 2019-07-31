@@ -69,7 +69,7 @@ To match your home directory and user id.
 Using the pipeline
 ==================
 
-The pipeline's main script, ``alala.py``, is object-oriented and contains two classes: the ``RawData`` class and its subclass the ``Stack``. **Here, we will work through an example using WIRCam data**. 
+The pipeline's main script, ``alala.py``, is object-oriented and contains two classes: the ``RawData`` class and its subclass the ``Stack``. **Here, we will work through an example using WIRCam data**. Important notes on differing conventions for MegaCam data will be marked **MegaCam Note**. 
 
 RawData
 -------
@@ -144,6 +144,15 @@ Will write the 3rd extension of all files in ``datadir``, which we said was ``/d
 
      >>> newdatadir = "/data/myWIRCam/det3_WIRCam_20181106"
      >>> newrawdata = alala.RawData(newdatadir)
+     
+**MegaCam Note:** MegaCam has a much wider FOV of about 1 square degree compared to the 20' (arcmin) x 20' square spanned by WIRCam. For this reason, the FOV moves around more during MegaCam observations, especially when studying extended objects such as galaxies, nebulae, or globular clusters. Moreover, MegaCam data has the opposite convention of WIRCam for flux calibration: all detectors are calibrated to the same level. This means it is ok to stack different MegaCam CCDs into the same image. We therefore use: 
+
+.. code-block:: python
+
+    >>> ra, dec = 153.5590, 63.012
+    >>> rawdata.write_extensions_by_WCS(ra, dec)
+    
+This extracts the CCD from each image which contains these RA, Dec and writes them to a new directory ``/data/myWIRCam/dets_RA153.559_DEC63.012_WIRCam_20181106``. 
 
 Importantly, MegaCam data is typically **not** a datacube. To allow the pipeline to smoothly handle both WIRCam and MegaCam data, we take each datacube in our new data object and divide them into separate files: 
 
