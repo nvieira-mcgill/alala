@@ -144,17 +144,24 @@ Will write the 3rd extension of all files in ``datadir``, which we said was ``/d
 
      >>> newdatadir = "/data/myWIRCam/det3_WIRCam_20181106"
      >>> newrawdata = alala.RawData(newdatadir)
-     
+ 
+------------------------------------------------------------------- 
+ 
 **MegaCam Note:** MegaCam has a much wider FOV of about 1 square degree compared to the 20' (arcmin) x 20' square spanned by WIRCam. For this reason, the FOV moves around more during MegaCam observations, especially when studying extended objects such as galaxies, nebulae, or globular clusters. Moreover, MegaCam data has the opposite convention of WIRCam for flux calibration: all detectors are calibrated to the same level. This means it is ok to stack different MegaCam CCDs into the same image. We therefore use: 
 
 .. code-block:: python
 
-    >>> ra, dec = 153.5590, 63.012
-    >>> rawdata.write_extensions_by_WCS(ra, dec)
+     >>> import alala
+     >>> datadir = "/data/myMegaCam/" 
+     >>> rawdata = alala.RawData(datadir) # a new object 
+     >>> ra, dec = 153.5590, 63.012
+     >>> rawdata.write_extensions_by_WCS(ra, dec)
     
-This extracts the CCD from each image which contains these RA, Dec and writes them to a new directory ``/data/myWIRCam/dets_RA153.559_DEC63.012_WIRCam_20181106``. 
+This extracts the CCD from each image which contains these RA, Dec and writes them to a new directory such as ``/data/myWIRCam/dets_RA153.559_DEC63.012_MegaCam_20110816``. 
 
-Importantly, MegaCam data is typically **not** a datacube. To allow the pipeline to smoothly handle both WIRCam and MegaCam data, we take each datacube in our new data object and divide them into separate files: 
+-------------------------------------------------------------
+
+To allow the pipeline to smoothly handle both WIRCam and MegaCam data, we take each datacube in our new data object and divide them into separate files: 
 
 .. code-block:: python
 
@@ -217,8 +224,11 @@ This updates the raw data to point to these masks and creates a new directory, `
      >>> finalrawdata = alala.RawData("/data/myWIRCam/divided_det3_WIRCam_20181106", qso_grade_limit=2)
      >>> finalrawdata.make_badpix_masks()
      
-     
+-----------------------------------------
+
 **MegaCam Note:** For MegaCam data, the data does **not** need to be divided. The data never consists of cubes.
+
+----------------------------------------
 
 Stack
 -----
