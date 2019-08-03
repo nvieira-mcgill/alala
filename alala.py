@@ -83,10 +83,14 @@ class RawData:
         date2 = (fits.open(self.loc+"/"+self.files[-1])[0]).header["DATE"]
         date2 = (date2[0:10]).replace("-","")
         
-        if date1 == date2:
+        if date1 == date2: # same day month year 
             self.date = (hdu.header["DATE"][0:10]).replace("-","")
-        else:
-            self.date = "multidate"
+        elif date1[0:6] == date2[0:6]: # if same month and year
+                self.date = date1[0:6] 
+        elif date1[0:4] == date2[0:4]: # same year
+            self.date  = date1[0:4]
+        else:            
+            self.date = "multiyear"
             RawData.__dates_init(self) 
             
         # MJD at start of observations for first file in directory
@@ -475,14 +479,17 @@ class RawData:
                 run("mv "+l+"/"+f+" "+solved_dir, shell=True)
             else:
                 unsolved.append(f.replace("_solved.fits", ".fits"))
+                
+        print("\nSolved images from "+self.instrument+" on "+self.date)
+        print("Written to new .fits files in "+solved_dir)
         
         # save a text file w list of unsolved files, if necessary
         if len(unsolved) != 0:
             np.savetxt(solved_dir+"/unsolved.txt", unsolved, fmt="%s")
-            print("The following files could not be solved:")
+            print("\nThe following files could not be solved:")
             for f in unsolved:
                 print(f)
-            print("They have been written to a file "+solved_dir+
+            print("\nThese filenames have been written to a file "+solved_dir+
                   "/unsolved.txt")
             
         os.chdir(script_dir)
@@ -667,7 +674,7 @@ class RawData:
                     break # exit this for loop
                     
         print("Extracted headers/images for detectors which contain "+
-              "RA %.3f, Dec %.3f"%(ra,dec)+" for all data from "+
+              "RA %.3f, Dec %.3f"%(ra,dec)+" for data from "+
               self.instrument+" on "+self.date)
         print("Written to new .fits files in "+wcs_exten_dir)
 
@@ -1328,9 +1335,6 @@ class Stack(RawData):
         # build a new fits file: 
         solve_options += " --new-fits "+self.stack_name.replace(
                 ".fits", "_updated.fits")
-        # stop when this file is produced:
-        solve_options += " --cancel "+self.stack_name.replace(
-                ".fits", "_updated.fits")
         if downsample: # if a downsampling fraction is given
             solve_options += " --downsample "+str(downsample)
             
@@ -1345,6 +1349,10 @@ class Stack(RawData):
         solve_options += " --scale-units app"
         solve_options += " --ra "+str(ra)+" --dec "+str(dec)
         solve_options += " --radius "+str(radius)
+        
+        # stop when this file is produced:
+        solve_options += " --cancel "+self.stack_name.replace(
+                ".fits", "_updated.fits")
         
         # solve the field: 
         run("solve-field "+solve_options+" "+self.stack_name, shell=True)
