@@ -28,7 +28,8 @@ from astropy.visualization import simple_norm
 from photutils import Background2D, MMMBackground
 
 class RawData:
-    def __init__(self, location, stack_directory=None, qso_grade_limit=None):
+    def __init__(self, location, stack_directory=None, qso_grade_limit=None,
+                 fmt="fits"):
         """
         Input: location of the raw data, directory to store potential stacks 
         (optional; not needed if no intention to stack), and the limit on the 
@@ -41,8 +42,9 @@ class RawData:
         self.loc = location # location of data
         self.files = (os.listdir(self.loc)) # all files
         (self.files).sort()
-        self.files = [f for f in self.files if ("fits" in f)] # fits only
+        self.files = [f for f in self.files if fmt in f] # fits only
         self.stack_dir = stack_directory # location of stacks to be produced
+        self.fmt = fmt
         
         # remove / from end of location/stack_dir if necessary
         if self.loc[-1] == "/":
@@ -424,7 +426,7 @@ class RawData:
             box = dict(boxstyle="square", facecolor="white", alpha=0.8)
             box_y = adu_min + 0.85*(adu_max-adu_min)
             txt = obs_date+"\n"+f+"\n"+filt 
-            output_fig = f.replace(".fits", 
+            output_fig = f.replace("."+self.fmt, 
                                    "_prof_RA%.3f_DEC%.3f."%(ra, dec)+
                                    self.plot_ext)
             plt.text(3, box_y, s=txt, bbox=box,fontsize=14)
@@ -453,19 +455,30 @@ class RawData:
         
         for f in self.files: # astrometry on each file 
             options = "--no-verify --overwrite --no-plot --fits-image"
-            options += " --new-fits "+f.replace(".fits","_solved.fits")
+            options += " --new-fits "+f.replace("."+self.fmt,"_solved.fits")
             options += " --scale-low "+str(pixmin)
             options += " --scale-high "+str(pixmax)
             options += " --scale-units app"
             options += " --ra "+str(ra)+" --dec "+str(dec)
             options += " --radius "+str(radius)
-            options += " --cancel "+f.replace(".fits","_solved.fits")
+            options += " --cancel "+f.replace("."+self.fmt,"_solved.fits")
             
             # run astrometry 
             run("solve-field "+options+" "+f, shell=True)
-            # get rid of all non-fits files
-            run("find . -type f ! -name '*.fits' -delete", shell=True)
+            # get rid of all non-self.fmt files 
+#            run("find . -type f ! -name '*."+self.fmt+" *.fits' -delete", 
+#                shell=True)
         
+        # get rid of unneeded files
+        run("rm *.axy", shell=True)
+        run("rm *.corr", shell=True)
+        run("rm *.match", shell=True)
+        run("rm *.rdls", shell=True)
+        run("rm *.solved", shell=True)
+        run("rm *.xyls", shell=True)
+        run("rm *.wcs", shell=True)
+            
+
         # make a list of solved files, move them to a new directory, 
         # and make a list of unsolved files 
         topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
@@ -473,12 +486,12 @@ class RawData:
         run("mkdir "+solved_dir, shell=True)
         
         unsolved = []
-        files = [f.replace(".fits","_solved.fits") for f in self.files]
+        files = [f.replace("."+self.fmt,"_solved.fits") for f in self.files]
         for f in files: 
             if os.path.exists(l+"/"+f):
                 run("mv "+l+"/"+f+" "+solved_dir, shell=True)
             else:
-                unsolved.append(f.replace("_solved.fits", ".fits"))
+                unsolved.append(f.replace("_solved.fits", "."+self.fmt))
                 
         print("\nSolved images from "+self.instrument+" on "+self.date)
         print("Written to new .fits files in "+solved_dir)
@@ -976,11 +989,11 @@ class RawData:
             bp_img = bp_mask.filled() # 1 at good pix, 0 at bad pix 
             
             bp = fits.PrimaryHDU(bp_img, image_hdr)
-            bp.writeto(self.bp_dir+"/"+f.replace(".fits", "_bp_mask.fits"), 
+            bp.writeto(self.bp_dir+"/"+f.replace("."+self.fmt, "_bp_mask.fits"), 
                        overwrite=True, output_verify="ignore")
             # set the bad pixel mask
             hdu = fits.open(l+"/"+f, mode="update") 
-            hdu[0].header["BPM"] =  f.replace(".fits", "_bp_mask.fits")
+            hdu[0].header["BPM"] =  f.replace("."+self.fmt, "_bp_mask.fits")
             hdu.close(output_verify="ignore")
             
 
@@ -997,13 +1010,14 @@ class RawData:
             print("\nPlease set a stack directory using set_stack_dir() "+
                   "before attempting to stack images. Exiting.\n")
             return 
-        # get rid of astrom_photom if it exists:
+        # get rid of calibration file if it exists:
         run('rm -rf '+sd+'/calibration', shell=True) 
         
-        # get rid of previous .fits files and .txt files
+        # get rid of previous .fits, .flt and .txt files
         # need to use glob to use wildcards (*):
         textfiles = glob.glob(sd+"/*.txt")
         fitsfiles = glob.glob(sd+"/*.fits*")
+        fitsfiles = glob.glob(sd+"/*.flt*")
         allfiles = textfiles + fitsfiles
         for a in allfiles:
             os.remove(a)
@@ -1025,8 +1039,8 @@ class RawData:
         self.bp_dir = os.path.abspath(l+"/..")+"/badpixels_"+topfile
 
         # copy fits files
-        run("cp "+self.loc+"/*.fits "+self.stack_dir, shell=True)
-        run("cp "+self.bp_dir+"/*.fits "+self.stack_dir, shell=True)
+        run("cp -f "+self.loc+"/*."+self.fmt+" "+self.stack_dir, shell=True)
+        run("cp -f "+self.bp_dir+"/*.fits "+self.stack_dir, shell=True)
         run('chmod 777 '+sd+'/*', shell=True) # give full perms
         
         return True
@@ -1100,14 +1114,16 @@ class RawData:
         Input: a filter of choice
         Output: a Stack object
         """
-        return Stack(self.loc, self.stack_dir, self.qso_grade_limit, filt)
+        return Stack(self.loc, self.stack_dir, self.qso_grade_limit, 
+                     self.fmt, filt)
         
 ###############################################################################
     #### STACKS, MAKING IMAGES & ASTROMETRY ####
 
 class Stack(RawData):
-    def __init__(self, location, stack_directory, qso_grade_limit, filt):
-        super(Stack, self).__init__(location, stack_directory, qso_grade_limit)
+    def __init__(self, location, stack_directory, qso_grade_limit, fmt, filt):
+        super(Stack, self).__init__(location, stack_directory, 
+             qso_grade_limit, fmt)
                 
         # only one filter is spanned by a given stack
         self.files = self.filters_dict[filt]
@@ -1202,8 +1218,8 @@ class Stack(RawData):
         default False), whether to show detected sources (optional; default 
         False), right ascension and declination to mark a specific location 
         (optional; default None), a scale to apply to the image (optional; 
-        default None; e.g. "log") and a name for the image file (optional;
-        default None) 
+        default None=linear; options are "log" and "asinh") and a name for the 
+        image file (optional; default None) 
         Produces and saves an an image of the stacked file.
         Output: None
         """
@@ -1308,6 +1324,14 @@ class Stack(RawData):
             cb = plt.colorbar(orientation='vertical', fraction=0.046, pad=0.08) 
             cb.set_label(label=r"$\log(ADU)$", fontsize=16)
             
+        elif scale == "asinh": # asinh scale
+            image_data = np.arcsinh(image_data)
+            asinhnorm = simple_norm(image_data, "asinh")
+            plt.imshow(image_data, cmap="magma", aspect=1, norm=asinhnorm,
+                       interpolation="nearest", origin="lower")
+            cb = plt.colorbar(orientation="vertical", fraction=0.046, pad=0.08)
+            cb.set_label(label=r"$\arcsinh{(ADU)}$", fontsize=16)
+            
         plt.xlabel("RA (J2000)", fontsize=16)
         plt.ylabel("Dec (J2000)", fontsize=16)
         plt.savefig(output, bbox_inches="tight")
@@ -1317,7 +1341,8 @@ class Stack(RawData):
         """
         Input: a downsampling factor (optional; default None)
         Performs source extraction using astrometry.net. Refines the 
-        astrometric solution and THEN does extraction if update_wcs
+        astrometric solution and THEN does extraction to create a list of 
+        sources
         Output: 
         """
         start = timer() # timing the function
@@ -1360,6 +1385,16 @@ class Stack(RawData):
         self.stack_name = self.stack_name.replace(".fits", "_updated.fits")
         run("find . -type f -not -name '*updat*' -print0 | xargs -0 rm --",
             shell=True) # remove all files not in format *updat*
+        
+        # check if any files are present (i.e. if astrometry solved) and exit 
+        # if not 
+        updats = os.listdir()
+        if len(updats) == 0:
+            os.chdir(script_dir)
+            print("The WCS solution could not be obtained. This likely means"+
+                  " that the required index files or missing or data is of"+
+                  " poor quality. Exiting.")
+            return
 
         # print confirmation 
         print("The WCS solution has been updated for the stack image.")
@@ -1395,12 +1430,13 @@ class Stack(RawData):
 ###############################################################################
     #### PSF PHOTOMETRY ####
 
-    def __fit_PSF(self, plot_ePSF=True, plot_residuals=True, source_lim=None):
+    def __fit_PSF(self, plot_ePSF=True, plot_residuals=False, source_lim=None):
         """
-        Input: optional bools (both default True) indicating whether to plot
-        the empirically determined effective Point-Spread Function (ePSF) 
-        and/or the residuals of the PSF fitting process and a limit on the 
-        no. of sources to fit with the ePSF (optional; default no limit)
+        Input: bool indicating whether to plot the empirically determined 
+        effective Point-Spread Function (ePSF) (optional; default True)
+        whether to plot the residuals of the iterative PSF fitting (optional;
+        default False) and a limit on the no. of sources to fit with the ePSF 
+        (optional; default no limit)
         
         Uses the cleaned (smoothed, background-subtracted) image to obtain 
         the ePSF and fits this function to all of the sources previously
@@ -1410,9 +1446,10 @@ class Stack(RawData):
         
         Output: None
         """
+        
         if not(self.astrometric_calib):
             print("\nPSF photometry cannot be obtained because astrometric "+
-                  "calibration has not yet been performed.")
+                  "calibration has not yet been performed. Exiting.")
             return
         
         from astropy.modeling.fitting import LevMarLSQFitter
@@ -1632,14 +1669,14 @@ class Stack(RawData):
         
         
     def __zero_point(self, plot_corr=True, plot_source_offsets=True, 
-                     plot_field_offsets=True, gaussian_blur_sigma=30.0, 
+                     plot_field_offsets=False, gaussian_blur_sigma=30.0, 
                      cat_num=None):
         """
         Input: a bool indicating whether or not to plot the correlation with 
-        linear fit(optional; default True), whether to plot the offsets in 
+        linear fit (optional; default True), whether to plot the offsets in 
         RA and Dec of each catalog-matched source (optional; default True), 
         whether to show the overall offsets as an image with a Gaussian blur 
-        to visualize large-scale structure (optional; default True), the 
+        to visualize large-scale structure (optional; default False), the 
         sigma to apply to the Gaussian filter (optional; default 30.0), and 
         a Vizier catalog number to choose which catalog to cross-match 
         (optional; defaults are PanStarrs 1, SDSS DR12, and 2MASS for relevant 
@@ -1663,8 +1700,8 @@ class Stack(RawData):
         else:  
             if self.filter in ['g','r','i','z','Y']:
                 zp_filter = (self.filter).lower() # lowercase needed for PS1
-                self.ref_cat = "II/349/ps1"
-                self.ref_cat_name = "PS1" # PanStarrs 1
+                self.ref_cat = "II/349/ps1" # PanStarrs 1
+                self.ref_cat_name = "PS1" 
             elif self.filter == 'u':
                 zp_filter = 'u' # closest option right now 
                 self.ref_cat = "V/147" 
@@ -1742,7 +1779,8 @@ class Stack(RawData):
         
         self.nmatches = len(idx_image) # store number of matches 
         self.sep_mean = np.mean(d2d.value*3600.0) # store mean separation in "
-        print('\nFound %d sources in %s within 2.0 pix of'%(self.nmatches, self.ref_cat_name)+
+        print('\nFound %d sources in %s within 2.0 pix of'%(self.nmatches, 
+                                                            self.ref_cat_name)+
               ' sources detected by astrometry, with average separation '+
               '%.3f" '%self.sep_mean)
         
@@ -1884,7 +1922,7 @@ class Stack(RawData):
                 in_cat.append(True)
             else:
                 in_cat.append(False)
-        in_cat_col = Column(data=in_cat, name="in_"+self.ref_cat_name)
+        in_cat_col = Column(data=in_cat, name="in_catalog")
         self.psf_sources["in "+self.ref_cat_name] = in_cat_col
         
         # add new columns 
@@ -1908,8 +1946,8 @@ class Stack(RawData):
         self.photometric_calib = True
         
         
-    def PSF_photometry(self, plot_ePSF=True, plot_resid=True, plot_corr=True,
-                       plot_source_offsets=True, plot_field_offsets=True, 
+    def PSF_photometry(self, plot_ePSF=True, plot_resid=False, plot_corr=True,
+                       plot_source_offsets=True, plot_field_offsets=False, 
                        source_lim=None, gaussian_blur_sigma=30.0, 
                        cat_num=None):
         """
@@ -1918,11 +1956,11 @@ class Stack(RawData):
         magnitudes for sources in the field, a scatter plot of the offsets 
         in RA and Dec of each source from the relevant catalog and/or a blurred
         image showing any possible structure in the offsets in the field (all
-        optional; default True), a limit on the number of sources to fit 
-        (optional; default no limit), a sigma to use when applying a Gaussian 
-        blur to the field offsets image (optional; default 30.0), and a catalog 
-        to query for comparison sources (optional, defaults are set if None is 
-        given)
+        optional), a limit on the number of sources to fit (optional; default 
+        no limit), a sigma to use when applying a Gaussian blur to the field 
+        offsets image (optional; default 30.0, only used if 
+        plot_field_offsets=True), and a catalog to query for comparison sources 
+        (optional, defaults are set if None is given)
         
         Uses the stars in the field with fluxes within the 80th and 90th 
         percentile to develop an empirical ePSF, fits this ePSF to all of the 
@@ -1933,17 +1971,17 @@ class Stack(RawData):
         Output: None 
         """
         Stack.__fit_PSF(self, plot_ePSF, plot_resid, source_lim)
-        zp_success = Stack.__zero_point(self, plot_corr, plot_source_offsets, 
-                                        plot_field_offsets,gaussian_blur_sigma, 
-                                        cat_num)
         
-        if zp_success: # if matches were found by Vizier 
-            self.photometric_calib = True
+        if self.psf_fit: # if the PSF Was properly fit 
+            Stack.__zero_point(self, plot_corr, plot_source_offsets, 
+                               plot_field_offsets,
+                                            gaussian_blur_sigma, 
+                                            cat_num)
         
         
     def write_PSF_photometry(self, plot_ePSF=True, plot_resid=True, 
                              plot_corr=True, plot_source_offsets=True, 
-                             plot_field_offsets=True, source_lim=None, 
+                             plot_field_offsets=False, source_lim=None, 
                              gaussian_blur_sigma=30.0, cat_num=None, 
                              output=None):
         """
@@ -1960,44 +1998,57 @@ class Stack(RawData):
             Stack.PSF_photometry(self, plot_ePSF, plot_resid, plot_corr, 
                                  plot_source_offsets, plot_field_offsets, 
                                  source_lim, gaussian_blur_sigma, cat_num)
+        
+        if self.photometric_calib: # if successful
+            to_write = self.psf_sources 
             
-        to_write = self.psf_sources 
+            if not(output): # if no name given
+                output = self.stack_name.replace("_updated.fits", 
+                                                      "_PSF_photometry.fits")
+            to_write.write(output, overwrite=True)
+        else: 
+            print("\nPhotometry failed, so no file was written. Exiting.")
         
-        if not(output): # if no name given
-            output = self.stack_name.replace("_updated.fits", 
-                                                  "_PSF_photometry.fits")
-        to_write.write(output, overwrite=True)
         
-        
-    def adjust_astrometry(self):
+    def adjust_astrometry(self, ra=None, dec=None):
         """
-        Input: None
+        Input: for manual adjustment, the RA and Dec by which to adjust the 
+        reference pixel (optional; default None, which calls automatic 
+        adjustment based on the offsets computed during PSF photometry)
+        
         If PSF photometry has been completed, then the average offset in RA, 
         Dec between the astrometric solution and the coorinates of the 
         relevent catalog is known and can be used to adjust the astrometric 
-        solution of the image. PSF photometry can then be performed again. 
+        solution of the image. PSF photometry should then be re-done. 
+        
         Output: None
         """
-        if not(self.photometric_calib):
-            print("\nCannot adjust astrometry for the offset from the "+
-                  "relevant catalog because PSF_photometry has not yet been "+
-                  "called. Please use this function first. Exiting.")
-            return
+
         # move to calibration directory 
         script_dir = os.getcwd()
         os.chdir(self.calib_dir)
         
         # update the main stack file 
         f = fits.open(self.stack_name, mode="update")
-        f[0].header["CRVAL1"] -= self.ra_offsets_mean/3600.0
-        f[0].header["CRVAL2"] -= self.dec_offsets_mean/3600.0
+        if not(ra) and not(dec): # if no RA, Dec given, automatic adjustment
+            if not(self.photometric_calib):
+                print("\nCannot adjust astrometry for the offset from the "+
+                  "relevant catalog because PSF_photometry has not yet been "+
+                  "called. Please use this function first. Exiting.")
+                return
+            print("\nThe astrometry of "+self.stack_name+" has been updated "+
+                  "according to the offsets computed in PSF_photometry. These "
+                  'offsets are: \nRA_offset = %.4f" \nDec_offset = %.4f" '%
+                  (self.ra_offsets_mean, self.dec_offsets_mean))
+            f[0].header["CRVAL1"] -= self.ra_offsets_mean/3600.0
+            f[0].header["CRVAL2"] -= self.dec_offsets_mean/3600.0
+        else: # if RA, Dec given, manual adjustment
+            f[0].header["CRVAL1"] -= ra
+            f[0].header["CRVAL2"] -= dec
         f.close()
         self.image_header = fits.getheader(self.stack_name)
         
-        print("\nThe astrometry of "+self.stack_name+" has been updated "+
-              "according to the offsets computed in PSF_photometry. These "
-              'offsets are: \nRA_offset = %.4f" \nDec_offset = %.4f" '%
-              (self.ra_offsets_mean, self.dec_offsets_mean))
+
         # separations are now approx. 0, can be computed again by running
         # PSF_photometry once more 
         self.sep_mean = 0.0  
@@ -2091,7 +2142,7 @@ class Stack(RawData):
                 phot_table['aperture_sum']-phot_table['aper_bkg'])
         
         if (phot_table['aper_sum_bkgsub'] < 0) and bkgsub_verify:
-            print("Warning: the background subtracted flux at this aperture "+
+            print("Warning: the background-subtracted flux at this aperture "+
                   "is negative. It cannot be used to compute a magnitude. "+
                   "Consider using a different radius for the aperture/annuli "+
                   "and make sure that no sources remain in the annulus. "+
