@@ -461,7 +461,13 @@ Valid options are ``png``, ``pdf``, ``bmp``, and ``jpg``.
 
      >>> j_stack.adjust_astrometry()
      
-One can then re-do PSF photometry. In practice, almost nothing is gained, as the solution obtained by ``astrometry.net`` is already quite accurate. 
+One can then re-do PSF photometry. In practice, almost nothing is gained, as the solution obtained by ``astrometry.net`` is already quite accurate. If the RA and Dec offset are known (say, by inspecting the images in DS9), they can be provided directly (in degrees):
+
+.. code-block:: python
+
+     >>> j_stack.adjust_astrometry(deltara=0.005, deltadec=-0.0001)
+     
+These offsets will then be **subtracted** from the RA, Dec of the stack. 
 
 **NOTE:** The catalogues used to match sources during PSF photometry are the Sloan Digital Sky Survey Data Release 12 (SDSS DR12) for the `u` band, PanStarrs 1 (PS1) for `grizy`, and 2MASS for `JHKs`. 2MASS is an all-sky survey and PS1 is carried out from Hawaii, so it is not an issue to match sources for the `grizy` and `JHKs` bands. However, SDSS is based in New Mexico, so it is possible that a source observed by CFHT is simply nowhere near the regions of the sky observed by SDSS. 
 
