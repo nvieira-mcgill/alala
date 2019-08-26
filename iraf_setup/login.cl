@@ -31,7 +31,7 @@ stty xterm
 #set	cmbuflen	= 512000
 #set	min_lenuserarea	= 64000
 set	imtype		= "fits"
-set	imextn		= "oif:imh fxf:fits,fit fxb:fxb plf:pl qpf:qp stf:hhh,??h"
+set	imextn		= "oif:imh fxf:fits,fit,flt fxb:fxb plf:pl qpf:qp stf:hhh,??h"
 
 
 # XIMTOOL/DISPLAY stuff.  Set node to the name of your workstation to
