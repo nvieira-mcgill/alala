@@ -213,12 +213,15 @@ class LightCurve:
         self.__exist_limiting_mags = True
         
         
-    def plot(self, *filters, output="lightcurve.png", title=None):
+    def plot(self, *filters, output="lightcurve.png", title=None, 
+             tmerger=None):
         """
         Input: a filter/filters of choice to plot the lightcurve for only these 
         filters (optional; default is to plot for all filters), a name for 
-        the file to be saved (optional; default lightcurve.png), and a title 
-        for the plot (optional; default no title)
+        the file to be saved (optional; default lightcurve.png), a title 
+        for the plot (optional; default no title), and a value in MJD for the 
+        time of merger in question to plot time elapsed since the merger 
+        (optional; default None, which plots MJD)
         Output: None
         """
         plt.switch_backend("Qt5agg")
@@ -230,7 +233,10 @@ class LightCurve:
                 mask += sources["filter"] == filt
             sources = sources[mask]
         
-        t = sources["MJD"].data
+        if tmerger:
+            t = [tim - tmerger for tim in sources["MJD"].data]
+        else:
+            t = sources["MJD"].data
         mag = sources["mag_calib"].data
         mag_err = sources["mag_calib_unc"].data
         
@@ -244,7 +250,10 @@ class LightCurve:
             
         if self.__exist_limiting_mags: # plot limiting mags if given
             lims = self.limiting_mags
-            t = lims["MJD"].data
+            if tmerger:
+                t = [tim - tmerger for tim in lims["MJD"].data]
+            else:
+                t = lims
             mag = lims["mag"].data
             
             for i in range(len(lims)):
@@ -265,14 +274,18 @@ class LightCurve:
                   fancybox=True)
         
         if title:  # set a title if one is given
-            plt.title(title, fontsize=16)     
-        plt.xlabel("MJD", fontsize=16)
+            plt.title(title, fontsize=16)
+        if tmerger:
+            plt.xlabel(r"$\Delta T_{merger}$"+" [MJD]", fontsize=16)
+        else:
+            plt.xlabel("MJD", fontsize=16)
         plt.ylabel("Magnitude", fontsize=16)
         plt.rcParams["xtick.labelsize"] = 14
         plt.rcParams["ytick.labelsize"] = 14
         plt.gca().invert_yaxis() # invert so brighter stars higher up
         plt.gca().xaxis.set_ticks_position("both") # ticks on both sides
         plt.gca().yaxis.set_ticks_position("both")
+        plt.grid()
         
         plt.savefig(output, bbox_inches="tight")
         plt.show() 
