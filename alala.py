@@ -5,6 +5,20 @@ Created on Thu May 9 11:08:26 2019
 @author: Nicholas Vieira
 @alala.py
 
+SECTIONS:
+    - RawData class and basic functions
+        - Image diagnostics + pre-solving before stacking
+        - Locating coordinates among raw data + writing extensions 
+        - Combining/divding (WIRCam) cubes
+        - Cropping images
+        - Stacking and stack preparation (bad pixel masks)
+        
+    - Stack class, making images, and astrometry
+        - PSF photometry
+        - Aperture photometry
+        - PSF/aperture photometry comparison
+        - Source selection
+
 """
 import os
 import glob
@@ -27,6 +41,9 @@ from astropy.stats import gaussian_sigma_to_fwhm, sigma_clipped_stats
 from astropy.visualization import simple_norm
 from photutils import Background2D, MMMBackground
 
+###############################################################################
+    ### RawData CLASS AND BASIC FUNCTIONS ###
+
 class RawData:
     def __init__(self, location, stack_directory=None, qso_grade_limit=None,
                  fmt="fits"):
@@ -35,8 +52,10 @@ class RawData:
         (optional; not needed if no intention to stack), and the limit on the 
         QSO grade for the observations (optional; default is to apply no limit 
         where 1=good and 5=unusable, so that no data is ignored unless 
-        explicitly desired by the user)
+        explicitly desired by the user; only relevant for WIRCam)
+        
         Initializes a raw data object for CFHT WIRCam or MegaPrime data.
+        
         Output: a RawData object
         """
         self.loc = location # location of data
@@ -93,9 +112,9 @@ class RawData:
             self.date  = date1[0:4]
         else:            
             self.date = "multiyear"
-            RawData.__dates_init(self) 
+        RawData.__dates_init(self) 
             
-        # MJD at start of observations for first file in directory
+        # MJD at start of observations for *first* file in directory
         self.mjdate = (fits.open(
                 self.loc+"/"+self.files[0])[0]).header["MJDATE"]
         
@@ -166,10 +185,10 @@ class RawData:
         Output: None
         """
         l = self.loc 
-        filter_keys = self.filters # keys for a dictionary to be produced
 
         # assume all extensions have same filter for a given file
         if "WIRCam" in self.instrument:  # if WIRCam data
+            self.Y, self.J, self.H, self.Ks = [], [], [], []
             for f in self.files:
                 hdu_temp = fits.open(l+"/"+f)
                 hdu = hdu_temp[0]
@@ -182,10 +201,13 @@ class RawData:
                 elif 'Ks' in hdu.header["FILTER"]:
                     self.Ks.append(f)
                 hdu_temp.close()
-                    
+                
+            self.filters = ["Y", "J", "H", "Ks"]        
             filter_vals = [self.Y, self.J, self.H, self.Ks]
                     
         else: # if MegaPrime data
+            self.u, self.g, self.r, self.i, self.z = [], [], [], [], []
+            self.uS, self.gS, self.rS, self.iS, self.zS = [], [], [], [], []
             for f in self.files:
                 hdu_temp = fits.open(l+"/"+f)
                 hdu = fits.open(l+"/"+f)[0]
@@ -212,11 +234,15 @@ class RawData:
                 hdu_temp.close()
             
             if self.mjdate > 57023: # if after 1 January 2015
+                self.filters = ["u", "g", "r", "i", "z", 
+                                "uS", "gS", "rS", "iS", "zS"]
                 filter_vals = [self.u, self.g, self.r, self.i, self.z, 
                                self.uS, self.gS, self.rS, self.iS, self.zS]
             else: 
+                self.filters = ["u", "g", "r", "i", "z"]
                 filter_vals = [self.u, self.g, self.r, self.i, self.z]
-            
+                
+        filter_keys = self.filters # keys for a dictionary to be produced   
         self.filters_dict = dict(zip(filter_keys, filter_vals))
         
         # get rid of unecessary filters in the dict/list
@@ -244,6 +270,7 @@ class RawData:
             hdu_temp = fits.open(l+"/"+f)
             hdu = hdu_temp[0]
             date = (hdu.header["DATE"][0:10]).replace("-","")
+            hdu_temp.close()
             if not (date in(self.dates)):
                 self.dates.append(date) # add to list
                 self.dates_dict[date] = [] # add to dict
@@ -273,10 +300,127 @@ class RawData:
         
         if self.stack_dir[-1] == "/": # get rid of / at end if needed 
             self.stack_dir = self.stack_dir[:-1]
+
+        
+    def exclude_date(self, date):
+        """
+        Input: a date in the format "YYYYMMDD", "YYYYMM", or "YYYY"
+        Removes all raw data from the RawData object which was acquired on the
+        input date.
+        Output: None
+        
+        * Does not update the self.date attribute. This should be added in the 
+        future.
+        """
+        l = self.loc
+        all_files = self.files # make a copy 
+        self.files = []
+        for f in all_files: # get data for every file 
+            hdu_temp = fits.open(l+"/"+f)
+            hdu = hdu_temp[0]
+            d = (hdu.header["DATE"][0:10]).replace("-","")
+            hdu_temp.close()
+            
+            if not(date in d): # if file is NOT from the input date 
+                self.files.append(f)
+        
+        RawData.__dates_init(self) # rebuild list/dict of dates
+        RawData.__filter_init(self) # rebuild list/dict of filters
+        
+        if len(self.files) == 0:
+            print("Warning: after this operation, the RawData object has no "+
+                  "remaining data.") 
+
+    
+    def exclude_object(self, obj):
+        """
+        Input: an object which was the target of given observations 
+        Removes all raw data from the RawData object which was aimed at the 
+        given object or pointing.
+        Output: None
+        """
+        l = self.loc
+        all_files = self.files # make a copy 
+        self.files = []
+        for f in all_files: # get data for every file 
+            hdu_temp = fits.open(l+"/"+f)
+            hdu = hdu_temp[0]
+            o = hdu.header["OBJECT"]
+            hdu_temp.close()
+            
+            if not(obj in o): # if file is NOT of the input pointing 
+                self.files.append(f)
+        
+        RawData.__dates_init(self) # rebuild list/dict of dates
+        RawData.__filter_init(self) # rebuild list/dict of filters
+        
+        if len(self.files) == 0:
+            print("Warning: after this operation, the RawData object has no "+
+                  "remaining data.") 
+
+    
+    def only_date(self, date):
+        """
+        Input: a date in the format "YYYYMMDD", "YYYYMM", or "YYYY"
+        Removes all raw data from the RawData object which was ***NOT*** 
+        acquired on the input date.
+        Output: None
+        """ 
+        self.files = []
+        for d in self.dates: # look at all dates 
+            if date in d: # if input date is in the list of dates 
+                self.files.append(self.dates_dict[d])
+        
+        RawData.__dates_init(self) # rebuild list/dict of dates
+        RawData.__filter_init(self) # rebuild list/dict of filters
+
+        if len(self.files) == 0:
+            print("Warning: "+date+" was not spanned by any of the raw data "+
+                  "files. After this operation, the RawData object has no "+
+                  "remaining data.")
+        else:
+            self.date = date # update the date 
+
+    
+    def only_object(self, obj):
+        """
+        Input: an object which was the target of given observations 
+        Removes all raw data from the RawData object which was ***NOT*** 
+        aimed at the given object or pointing.
+        Output: None
+        """
+        l = self.loc
+        all_files = self.files # make a copy 
+        self.files = []
+        for f in all_files: # get data for every file 
+            hdu_temp = fits.open(l+"/"+f)
+            hdu = hdu_temp[0]
+            o = hdu.header["OBJECT"]
+            hdu_temp.close()
+            
+            if obj in o: # if file IS of the input pointing 
+                self.files.append(f)
+        
+        RawData.__dates_init(self) # rebuild list/dict of dates
+        RawData.__filter_init(self) # rebuild list/dict of filters
+
+        if len(self.files) == 0:
+            print("Warning: "+obj+" was not targeted in any of the raw data "+
+                  "files. After this operation, the RawData object has no "+
+                  "remaining data.")
+        
+        
+    def make_copy(self):
+        """
+        Input: None
+        Produces a copy of the object.
+        Output: None
+        """
+        pass
             
 ###############################################################################
     #### IMAGE DIAGNOSTICS #### 
-            
+    
     def print_headers(self, ext, *headers):
         """
         Input: file extension of interest and the header(s) of interest  
@@ -377,7 +521,7 @@ class RawData:
         topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
         plots_dir = os.path.abspath(l+"/..")
         plots_dir +="/profs_RA%.3f_DEC%.3f_"%(ra, dec)+topfile
-        run("mkdir "+plots_dir, shell=True)
+        run("mkdir -p "+plots_dir, shell=True)
         
         if not solved: # if astrometry hasn't been done yet
             solved_dir = os.path.abspath(l+"/..")+"/solved_"+topfile
@@ -431,14 +575,20 @@ class RawData:
                                    self.plot_ext)
             plt.text(3, box_y, s=txt, bbox=box,fontsize=14)
             plt.savefig(plots_dir+"/"+output_fig)
+            plt.close()
 
 
-    def solve_all(self):
+    def solve_all(self, depth=None):
         """
-        Input: None
+        Input: the number of stars to use in solving (optional; default no 
+        limit)
+        e.g. depth=100 will only use the 100 brightest stars
+        
         Using astrometry.net, solve all files, and put them in a new 
-        directory. Not necessary unless you wish to plot the radial PSFs of 
-        raw data images. 
+        directory. This is necessary when the astrometric solution obtained by 
+        CFHT is inaccurate and requires refining, or if you wish to plot the 
+        radial PSFs of some point in the raw data images. 
+        
         Output: None
         """
         l = self.loc
@@ -446,16 +596,23 @@ class RawData:
         os.chdir(l)
         
         image_header = fits.getheader(l+"/"+self.files[0])
-        pixscale = image_header["PIXSCAL1"]
-        pixmin = pixscale-0.05
-        pixmax = pixscale+0.05
-        ra = image_header["CRVAL1"] # rough RA
-        dec = image_header["CRVAL2"] # rough Dec
-        radius = 1.0 # look in a radius of 1 degree
+        image_data = fits.getdata(l+"/"+self.files[0])
+  
+        pixscale = image_header["PIXSCAL1"] # pixel scale
+        pixmin = pixscale-0.001
+        pixmax = pixscale+0.001
+
+        cent = [i//2 for i in image_data.shape]
+        centy, centx = cent
+        w = wcs.WCS(image_header)
+        ra, dec = w.all_pix2world(centx, centy, 1) 
+        radius = 1.0/6.0 # look in a radius of 10 arcmin
         
         for f in self.files: # astrometry on each file 
             options = "--no-verify --overwrite --no-plot --fits-image"
             options += " --new-fits "+f.replace("."+self.fmt,"_solved.fits")
+            
+            # options to speed up astrometry: pixscale and rough, RA, Dec
             options += " --scale-low "+str(pixmin)
             options += " --scale-high "+str(pixmax)
             options += " --scale-units app"
@@ -463,11 +620,13 @@ class RawData:
             options += " --radius "+str(radius)
             options += " --cancel "+f.replace("."+self.fmt,"_solved.fits")
             
+            if type(depth) in [float, int]:
+                options += " --depth "+str(int(depth))
+            elif depth:
+                options += " --depth "+depth
+            
             # run astrometry 
             run("solve-field "+options+" "+f, shell=True)
-            # get rid of all non-self.fmt files 
-#            run("find . -type f ! -name '*."+self.fmt+" *.fits' -delete", 
-#                shell=True)
         
         # get rid of unneeded files
         run("rm *.axy", shell=True)
@@ -476,46 +635,118 @@ class RawData:
         run("rm *.rdls", shell=True)
         run("rm *.solved", shell=True)
         run("rm *.xyls", shell=True)
-        run("rm *.wcs", shell=True)
-            
+        run("rm *.wcs", shell=True)           
 
         # make a list of solved files, move them to a new directory, 
         # and make a list of unsolved files 
         topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
         solved_dir = os.path.abspath(l+"/..")+"/solved_"+topfile
-        run("mkdir "+solved_dir, shell=True)
+        run("mkdir -p "+solved_dir, shell=True)
+        run("rm -f "+solved_dir+"/*.fits", shell=True) # empty existing dir
+        run("rm -f "+solved_dir+"/*.txt", shell=True) # empty existing dir
         
+        solved = []
         unsolved = []
         files = [f.replace("."+self.fmt,"_solved.fits") for f in self.files]
         for f in files: 
             if os.path.exists(l+"/"+f):
+                solved.append(f.replace("_solved.fits", "."+self.fmt))
                 run("mv "+l+"/"+f+" "+solved_dir, shell=True)
             else:
                 unsolved.append(f.replace("_solved.fits", "."+self.fmt))
-                
-        print("\nSolved images from "+self.instrument+" on "+self.date)
-        print("Written to new .fits files in "+solved_dir)
         
         # save a text file w list of unsolved files, if necessary
         if len(unsolved) != 0:
             np.savetxt(solved_dir+"/unsolved.txt", unsolved, fmt="%s")
-            print("\nThe following files could not be solved:")
+            print("\nThe following images could not be solved:")
             for f in unsolved:
                 print(f)
-            print("\nThese filenames have been written to a file "+solved_dir+
+            print("\nThese filenames have been recorded in a file "+solved_dir+
                   "/unsolved.txt")
+        
+        if len(solved) != 0:
+            print("\nSolved the following images from "+self.instrument+" on "+
+                  self.date+":")
+            for f in solved:
+                print(f)
+        print("\nThese have been written to new solved .fits files in "+
+              solved_dir)
             
         os.chdir(script_dir)
              
 ###############################################################################
     #### WCS LOCATING & EXTENSION WRITING ####
-    
-    def locate_WCS(self, ra, dec):
+
+    def WCS_check(self, ra, dec, frac=1.0, verbose=True, checkall=True):
         """
-        Input: The RA and Dec of some coordinate of interest 
+        Input: an RA, Dec of interest, the fraction of the image bounds to 
+        consider valid (optional; default 1.0 which is to consider the entire 
+        image) a bool indicating whether to be verbose (optional; default 
+        True), and a bool indicating whether to check all files or just return 
+        the first file which contains the given WCS (optional; default True --> 
+        return all files spanning the given coords)
+        
+        Checks if the input coordinates are spanned by any of the data. 
+        
+        Output: a list of these files' locations
+        """
+        l = self.loc
+        good_files = []
+        
+        # set x and y limits of each detector
+        if "WIRCam" in self.instrument: 
+            x_lim = [0.0+2048.0*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
+            y_lim = [0.0+2048.0*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
+        else:
+            x_lim = [32.0+(2080.0-32.0)*((1.0-frac)/2), 2080.0*((1.0+frac)/2)]
+            y_lim = [0.0+4612.0*((1.0-frac)/2), 4612.0*((1.0+frac)/2)]
+        
+        if self.nextend == 0: # if images already divided up by detector/CCD
+            for f in self.files: 
+                hdr = fits.getheader(l+"/"+f)
+                w = wcs.WCS(hdr)
+                naxis = int(hdr["NAXIS"])
+
+                if naxis == 3: # if a cube
+                    pix_coords = np.array(w.all_world2pix(ra,dec,1,1))
+                else : # if just one image 
+                    pix_coords = np.array(w.all_world2pix(ra,dec,1))
+            
+                # check if located in detector  
+                if (x_lim[0]<pix_coords[0]<x_lim[1]) and (
+                    y_lim[0]<pix_coords[1]<y_lim[1]):
+                    good_files.append(l+"/"+f)
+                    if verbose:
+                        print(l+"/"+f)
+                    if not(checkall): # if we only want the first file
+                        return good_files
+                    
+        else: # if multiple detectors/CCDs
+            for f in self.files: 
+                n = RawData.locate_WCS(self, ra, dec)
+                if n:
+                    good_files.append(l+"/"+f)
+                    if verbose:
+                        print(l+"/"+f+" [detector "+str(n)+"]")
+                    if not(checkall): # if we only want the first file
+                        return good_files
+                        
+                        
+        if len(good_files) != 0:
+            return good_files
+        else:
+            return
+    
+    def locate_WCS(self, ra, dec, frac=1.0):
+        """
+        Input: The RA and Dec of interest and the fraction of the image bounds 
+        to consider valid (optional; default 1.0 which is to consider the 
+        entire image)
+        
         Examines all of the detectors of some multi-detector image (a multi-
         extension fits file) and returns the number of the detector where the 
         coordinates are located. 
+        
         Output: The number of extension which contains the detector of interest
         """
         
@@ -532,10 +763,11 @@ class RawData:
         for n in range(self.nextend): # for all extensions
             w = wcs.WCS(hdu_list_test[n+1].header) # WCS object
             
-            # compute x and y limits of each detector
+            # set x and y limits of each detector
             if "WIRCam" in self.instrument: 
-                x_lim = [0.0, 2048.0]
-                y_lim = [0.0, 2048.0] 
+                x_lim = [0.0+2048.0*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
+                y_lim = [0.0+2048.0*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
+            
                 
                 naxis = int(hdu_list_test[n+1].header["NAXIS"])
                 if naxis == 3: # if a cube
@@ -543,21 +775,24 @@ class RawData:
                 else : # if just one image 
                     pix_coords = np.array(w.all_world2pix(ra,dec,1))
             
-            elif "MegaPrime" in self.instrument:
-                x_lim = [32.0, 2080.0]
-                y_lim = [0.0, 4612.0] 
+            else:
+                x_lim = [32.0+(2080.0-32.0)*((1.0-frac)/2), 
+                         2080.0*((1.0+frac)/2)]
+                y_lim = [0.0+4612.0*((1.0-frac)/2), 4612.0*((1.0+frac)/2)]
                 
                 pix_coords = np.array(w.all_world2pix(ra,dec,1))
             
             # for debugging
-            print("n="+str(n+1)+"\t [%.2f, %.2f]"%(
-                    pix_coords[0],pix_coords[1]))
+            #print("n="+str(n+1)+"\t [%.2f, %.2f]"%(
+            #        pix_coords[0],pix_coords[1]))
             
             # check if located in detector n 
             if (x_lim[0]<pix_coords[0]<x_lim[1]) and (
                     y_lim[0]<pix_coords[1]<y_lim[1]):
-                print("Source is located in extension "+str(n+1))
-                return n+1          
+                #print("Source is located in extension "+str(n+1))
+                return n+1  
+            
+            return # nothing found 
 
             
     def __get_extension(self, fits_file, n_ext):
@@ -643,11 +878,15 @@ class RawData:
         print("Written to new .fits files in "+all_exten_dir)
     
     
-    def write_extensions_by_WCS(self, ra, dec):
+    def write_extensions_by_WCS(self, ra, dec, frac=1.0):
         """
-        Input: the RA, Dec of the source of interest 
+        Input: The RA and Dec of interest and the fraction of the image bounds 
+        to consider valid (optional; default 1.0 which is to consider the 
+        entire image)
+        
         For a directory full of multi-extension fits files, gets the extension
         which contains the input RA, Dec and writes it to a new file 
+        
         Output: None
         """
         l = self.loc
@@ -658,12 +897,13 @@ class RawData:
         wcs_exten_dir += self.instrument+"_"+self.date
         run(['mkdir','-p',wcs_exten_dir]) # make wcs_exten_dir
         
+        # set x and y limits of each detector
         if "WIRCam" in self.instrument: 
-            x_lim = [0.0, 2048.0]
-            y_lim = [0.0, 2048.0] 
-        elif "MegaPrime" in self.instrument:
-            x_lim = [32.0, 2080.0]
-            y_lim = [0.0, 4612.0]
+            x_lim = [0.0+2048.0*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
+            y_lim = [0.0+2048.0*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
+        else:
+            x_lim = [32.0+(2080.0-32.0)*((1.0-frac)/2), 2080.0*((1.0+frac)/2)]
+            y_lim = [0.0+4612.0*((1.0-frac)/2), 4612.0*((1.0+frac)/2)]
         
         for f in self.files:
             for n in range(self.nextend):
@@ -690,6 +930,27 @@ class RawData:
               "RA %.3f, Dec %.3f"%(ra,dec)+" for data from "+
               self.instrument+" on "+self.date)
         print("Written to new .fits files in "+wcs_exten_dir)
+        
+        
+    def write_source(self, name, ra, dec, frac=1.0):
+        """
+        Input: the name, RA, and Dec for some interesting source (such as a 
+        transient) and the fraction of the image bounds to consider valid 
+        (optional; default 1.0 which is to consider the entire image)
+        
+        Parses all raw data and copies any images which contain the input RA, 
+        Dec to a new directory with the name of the source.
+        
+        Output: None
+        """
+        l = self.loc
+        source_files = RawData.WCS_check(self, ra, dec, frac)
+        if source_files:  
+            run("mkdir -p "+l+"/"+name, shell=True)
+            for f in source_files:
+                run("cp "+f+" "+l+"/"+name, shell=True)
+        else:
+            print("\nNone of the raw data contains the input RA, Dec.")
 
 ###############################################################################    
     #### COMBINING/DIVIDING CUBES ####
@@ -697,7 +958,7 @@ class RawData:
     def __combine_cube(self, fits_file):
         """
         Input: the name of a fits file containing a cube 
-        For an file composed of multiple 2D image data arrays (i.e. a 
+        For a file composed of multiple 2D image data arrays (i.e. a 
         cube), combines the image data into one single 2D array. Only 
         needed for WIRCam data, which sometimes contains a cube for each 
         of the 4 detectors.
@@ -1012,15 +1273,19 @@ class RawData:
             return 
         # get rid of calibration file if it exists:
         run('rm -rf '+sd+'/calibration', shell=True) 
+        run('rm -rf '+sd+'/*.fits', shell=True)
+        run('rm -rf '+sd+'/*.flt', shell=True)
         
         # get rid of previous .fits, .flt and .txt files
         # need to use glob to use wildcards (*):
         textfiles = glob.glob(sd+"/*.txt")
-        fitsfiles = glob.glob(sd+"/*.fits*")
-        fitsfiles = glob.glob(sd+"/*.flt*")
+        fitsfiles = glob.glob(sd+"/*.fits")
+        fitsfiles = glob.glob(sd+"/*.flt")
         allfiles = textfiles + fitsfiles
         for a in allfiles:
             os.remove(a)
+            
+        
         
         run(['chmod','777',sd]) # give full permissions to the directory
         
@@ -1335,6 +1600,7 @@ class Stack(RawData):
         plt.xlabel("RA (J2000)", fontsize=16)
         plt.ylabel("Dec (J2000)", fontsize=16)
         plt.savefig(output, bbox_inches="tight")
+        plt.close()
             
             
     def astrometry(self, downsample=None):
@@ -1363,15 +1629,19 @@ class Stack(RawData):
         if downsample: # if a downsampling fraction is given
             solve_options += " --downsample "+str(downsample)
             
-        # options to speed up astrometry:
-        pixmin = self.pixscale-0.05
-        pixmax = self.pixscale+0.05
-        ra = self.image_header["CRVAL1"] # rough RA
-        dec = self.image_header["CRVAL2"] # rough Dec
-        radius = 1.0 # look in a radius of 1 degree
+        # options to speed up astrometry: pixscale and rough RA, Dec
+        pixmin = self.pixscale-0.001
+        pixmax = self.pixscale+0.001
         solve_options += " --scale-low "+str(pixmin)
         solve_options += " --scale-high "+str(pixmax)
         solve_options += " --scale-units app"
+        
+        image_header = self.image_header
+        cent = [i//2 for i in self.image_data.shape]
+        centy, centx = cent
+        w = wcs.WCS(image_header)
+        ra, dec = w.all_pix2world(centx, centy, 1) 
+        radius = 1.0/6.0 # look in a radius of 10 arcmin
         solve_options += " --ra "+str(ra)+" --dec "+str(dec)
         solve_options += " --radius "+str(radius)
         
@@ -1392,7 +1662,7 @@ class Stack(RawData):
         if len(updats) == 0:
             os.chdir(script_dir)
             print("The WCS solution could not be obtained. This likely means"+
-                  " that the required index files or missing or data is of"+
+                  " that the required index files are missing or data is of"+
                   " poor quality. Exiting.")
             return
 
@@ -1642,6 +1912,7 @@ class Stack(RawData):
             plt.rc("ytick",labelsize=16)
             plt.savefig(self.filter+"_"+self.instrument+"_"+self.date+
                         "_ePSF."+self.plot_ext, bbox_inches="tight")
+            plt.close()
         
         if plot_residuals: # if we wish to see a plot of the residuals
             if "WIRCam" in self.instrument:
@@ -1660,6 +1931,7 @@ class Stack(RawData):
             ax.coords["dec"].set_ticklabel(size=15)
             plt.savefig(self.filter+"_"+self.instrument+"_"+self.date+
                         "_PSF_resid."+self.plot_ext, bbox_inches="tight")
+            plt.close()
         
         # save psf_sources as an attribute
         self.psf_sources = psf_sources
@@ -1831,6 +2103,7 @@ class Stack(RawData):
             ax.legend(loc="upper left", fontsize=15, framealpha=0.5)
             plt.savefig(self.filter+"_"+self.instrument+"_"+self.date+
                         "_PSF_photometry."+self.plot_ext, bbox_inches="tight")
+            plt.close()
         
         # plot the RA, Dec offset for each matched source 
         if plot_source_offsets:             
@@ -1852,6 +2125,7 @@ class Stack(RawData):
             plt.savefig(self.filter+"_"+self.instrument+"_"+self.date+
                         "_source_offsets_astrometry."+self.plot_ext,
                         bbox_inches="tight")
+            plt.close()
         
         # plot the overall offset across the field 
         if plot_field_offsets:
@@ -1896,6 +2170,7 @@ class Stack(RawData):
             plt.savefig(self.filter+"_"+self.instrument+"_"+self.date+
                         "_field_offsets_astrometry."+self.plot_ext, 
                         bbox_inches="tight")
+            plt.close()
         
         # compute magnitude differences and zero point mean, median and error
         mag_offsets = ma.array(good_cat_sources[zp_filter+'mag'][idx_cat] - 
@@ -1906,6 +2181,17 @@ class Stack(RawData):
         # update attributes 
         self.zp_mean, self.zp_med, self.zp_std = zp_mean, zp_med, zp_std
         
+        # add these to the header of the uncleaned, cleaned, and mask files
+        scrip_dir = os.getcwd()
+        os.chdir(self.calib_dir)
+        for n in [self.stack_name, self.stack_name_clean, self.mask_name]:
+            f = fits.open(n, mode="update")
+            f[0].header["ZP_MEAN"] = zp_mean
+            f[0].header["ZP_MED"] = zp_med
+            f[0].header["ZP_STD"] = zp_std
+            f.close()
+        os.chdir(scrip_dir)
+        
         # add a mag_calib and mag_calib_unc column to psf_sources
         mag_calib = self.psf_sources['mag_fit'] + zp_mean
         mag_calib.name = 'mag_calib'
@@ -1915,7 +2201,7 @@ class Stack(RawData):
         self.psf_sources['mag_calib'] = mag_calib
         self.psf_sources['mag_calib_unc'] = mag_calib_unc
         
-        # add flag indicating if source is in catalog and which catalog 
+        # add flag indicating if source is in a catalog and which catalog 
         in_cat = []
         for i in range(len(self.psf_sources)):
             if i in idx_image:
@@ -2201,8 +2487,7 @@ class Stack(RawData):
     def __plot_annulus(self, ra, dec, r1, r2, annulus_data):
         """
         Input: the RA and Dec for the centre of an annulus, the inner and 
-        outer radii for the annuli, the data of the annulus itself, and the 
-        filetype for the output plot (optional; default png)
+        outer radii for the annuli, and the data of the annulus itself
         Plots an image of the annulus for a given aperture computation. 
         Output: None
         """
@@ -2226,13 +2511,14 @@ class Stack(RawData):
         figname = self.filter+"_"+self.instrument+"_"+self.date
         figname += "_annulus_RA%.5f_DEC%.5f"%(ra, dec)+"."+self.plot_ext
         plt.savefig(figname, bbox_inches="tight")
+        plt.close()
         
         
     def __plot_aperture(self, ra, dec, ap_pix, r1, r2, annulus_pix):
         """
         Input: the RA and Dec for the centre of the aperture, the radius of 
-        the aperture and inner and out annuli, the pixel data of the annulus, 
-        and the filetype for the output plot (optional; default png)
+        the aperture and inner and outer annuli, and the pixel data of the 
+        annulus 
         Plots an image of the aperture and annuli drawn around a source of 
         interest for aperture photometry.
         Output: None
@@ -2281,19 +2567,22 @@ class Stack(RawData):
         ax.coords["dec"].set_ticklabel(size=15)
         
         plt.savefig(figname, bbox_inches="tight")
+        plt.close()
     
     
     def aperture_photometry(self, ra_list, dec_list, ap_radius=1.2, 
-                            r1=2.0, r2=5.0, plot_annulus=False,
+                            r1=2.0, r2=5.0, sigma=None, plot_annulus=False,
                             plot_aperture=False):
         """
         Input: for as many sources as is desired, the RA and Dec (in degrees) 
         of the source around which to build an aperture with radii ap_radii 
         (in arcsec; optional; default 1.2"), and annuli with inner radii in 
-        r1_list (in arcsec; optional; default 3.0") and outer radii in r2_list 
-        (in arcsec; optional; default 9.0"), and bools indicating whether to 
-        plot the annulus (optional; default False) and whether to plot the 
-        aperture and annuli as rings (optional; default False)
+        r1_list (in arcsec; optional; default 2.0") and outer radii in r2_list 
+        (in arcsec; optional; default 5.0"), the limiting sigma below which a 
+        source is labelled non-detected (optional; default no limit), bools 
+        indicating whether to plot the annulus (optional; default False) and 
+        whether to plot the aperture and annuli as rings (optional; default 
+        False)
         
         For dim sources, this method finds the total flux in a defined 
         aperture, computes the background in an annulus around this aperture, 
@@ -2376,25 +2665,66 @@ class Stack(RawData):
                 phot_table["MJD"] = col_mjd
                 phot_table.remove_column("id") # id is not accurate 
                 
-                self.aperture_sources.add_row(phot_table[0])
-                self.aperture_fit = True # update 
+                if sigma and (phot_table["sigma"] >= sigma):
+                    self.aperture_sources.add_row(phot_table[0])
+                    self.aperture_fit = True # update 
+
+                    
+                elif sigma and (phot_table["sigma"] < sigma):
+                    print("\nA 'source' was detected, but below the requested"+
+                          " "+str(sigma)+". The source is therefore rejected.")
+                    return
+                else:
+                    self.aperture_sources.add_row(phot_table[0])
+                    self.aperture_fit = True # update 
+                    
+                a = phot_table[0]
+                s = "\n"+a["filter"]+" = %.2f ± %.2f"%(a["mag_calib"],
+                    a["mag_calib_unc"])+", %.1f"%a["sigma"]+"sigma"
+                print(s)
                 
                 
     def limiting_magnitude(self, ra, dec, sigma=3.0):
         """
-        Input: the RA and Dec for around which we want a limiting magnitude and 
-        the sigma defining the limiting magnitude 
+        Input: the RA and Dec around which we want a limiting magnitude and the 
+        sigma defining the limiting magnitude (optional; default 3.0)
         Output: the limiting magnitude 
         """
-        #from photutils import SkyCircularAperture
-        
-        #image_data = self.image_data
-        #image_header = self.image_header
-        #image_mask = self.mask_data
+
+        image_header = self.image_header
+        sources_data = self.xy_data 
                 
         if not self.image_error_computed: # if error array is not yet computed
             Stack.__error_array(self) # compute it 
+        
+        w = wcs.WCS(image_header)
+        coords = w.all_pix2world(sources_data["X"], sources_data["Y"], 1)
+        coords = SkyCoord(coords[0]*u.deg, coords[1]*u.deg, 1)
+        target = SkyCoord(ra*u.deg, dec*u.deg)
+        
+        # find the smallest separation between target and all sources
+        smallest_sep = np.min(target.separation(coords).value)*3600.0 
+        while smallest_sep < 3.0: # while closest star is less than 1" away
+            print('\nastrometry.net previously found a source < 3.0" away '+
+                  'from the target. The target will be randomly moved until '+
+                  ' it does not sit on top of a source...')
+  
+            # randomly move           
+            new_ra = target.ra - u.arcsec*np.random.randint(-5, 5)
+            new_dec = target.dec - u.arcsec*np.random.randint(-5, 5)
             
+            # make sure it hasn't gone too far, return to center if so
+            x, y = w.all_world2pix(new_ra.value, new_dec.value, 1)
+            if (x<0.1*self.x_size) or (y<0.1*self.y_size) or (
+                    x>0.9*self.x_size) or (y>0.9*self.y_size):
+                new = w.all_pix2world(self.x_size//2, self.y_size//2, 1)
+                new_ra, new_dec = new[0]*u.deg, new[1]*u.deg
+            
+            target = SkyCoord(new_ra, new_dec)
+            smallest_sep = np.min(target.separation(coords).value)*3600.0
+            
+        ra, dec = target.ra.value, target.dec.value            
+        
         #w = wcs.WCS(image_header) # wcs object 
         #position = SkyCoord(ra, dec, unit="deg", frame="icrs") # desired posn
         #ap = SkyCircularAperture(position, r=1.2*u.arcsec) 
@@ -2405,8 +2735,7 @@ class Stack(RawData):
         phot_table = Stack.__drop_aperture(self, ra, dec, r1=2.0, r2=20.0, 
                                            bkgsub_verify=False)
         
-        #bkg_std_total = phot_table["aper_bkg_std"]*ap_pix.area()
-        
+        #bkg_std_total = phot_table["aper_bkg_std"]*ap_pix.area()   
  
         phot_table["aper_sum_bkgsub_err"] = np.sqrt(
                 phot_table["aperture_sum_err"]**2 +
@@ -2419,6 +2748,7 @@ class Stack(RawData):
         #limit = sigma*bkg_std_total
         #self.limiting_mag = -2.5*np.log10(limit) + self.zp_mean
         
+        print("\n"+self.filter+" > %.1f (%d sigma)"%(self.limiting_mag,sigma))
         return self.limiting_mag
 
 
@@ -2503,6 +2833,7 @@ class Stack(RawData):
                                                   "_photometry_compare."+
                                                   self.plot_ext)
         plt.savefig(output, bbox_inches="tight")
+        plt.close()
         
         self.aperture_sources = temp # restore original table 
         
