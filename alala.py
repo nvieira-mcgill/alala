@@ -25,6 +25,7 @@ import glob
 from subprocess import run
 import re
 from timeit import default_timer as timer
+from copy import deepcopy
 
 import numpy as np
 import numpy.ma as ma
@@ -42,26 +43,47 @@ from astropy.visualization import simple_norm
 from photutils import Background2D, MMMBackground
 
 ###############################################################################
-    ### RawData CLASS AND BASIC FUNCTIONS ###
+    #### ERRORS ###############################################################
+
+class NoDataError(Exception):
+    pass
+
+###############################################################################
+    #### RawData CLASS AND BASIC FUNCTIONS ####################################
 
 class RawData:
     def __init__(self, location, stack_directory=None, qso_grade_limit=None,
-                 fmt="fits"):
+                 fmt="fits", plot_ext="png"):
         """
-        Input: location of the raw data, directory to store potential stacks 
-        (optional; not needed if no intention to stack), and the limit on the 
-        QSO grade for the observations (optional; default is to apply no limit 
-        where 1=good and 5=unusable, so that no data is ignored unless 
-        explicitly desired by the user; only relevant for WIRCam)
+        Input: 
+            - location of the raw data
+            - directory to store potential stacks (optional; not needed if no 
+              intention to stack; default None)
+            - limit on the queue service observer (QSO) grade for the 
+              observations (optional; default is to apply no limit where 
+              1=good and 5=unusable, so that no data is ignored unless 
+              explicitly desired by the user; only relevant for WIRCam)
+            - extension for the data files (optional; default 'fits'; options 
+              include 'flt' and 'fits.fz')
+            - extension for the output plots (optional; default 'png'; other 
+              option is 'pdf')
         
         Initializes a raw data object for CFHT WIRCam or MegaPrime data.
         
         Output: a RawData object
         """
         self.loc = location # location of data
+        
         self.files = (os.listdir(self.loc)) # all files
         (self.files).sort()
         self.files = [f for f in self.files if fmt in f] # fits only
+        
+        if len(self.files) == 0:
+            raise NoDataError(
+                    "The given directory does not contain any data files "+
+                    "with the extension ."+fmt+". The RawData object could "+
+                    "not be created.")
+            
         self.stack_dir = stack_directory # location of stacks to be produced
         self.fmt = fmt
         
@@ -169,10 +191,12 @@ class RawData:
         RawData.__filter_init(self)
         
         # filetype (png, pdf, jpg) for plots (can be set)
-        self.plot_ext = "png"
+        self.plot_ext = plot_ext
         
         # bools for later
         self.stack_made = False
+        
+        # flatten list of files
         
         
     def __filter_init(self):
@@ -371,6 +395,7 @@ class RawData:
             if date in d: # if input date is in the list of dates 
                 self.files.append(self.dates_dict[d])
         
+        self.files = self.files[0]
         RawData.__dates_init(self) # rebuild list/dict of dates
         RawData.__filter_init(self) # rebuild list/dict of filters
 
@@ -401,6 +426,7 @@ class RawData:
             if obj in o: # if file IS of the input pointing 
                 self.files.append(f)
         
+        self.files = self.files[0]
         RawData.__dates_init(self) # rebuild list/dict of dates
         RawData.__filter_init(self) # rebuild list/dict of filters
 
@@ -410,16 +436,16 @@ class RawData:
                   "remaining data.")
         
         
-    def make_copy(self):
+    def copy(self):
         """
         Input: None
-        Produces a copy of the object.
-        Output: None
+        Produces a (deep) copy of the object.
+        Output: the copy 
         """
-        pass
+        return deepcopy(self)
             
 ###############################################################################
-    #### IMAGE DIAGNOSTICS #### 
+    #### IMAGE DIAGNOSTICS #################################################### 
     
     def print_headers(self, ext, *headers):
         """
@@ -470,8 +496,8 @@ class RawData:
         For all of the files contained in some RawData object, returns the ADU 
         value at the given RA and Dec, IF these coordinates are within the 
         image's bounds.
-        Can be used to see if the ADU is set to 0.0 over a source of interest,
-        if desired.
+        Can be used to see if e.g. the ADU is set to 0.0 over a source of 
+        interest, if desired.
         Output: None
         """
         l = self.loc
@@ -505,16 +531,20 @@ class RawData:
     
     def radial_PSFs(self, ra, dec, solved=True, adu_min=4000, adu_max=66000):
         """
-        Input: a RA and Dec for a source of interest (should be a bright 
-        source, but not one that saturates the detector) a bool indicating
-        whether the input images have already been solved with astrometry 
-        (optional; default True), and the minimum and maximum ADU level to show 
-        in the profiles (optional; default 4000 and 66000, resectively)
+        Input: 
+            - RA, Dec for a source of interest (should be a bright source, 
+              but not one that saturates the detector)
+            - whether the input images have already been solved with astrometry 
+              (optional; default True)
+            - minimum and maximum ADU level to show in the profiles (optional; 
+              default 4000 and 66000, resectively)
+            
         For all of the files in the raw data directory, produces and saves a 
         figure of the radial profile around the input RA and Dec. If 
         solved=False, first solves the image with astrometry.net and then 
         obtains the radial profiles. (Refined astrometric solution is required 
         to get an accurate radial profile.)
+        
         Output: None
         """
         l = self.loc
@@ -675,16 +705,18 @@ class RawData:
         os.chdir(script_dir)
              
 ###############################################################################
-    #### WCS LOCATING & EXTENSION WRITING ####
+    #### WCS LOCATING & EXTENSION WRITING #####################################
 
     def WCS_check(self, ra, dec, frac=1.0, verbose=True, checkall=True):
         """
-        Input: an RA, Dec of interest, the fraction of the image bounds to 
-        consider valid (optional; default 1.0 which is to consider the entire 
-        image) a bool indicating whether to be verbose (optional; default 
-        True), and a bool indicating whether to check all files or just return 
-        the first file which contains the given WCS (optional; default True --> 
-        return all files spanning the given coords)
+        Input: 
+            - RA, Dec of interest
+            - the fraction of the image bounds to consider valid (optional; 
+              default 1.0 which is to consider the entire image) 
+            - whether to be verbose (optional; default True)
+            - whether to check all files or just return the first file which 
+              contains the given WCS (optional; default True --> return all 
+              files spanning the given coords)
         
         Checks if the input coordinates are spanned by any of the data. 
         
@@ -736,12 +768,14 @@ class RawData:
             return good_files
         else:
             return
+ 
     
     def locate_WCS(self, ra, dec, frac=1.0):
         """
-        Input: The RA and Dec of interest and the fraction of the image bounds 
-        to consider valid (optional; default 1.0 which is to consider the 
-        entire image)
+        Input: 
+            - RA, Dec of interest
+            - the fraction of the image bounds to consider valid (optional; 
+              default 1.0 which is to consider the entire image)
         
         Examines all of the detectors of some multi-detector image (a multi-
         extension fits file) and returns the number of the detector where the 
@@ -782,10 +816,6 @@ class RawData:
                 
                 pix_coords = np.array(w.all_world2pix(ra,dec,1))
             
-            # for debugging
-            #print("n="+str(n+1)+"\t [%.2f, %.2f]"%(
-            #        pix_coords[0],pix_coords[1]))
-            
             # check if located in detector n 
             if (x_lim[0]<pix_coords[0]<x_lim[1]) and (
                     y_lim[0]<pix_coords[1]<y_lim[1]):
@@ -816,13 +846,20 @@ class RawData:
         return extension  
 
     
-    def write_extensions(self, n_ext):
+    def write_extensions(self, n_ext, exten_dir):
         """
-        Input: The extension number of interest
+        Input: 
+            - extension number of interest (should be at least 1, n_ext=1 -->
+              extract the 1st extension in the file which corresponds to the 
+              0th detector/CCD)
+            - name for the directory which will hold the written extensions 
+              (optional; default set below)
+        
         Gets the header and image data for the given extension and writes them
         to a new .fits file. Does so for all raw data files. 
         Stores them in a new subdirectory. Used to extract image data for one 
         of many CCDs/detectors on either MegaPrime/WIRCam. 
+        
         Output: None
         
         * For a given dataset, once locate_WCS() has been used to find the ext
@@ -830,46 +867,65 @@ class RawData:
         specific extension. Can then use this newly made folder for stacking.
         * If the extensions are themselves cubes (sometimes the case for 
         WIRCam), see combine_WIRCam() or divide_WIRCam().
+        * Currently only works for cubes of the form fits.fz, and produces
+        files of form fits
         """
         l = self.loc
         
-        # exten_dir encodes the detector number, instrument, and date
-        exten_dir = os.path.abspath(l+"/..")+"/det"+str(n_ext)+"_"
-        exten_dir += self.instrument+"_"+self.date
+        if n_ext < 11:
+            det_name = "0"+str(n_ext-1)
+        else:
+            det_name = str(n_ext-1)
+        
+        if not(exten_dir):
+            # exten_dir encodes the detector number, instrument, and date
+            exten_dir = os.path.abspath(l+"/..")+"/det"+det_name+"_"
+            exten_dir += self.instrument+"_"+self.date
         run(['mkdir','-p',exten_dir]) # make exten_dir
         
         for f in self.files: 
             exten = RawData.__get_extension(self, f, n_ext)
-            new_f = f.replace(".fits.fz","_det"+str(n_ext)+".fits")
+            new_f = f.replace(".fits.fz","_det"+det_name+".fits")
             exten.writeto(exten_dir+"/"+new_f, overwrite=True, 
                           output_verify="ignore") # write them
             
-        print("Extracted headers/images for detector "+str(n_ext)+
+        print("Extracted headers/images for detector "+det_name+
               " of "+self.instrument+" on "+self.date)
         print("Written to new .fits files in "+exten_dir)
         
         
-    def write_extensions_all(self):
+    def write_extensions_all(self, all_exten_dir=None):
         """
-        Input: None
+        Input: name for the directory which will hold all of the extensions
+        (optional; default set below)
+        
         Gets the header and image data for ALL extensions of a multi-extension
         fits file and writes each extension to a new .fits file. Useful for 
         MegaPrime data where the scope moves a lot and the detectors are all 
         calibrated to the same ADU level. 
+        
         Output: None 
+        
+        * Currently only works for cubes of the form fits.fz, and produces
+        files of form fits
         """
         l = self.loc
         
-        # all_exten_dir encodes the instrument and date
-        all_exten_dir = os.path.abspath(l+"/..")+"/dets_ALL_"+self.instrument
-        all_exten_dir += "_"+self.date
+        if not(all_exten_dir):
+            # all_exten_dir encodes the instrument and date
+            all_exten_dir = os.path.abspath(l+"/..")+"/dets_ALL_"
+            all_exten_dir += self.instrument+"_"+self.date
         run(['mkdir','-p',all_exten_dir]) # make all_exten_dir
         
         for f in self.files:
             for n in range(self.nextend):
+                if n < 10:
+                    det_name = "0"+str(n)
+                else:
+                    det_name = str(n)
                 exten = RawData.__get_extension(self, f, n+1)
 
-                new_f = f.replace(".fits.fz","_det"+str(n+1)+".fits")
+                new_f = f.replace(".fits.fz","_det"+det_name+".fits")
                 exten.writeto(all_exten_dir+"/"+new_f, overwrite=True, 
                               output_verify="ignore") # write them
             
@@ -878,23 +934,30 @@ class RawData:
         print("Written to new .fits files in "+all_exten_dir)
     
     
-    def write_extensions_by_WCS(self, ra, dec, frac=1.0):
+    def write_extensions_by_WCS(self, ra, dec, frac=1.0, wcs_exten_dir=None):
         """
-        Input: The RA and Dec of interest and the fraction of the image bounds 
-        to consider valid (optional; default 1.0 which is to consider the 
-        entire image)
+        Input: 
+            - RA, Dec of interest
+            - the fraction of the image bounds to consider valid (optional; 
+              default 1.0 which is to consider the entire image) 
+            - name for the directory which will hold the written extensions 
+              (optional; default set below)
         
         For a directory full of multi-extension fits files, gets the extension
         which contains the input RA, Dec and writes it to a new file 
         
         Output: None
+        
+        * Currently only works for cubes of the form fits.fz, and produces
+        files of form fits
         """
         l = self.loc
         
-        # wcs_exten_dir encodes the wcs of interest, the instrument, and date
-        wcs_exten_dir = os.path.abspath(l+"/..")
-        wcs_exten_dir += "/dets_RA%.3f_DEC%.3f_"%(ra,dec)
-        wcs_exten_dir += self.instrument+"_"+self.date
+        if not(wcs_exten_dir):
+            # wcs_exten_dir encodes the wcs of interest, instrument, and date
+            wcs_exten_dir = os.path.abspath(l+"/..")
+            wcs_exten_dir += "/dets_RA%.3f_DEC%.3f_"%(ra,dec)
+            wcs_exten_dir += self.instrument+"_"+self.date
         run(['mkdir','-p',wcs_exten_dir]) # make wcs_exten_dir
         
         # set x and y limits of each detector
@@ -907,6 +970,10 @@ class RawData:
         
         for f in self.files:
             for n in range(self.nextend):
+                if n < 10:
+                    det_name = "0"+str(n)
+                else:
+                    det_name = str(n)
                 exten = RawData.__get_extension(self, f, n+1)
                 w = wcs.WCS(exten.header) # WCS object
                  
@@ -921,7 +988,7 @@ class RawData:
                         y_lim[0]<pix_coords[1]<y_lim[1])):
                     continue # continue to next extension if not 
                 else: 
-                    new_f = f.replace(".fits.fz","_det"+str(n+1)+".fits")
+                    new_f = f.replace(".fits.fz","_det"+det_name+".fits")
                     exten.writeto(wcs_exten_dir+"/"+new_f, overwrite=True, 
                                   output_verify="ignore") # write them
                     break # exit this for loop
@@ -934,9 +1001,12 @@ class RawData:
         
     def write_source(self, name, ra, dec, frac=1.0):
         """
-        Input: the name, RA, and Dec for some interesting source (such as a 
-        transient) and the fraction of the image bounds to consider valid 
-        (optional; default 1.0 which is to consider the entire image)
+        Input: 
+            - name, RA, and Dec for some interesting source (such as a 
+              transient) 
+            - the fraction of the image bounds to consider valid when searching
+              for the source (optional; default 1.0 which is to consider the 
+              entire image)
         
         Parses all raw data and copies any images which contain the input RA, 
         Dec to a new directory with the name of the source.
@@ -953,16 +1023,18 @@ class RawData:
             print("\nNone of the raw data contains the input RA, Dec.")
 
 ###############################################################################    
-    #### COMBINING/DIVIDING CUBES ####
+    #### COMBINING/DIVIDING CUBES #############################################
             
     def __combine_cube(self, fits_file):
         """
         Input: the name of a fits file containing a cube 
+        
         For a file composed of multiple 2D image data arrays (i.e. a 
         cube), combines the image data into one single 2D array. Only 
         needed for WIRCam data, which sometimes contains a cube for each 
         of the 4 detectors.
-        Output: The header and image data of the new, combined image with 
+        
+        Output: The header and image data of the new combined image with 
         correctly updated exposure times, dimensions, and observation dates 
         """
         l = self.loc
@@ -1003,13 +1075,16 @@ class RawData:
     def combine_WIRCam(self):
         """
         Input: None
+        
         For a directory full of WIRCam images, if the images are cubes, 
-        *combines* the multiple 2D arrays into single arrays.
+        COMBINES the multiple 2D arrays into single arrays. Then writes this
+        combination to a single file.
+        
         Output: None
         
         * Use this function once to take a folder full of cubes and turn them 
-        into single-frame fits files. Can NOT be called on cubes. Only used for 
-        WIRCam.
+        into single-frame fits files. Can NOT be called on non-cubes. Only used 
+        for WIRCam.
         """
         
         l = self.loc
@@ -1034,11 +1109,12 @@ class RawData:
             
     def __divide_cube(self, fits_file):
         """
-        Input: the name of a fits file containing a cube 
-        For an file composed of multiple 2D image data arrays (i.e. a 
-        cube), divides the image data into separate files. Only 
-        needed for WIRCam data, which sometimes contains a cube for each 
-        of the 4 detectors. 
+        Input: the name of a fits file containing a cube
+        
+        For a file composed of multiple 2D image data arrays (i.e. a cube), 
+        divides the image data into separate files. Only needed for WIRCam 
+        data, which sometimes contains a cube for each of the 4 detectors.
+        
         Output: The header and image data of new divided images
         """
         l = self.loc
@@ -1062,13 +1138,16 @@ class RawData:
     def divide_WIRCam(self):
         """
         Input: None
-        For a directory full of WIRCam images, if the images are cubes, 
-        *divides* the multiple 2D arrays into individual arrays.
+        
+        For a directory full of WIRCam images, if the images are cubes, DIVIDES 
+        the multiple 2D arrays into individual arrays. Then writes each 
+        division to a separate new file.
+        
         Output: None
         
         * Use this function once to take a folder full of cubes and turn them 
-        into single-frame fits files. Can NOT be called on cubes. Only used for 
-        WIRCam.
+        into single-frame fits files. Can NOT be called on non-cubes. Only used 
+        for WIRCam.
         """
         
         l = self.loc
@@ -1099,15 +1178,19 @@ class RawData:
                 temp.close()
 
 ###############################################################################
-    #### CROP IMAGES BASED ON PIXEL FRACTIONS/WCS ####
+    #### CROP IMAGES BASED ON PIXEL FRACTIONS/WCS #############################
         
     def __get_crop(self, fits_file, frac_hori=[0,1], frac_vert=[0,1]):
         """
-        Input: a single fits file, the horizontal fraction of the fits file's 
-        image to crop (default [0,1], which does not crop), and the vertical 
-        fraction (default [0,1])
-        e.g. __get_crop("foo.fits", [0.5,1], [0,0.5]) would crop the right 
-        half of the image and and the bottom half of the image
+        Input: 
+            - single fits file
+            - horizontal fraction of the fits file's image to crop (default 
+              [0,1], which does not crop), 
+            - vertical fraction (default [0,1])
+            
+        e.g. __get_crop("foo.fits", [0.5,1], [0,0.5]) would crop the bottom 
+        right corner of the image
+        
         Output: a new fits HDU containing the header and the cropped image
         """
             
@@ -1132,11 +1215,15 @@ class RawData:
     
     def crop_images(self, frac_hori=[0,1], frac_vert=[0,1]):
         """
-        Input: horizontal fraction of the fits file's image to crop (default 
-        [0,1], which does not crop), and the vertical fraction (default [0,1])
+        Input: 
+            - horizontal fraction of the fits file's image to crop (default 
+              [0,1], which does not crop)
+            - vertical fraction (default [0,1])
+            
         For a directory full of WIRCam/MegaPrime images (should NOT be cubes), 
         crops the images based on the input x-axis and y-axis boundaries and 
         writes them all to a new directory.
+        
         Output: None
         """
         
@@ -1157,14 +1244,18 @@ class RawData:
             
     def crop_images_wcs(self, ra, dec, size):
         """
-        Input: a right ascension, declination (in decimal degrees), and the 
-        size of a box (in pixels) to crop 
+        Input: 
+            - RA, Dec (degrees) 
+            - size of a box (in pixels) to crop around the input coordinates
+            
         For a directory full of WIRCam/MegaPrime images (should NOT be cubes), 
         crops the images based on the input WCS coordinates, creating a box 
         centred on these coordinates and writing the new files to a new 
         directory. 
+        
         * If the given box extends beyond the bounds of the image, the box will
         be truncated at these bounds. 
+        
         Output: None
         """
         l = self.loc
@@ -1250,7 +1341,8 @@ class RawData:
             bp_img = bp_mask.filled() # 1 at good pix, 0 at bad pix 
             
             bp = fits.PrimaryHDU(bp_img, image_hdr)
-            bp.writeto(self.bp_dir+"/"+f.replace("."+self.fmt, "_bp_mask.fits"), 
+            bp.writeto(self.bp_dir+"/"+f.replace("."+self.fmt, 
+                                                 "_bp_mask.fits"), 
                        overwrite=True, output_verify="ignore")
             # set the bad pixel mask
             hdu = fits.open(l+"/"+f, mode="update") 
@@ -1284,8 +1376,6 @@ class RawData:
         allfiles = textfiles + fitsfiles
         for a in allfiles:
             os.remove(a)
-            
-        
         
         run(['chmod','777',sd]) # give full permissions to the directory
         
@@ -1313,10 +1403,13 @@ class RawData:
 
     def make_stacks(self, *filters):
         """
-        Input: An optional valid filters argument. Defaults to all of the 
-        filters for which there is raw data. Can specify a subset of these 
-        filters if you don't want to process all of them. 
+        Input: valid filters (optional; defaults to all of the 
+        filters for which there is raw data. 
+
         Uses PyRaf to coadd all of the raw data into stacks based on filter.
+        Can specify a subset of these filters if you don't want to process all 
+        of them. 
+ 
         Output: None
         """
         
@@ -1386,9 +1479,10 @@ class RawData:
     #### STACKS, MAKING IMAGES & ASTROMETRY ####
 
 class Stack(RawData):
-    def __init__(self, location, stack_directory, qso_grade_limit, fmt, filt):
+    def __init__(self, location, stack_directory, qso_grade_limit, fmt, 
+                 plot_ext, filt):
         super(Stack, self).__init__(location, stack_directory, 
-             qso_grade_limit, fmt)
+             qso_grade_limit, fmt, plot_ext)
                 
         # only one filter is spanned by a given stack
         self.files = self.filters_dict[filt]
@@ -1477,15 +1571,19 @@ class Stack(RawData):
     def make_image(self, clean=False, border=False, sources=False, 
                    ra=None, dec=None, scale=None, output=None):
         """
-        Input: boolean indicating whether plot the background subtracted data 
-        as found by astrometry (optional; default False), whether to show the 
-        region where sources are considered valid for photometry (optional; 
-        default False), whether to show detected sources (optional; default 
-        False), right ascension and declination to mark a specific location 
-        (optional; default None), a scale to apply to the image (optional; 
-        default None=linear; options are "log" and "asinh") and a name for the 
-        image file (optional; default None) 
+        Input: 
+            - whether plot the background-subtracted data as found by 
+              astrometry.net (optional; default False)
+            - whether to show the region where sources are considered valid for 
+              photometry (optional; default False)
+            - whether to show detected sources (optional; default False), 
+            - RA, Dec for a crosshair (optional; default None)
+            - scale to apply to the plot (optional; default None=linear; 
+              options are "linear", "log", "asinh") 
+            - name for the image file (optional; default set below)
+            
         Produces and saves an an image of the stacked file.
+        
         Output: None
         """
         # image data
@@ -1606,9 +1704,11 @@ class Stack(RawData):
     def astrometry(self, downsample=None):
         """
         Input: a downsampling factor (optional; default None)
+        
         Performs source extraction using astrometry.net. Refines the 
         astrometric solution and THEN does extraction to create a list of 
-        sources
+        sources.
+        
         Output: 
         """
         start = timer() # timing the function
@@ -1617,7 +1717,8 @@ class Stack(RawData):
         os.chdir(self.calib_dir) # move to calibration directory
         
         # name for cleaned-up file to be produced
-        self.stack_name_clean = self.stack_name.replace(".fits", "_clean.fits")
+        self.stack_name_clean = self.stack_name.replace(".fits", 
+                                                        "_clean.fits")
         # name for mask to be produced
         self.mask_name = self.stack_name.replace(".fits", "_mask.fits")
         
@@ -1656,14 +1757,13 @@ class Stack(RawData):
         run("find . -type f -not -name '*updat*' -print0 | xargs -0 rm --",
             shell=True) # remove all files not in format *updat*
         
-        # check if any files are present (i.e. if astrometry solved) and exit 
-        # if not 
+        # check if any files are present and exit if not 
         updats = os.listdir()
         if len(updats) == 0:
             os.chdir(script_dir)
-            print("The WCS solution could not be obtained. This likely means"+
-                  " that the required index files are missing or data is of"+
-                  " poor quality. Exiting.")
+            print("The WCS solution could not be obtained. This likely means "+
+                  "that data is of poor quality (e.g. many cosmic rays or "+
+                  "other artifacts).")
             return
 
         # print confirmation 
@@ -1700,13 +1800,19 @@ class Stack(RawData):
 ###############################################################################
     #### PSF PHOTOMETRY ####
 
-    def __fit_PSF(self, plot_ePSF=True, plot_residuals=False, source_lim=None):
+    def __fit_PSF(self, plot_ePSF=True, plot_residuals=False, ePSF_name=None,
+                  resid_name=None, source_lim=None):
         """
-        Input: bool indicating whether to plot the empirically determined 
-        effective Point-Spread Function (ePSF) (optional; default True)
-        whether to plot the residuals of the iterative PSF fitting (optional;
-        default False) and a limit on the no. of sources to fit with the ePSF 
-        (optional; default no limit)
+        Input: 
+            - whether to plot the empirically determined effective Point-Spread 
+              Function (ePSF) (optional; default True)
+            - whether to plot the residuals of the iterative PSF fitting 
+              (optional; default False)
+            - name for the output ePSF plot (optional; default set below)
+            - name for the output residuals plot (optional; default set below)
+            - limit on the no. of sources to fit with the ePSF (optional; 
+              default no limit; NOT recommended to impose a limit unless the
+              field is extremely dense)
         
         Uses the cleaned (smoothed, background-subtracted) image to obtain 
         the ePSF and fits this function to all of the sources previously
@@ -1798,7 +1904,7 @@ class Stack(RawData):
                                    progress_bar=False)
         epsf, fitted_stars = epsf_builder(stars)
         
-        # compute 90% radius of the ePSF to determine appropriate aperture size
+        # compute 90% radius of the ePSF to estimate appropriate aperture size
         # for aperture photometry 
         epsf_data = epsf.data
         y, x = np.indices(epsf_data.shape)
@@ -1910,8 +2016,10 @@ class Stack(RawData):
             plt.colorbar(orientation="vertical", fraction=0.046, pad=0.08)
             plt.rc("xtick",labelsize=16) # not working?
             plt.rc("ytick",labelsize=16)
-            plt.savefig(self.filter+"_"+self.instrument+"_"+self.date+
-                        "_ePSF."+self.plot_ext, bbox_inches="tight")
+            if not(ePSF_name):
+                ePSF_name = self.filter+"_"+self.instrument+"_"+self.date
+                ePSF_name += "_ePSF."+self.plot_ext
+            plt.savefig(ePSF_name, bbox_inches="tight")
             plt.close()
         
         if plot_residuals: # if we wish to see a plot of the residuals
@@ -1929,8 +2037,10 @@ class Stack(RawData):
             cb.set_label(label="ADU", fontsize=16)
             ax.coords["ra"].set_ticklabel(size=15)
             ax.coords["dec"].set_ticklabel(size=15)
-            plt.savefig(self.filter+"_"+self.instrument+"_"+self.date+
-                        "_PSF_resid."+self.plot_ext, bbox_inches="tight")
+            if not(resid_name):
+                resid_name = self.filter+"_"+self.instrument+"_"+self.date
+                resid_name += "_PSF_resid."+self.plot_ext
+            plt.savefig(resid_name, bbox_inches="tight")
             plt.close()
         
         # save psf_sources as an attribute
@@ -1942,17 +2052,26 @@ class Stack(RawData):
         
     def __zero_point(self, plot_corr=True, plot_source_offsets=True, 
                      plot_field_offsets=False, gaussian_blur_sigma=30.0, 
-                     cat_num=None):
+                     cat_num=None, corr_name=None, source_offs_name=None,
+                     field_offs_name=None):
         """
-        Input: a bool indicating whether or not to plot the correlation with 
-        linear fit (optional; default True), whether to plot the offsets in 
-        RA and Dec of each catalog-matched source (optional; default True), 
-        whether to show the overall offsets as an image with a Gaussian blur 
-        to visualize large-scale structure (optional; default False), the 
-        sigma to apply to the Gaussian filter (optional; default 30.0), and 
-        a Vizier catalog number to choose which catalog to cross-match 
-        (optional; defaults are PanStarrs 1, SDSS DR12, and 2MASS for relevant 
-        filters)
+        Input: 
+            - whether or not to plot the correlation with linear fit (optional; 
+              default True)
+            - whether to plot the offsets in RA and Dec of each catalog-matched 
+              source (optional; default True) 
+            - whether to show the overall offsets as an image with a 
+              Gaussian blur to visualize large-scale structure (optional; 
+              default False), 
+            - sigma to apply to the Gaussian filter (optional; default 30.0)
+            - a Vizier catalog number to choose which catalog to cross-match 
+              (optional; defaults are PanStarrs 1, SDSS DR12, and 2MASS for 
+              relevant filters)
+            - name for output correlation plot (optional; default set below)
+            - name for output plot of source offsets (optional; default set 
+              below)
+            - name for output plot of field offsets (optional; default set
+              below)
         
         Uses astroquery and Vizier to query an online catalog for sources 
         which match those detected by astrometry. Computes the offset between
@@ -1995,8 +2114,7 @@ class Stack(RawData):
         max_emag = 0.4 # maximum allowed error 
         nd = 5 # minimum no. of detections for a source (across all filters)
          
-        # actual querying 
-        # internet connection needed 
+        # actual querying (internet connection needed) 
         print("\nQuerying Vizier %s (%s) "%(self.ref_cat, self.ref_cat_name)+
               "around RA %.4f, Dec %.4f "%(ra_centre, dec_centre)+
               "with a radius of %.4f arcmin"%radius)
@@ -2063,8 +2181,8 @@ class Stack(RawData):
         cat_matches_ra = [i.ra.value for i in cat_matches]
         source_matches_dec = [i.dec.value for i in source_matches]
         cat_matches_dec = [i.dec.value for i in cat_matches]
-        # compute offsets 
-        ra_offsets = np.subtract(source_matches_ra, cat_matches_ra)*3600.0 # in arcsec
+        # compute offsets (in arcsec)
+        ra_offsets = np.subtract(source_matches_ra, cat_matches_ra)*3600.0
         dec_offsets = np.subtract(source_matches_dec, cat_matches_dec)*3600.0
         self.ra_offsets_mean = np.mean(ra_offsets)
         self.dec_offsets_mean = np.mean(dec_offsets)
@@ -2093,16 +2211,20 @@ class Stack(RawData):
                      self.psf_sources['mag_unc'][idx_image],
                      marker='.', mec="#fc5a50", mfc="#fc5a50", ls="",color='k', 
                      markersize=12, label="Data ["+self.filter+"]", zorder=1) 
-            ax.plot(xdata, fitdata, color="blue", 
-                     label=r"$y = mx + b $"+"\n"+r"$ m=$%.3f$\pm$%.3f, $b=$%.3f$\pm$%.3f"%(
-                             m, m_err, b, b_err), zorder=2) # the linear fit 
+            corr_label = r"$y = mx + b $"+"\n"
+            corr_label += r"$ m=$%.3f$\pm$%.3f, $b=$%.3f$\pm$%.3f"%(
+                    m, m_err, b, b_err)
+            ax.plot(xdata, fitdata, color="blue", label=corr_label, 
+                    zorder=2) # the linear fit 
             ax.set_xlabel("Catalog magnitude ["+self.ref_cat_name+"]", 
                           fontsize=15)
             ax.set_ylabel('Instrumental PSF-fit magnitude', fontsize=15)
             ax.set_title("PSF Photometry", fontsize=15)
             ax.legend(loc="upper left", fontsize=15, framealpha=0.5)
-            plt.savefig(self.filter+"_"+self.instrument+"_"+self.date+
-                        "_PSF_photometry."+self.plot_ext, bbox_inches="tight")
+            if not(corr_name):
+                corr_name = self.filter+"_"+self.instrument+"_"+self.date
+                corr_name += "_PSF_photometry."+self.plot_ext
+            plt.savefig(corr_name, bbox_inches="tight")
             plt.close()
         
         # plot the RA, Dec offset for each matched source 
@@ -2122,9 +2244,11 @@ class Stack(RawData):
             plt.legend(fontsize=15)
             plt.rc("xtick",labelsize=14)
             plt.rc("ytick",labelsize=14)
-            plt.savefig(self.filter+"_"+self.instrument+"_"+self.date+
-                        "_source_offsets_astrometry."+self.plot_ext,
-                        bbox_inches="tight")
+            if not (source_offs_name):
+                source_offs_name = self.filter+"_"+self.instrument+"_"
+                source_offs_name += self.date+"_source_offsets_astrometry."
+                source_offs_name += self.plot_ext
+            plt.savefig(source_offs_name, bbox_inches="tight")
             plt.close()
         
         # plot the overall offset across the field 
@@ -2167,9 +2291,11 @@ class Stack(RawData):
                       fontsize=15)
             ax.coords["ra"].set_ticklabel(size=15)
             ax.coords["dec"].set_ticklabel(size=15)
-            plt.savefig(self.filter+"_"+self.instrument+"_"+self.date+
-                        "_field_offsets_astrometry."+self.plot_ext, 
-                        bbox_inches="tight")
+            if not (field_offs_name):
+                field_offs_name = self.filter+"_"+self.instrument+"_"
+                field_offs_name += self.date+"_field_offsets_astrometry."
+                field_offs_name += self.plot_ext
+            plt.savefig(field_offs_name, bbox_inches="tight")
             plt.close()
         
         # compute magnitude differences and zero point mean, median and error
@@ -2235,18 +2361,27 @@ class Stack(RawData):
     def PSF_photometry(self, plot_ePSF=True, plot_resid=False, plot_corr=True,
                        plot_source_offsets=True, plot_field_offsets=False, 
                        source_lim=None, gaussian_blur_sigma=30.0, 
-                       cat_num=None):
+                       cat_num=None, ePSF_name=None, resid_name=None, 
+                       corr_name=None, source_offs_name=None, 
+                       field_offs_name=None):
         """
-        Input: bools indicating whether to plot the ePSF, residuals of the 
-        PSF fitting, the correlation and fit between instrumental and known
-        magnitudes for sources in the field, a scatter plot of the offsets 
-        in RA and Dec of each source from the relevant catalog and/or a blurred
-        image showing any possible structure in the offsets in the field (all
-        optional), a limit on the number of sources to fit (optional; default 
-        no limit), a sigma to use when applying a Gaussian blur to the field 
-        offsets image (optional; default 30.0, only used if 
-        plot_field_offsets=True), and a catalog to query for comparison sources 
-        (optional, defaults are set if None is given)
+        Input: 
+            - whether to plot the ePSF, residuals of the 
+              PSF fitting, the correlation and fit between instrumental and 
+              known magnitudes for sources in the field, a scatter plot of the 
+              offsets in RA and Dec of each source from the relevant catalog 
+              and/or a blurred image showing any possible structure in the 
+              offsets in the field (all optional; defaults True, False, True, 
+              True, False, respectively), 
+            - limit on the number of sources to fit (optional; default no 
+              limit)
+            - sigma to use when applying a Gaussian blur to the field offsets 
+              image (optional; default 30.0, only used if 
+              plot_field_offsets=True)
+            - a Vizier catalog to query for comparison sources (optional, 
+              defaults are set if None is given)
+            - names for the output plots (all optional; defaults are all set; 
+              only relevant if plot_X=True for some plot X)
         
         Uses the stars in the field with fluxes within the 80th and 90th 
         percentile to develop an empirical ePSF, fits this ePSF to all of the 
@@ -2256,25 +2391,30 @@ class Stack(RawData):
         
         Output: None 
         """
-        Stack.__fit_PSF(self, plot_ePSF, plot_resid, source_lim)
+        Stack.__fit_PSF(self, plot_ePSF, plot_resid, ePSF_name, resid_name, 
+                        source_lim)
         
         if self.psf_fit: # if the PSF Was properly fit 
             Stack.__zero_point(self, plot_corr, plot_source_offsets, 
-                               plot_field_offsets,
-                                            gaussian_blur_sigma, 
-                                            cat_num)
+                               plot_field_offsets, gaussian_blur_sigma, 
+                               cat_num, corr_name, source_offs_name, 
+                               field_offs_name)
         
         
     def write_PSF_photometry(self, plot_ePSF=True, plot_resid=True, 
                              plot_corr=True, plot_source_offsets=True, 
                              plot_field_offsets=False, source_lim=None, 
                              gaussian_blur_sigma=30.0, cat_num=None, 
+                             ePSF_name=None, resid_name=None, corr_name=None,
+                             source_offs_name=None, field_offs_name=None,
                              output=None):
         """
         Input: the same as PSF_photometry, with an additional arg for the 
         filename of the output file 
-        Performs photometry if it has not already been performed, and then
+        
+        Performs PSF photometry if it has not already been performed, and then
         writes psf_sources to a .fits file. 
+        
         Output: None
         """
         
@@ -2283,7 +2423,9 @@ class Stack(RawData):
                   "it will be completed now.\n")
             Stack.PSF_photometry(self, plot_ePSF, plot_resid, plot_corr, 
                                  plot_source_offsets, plot_field_offsets, 
-                                 source_lim, gaussian_blur_sigma, cat_num)
+                                 source_lim, gaussian_blur_sigma, cat_num,
+                                 ePSF_name, resid_name, corr_name, 
+                                 source_offs_name, field_offs_name)
         
         if self.photometric_calib: # if successful
             to_write = self.psf_sources 
@@ -2305,9 +2447,11 @@ class Stack(RawData):
         If PSF photometry has been completed, then the average offset in RA, 
         Dec between the astrometric solution and the coorinates of the 
         relevent catalog is known and can be used to adjust the astrometric 
-        solution of the image. PSF photometry should then be re-done. 
+        solution of the image. PSF photometry can then be re-done. 
         
         Output: None
+        
+        * WIP: Not very reliable.
         """
 
         # move to calibration directory 
@@ -2347,21 +2491,27 @@ class Stack(RawData):
         os.chdir(script_dir)    
 
 ###############################################################################
-    #### APERTURE PHOTOMETRY ####
+    #### APERTURE PHOTOMETRY ##################################################
         
     def __drop_aperture(self, ra, dec, ap_radius=1.2, r1=2.0, r2=5.0,
-                        plot_annulus=False, plot_aperture=False, 
-                        bkgsub_verify=True):
+                        plot_annulus=False, plot_aperture=False, ann_name=None,
+                        ap_name=None, bkgsub_verify=True):
         """
-        Input: the right ascension and declination (in degrees) of a source 
-        around which to build an aperture of radius ap_radius (in arcsec;
-        optional; default 0.9"), an annulus of inner radius r1 and outer r2 
-        (in arcsec; optional; default 5.0" and 20.0") in which to estimate the 
-        background in the region (radii and annuli radii are optional), and 
-        bools indicating whether or not to plot the annulus image data 
-        (optional; default  False), whether or not to plot the aperture and 
-        annulus as rings (optional; default False) and whether to verify that
-        the background-subtracted flux is positive
+        Input: 
+            - RA, Dec (in degrees) of a source around which to build an 
+              aperture of radius ap_radius (in arcsec; optional; default 0.9")
+            - radius of aperture to place around "source" (optional; default 
+              1.2")
+            - inner r1 and outer r2 radii of annulus in which to estimate the 
+              background in the region (in arcsec; optional; default 2.0",5.0") 
+            - whether or not to plot the annulus image data (optional; default 
+              False)
+            - whether or not to plot the aperture and annulus as rings 
+              (optional; default False)
+            - name for the output annulus plot (optional; default set below)
+            - name for the output aperture plot (optional; default set below)
+            - whether to verify that the background-subtracted flux is positive
+              (optional; default True)
         
         This method finds the total flux in a defined aperture, computes the 
         background in an annulus around this aperture, and computes the 
@@ -2406,7 +2556,14 @@ class Stack(RawData):
         image_data_masked.fill_value = 0
         image_data_masked = image_data_masked.filled()
         annulus_data = annulus_masks[0].multiply(image_data_masked)
-        mask = annulus_data <= 0 # mask invalid data 
+        try:
+            mask = annulus_data <= 0 # mask invalid data 
+        except TypeError: # if annulus_data is None
+            print("\nThere is no annulus data at this aperture. Either the "+
+                  "input target is out of bounds or the entire annulus is "+
+                  "filled with sources. Consider using a different radius "+
+                  "for the aperture/annuli. Exiting.")
+            return
         annulus_data = np.ma.masked_where(mask, annulus_data)
         
         # estimate background as median in the annulus 
@@ -2436,20 +2593,23 @@ class Stack(RawData):
             return         
         
         if plot_annulus:
-            Stack.__plot_annulus(self, ra, dec, r1, r2, annulus_data)   
+            Stack.__plot_annulus(self, ra, dec, r1, r2, annulus_data, 
+                                 ann_name)   
         if plot_aperture:
             Stack.__plot_aperture(self, ra, dec, ap_pix, r1, r2, 
-                                  annulus_apertures)  
+                                  annulus_apertures, ap_name)  
         return phot_table
     
     
     def __error_array(self):
         """
         Input: None
+        
         Computes the error on the background-only image as the RMS deviation 
         of the background, and then computes the total image error including 
-        the contribution of the Poisson noise for detected sources. Necessary 
+        the contribution of the Poisson noise from detected sources. Necessary 
         for error propagation in aperture photometry. 
+        
         Output: None 
         """
 
@@ -2475,8 +2635,8 @@ class Stack(RawData):
         bkg = Background2D(image_data, (10,10), filter_size=(3,3), 
                            bkg_estimator=bkg_est, mask=image_mask)
         # compute sum of Poisson error and background error  
-        ### currently, this seems to overestimate unless the input data is 
-        ### background-subtracted
+        # currently, this seems to overestimate unless the input data is 
+        # previously background-subtracted
         err = calc_total_error(image_data-bkg.background, 
                                bkg.background_rms, eff_gain)
         
@@ -2484,11 +2644,16 @@ class Stack(RawData):
         self.image_error_computed = True
     
     
-    def __plot_annulus(self, ra, dec, r1, r2, annulus_data):
+    def __plot_annulus(self, ra, dec, r1, r2, annulus_data, ann_name=None):
         """
-        Input: the RA and Dec for the centre of an annulus, the inner and 
-        outer radii for the annuli, and the data of the annulus itself
+        Input: 
+            - RA and Dec for the centre of an annulus
+            - inner and outer radii for the annuli
+            - data of the annulus itself
+            - name for the output annulus plot (optional; default set below)
+            
         Plots an image of the annulus for a given aperture computation. 
+        
         Output: None
         """
         # plotting
@@ -2508,19 +2673,25 @@ class Stack(RawData):
         plt.text(0.81, 0.91, transform=ax.transAxes, s=textstr, bbox=box,
                  fontsize=14)
         
-        figname = self.filter+"_"+self.instrument+"_"+self.date
-        figname += "_annulus_RA%.5f_DEC%.5f"%(ra, dec)+"."+self.plot_ext
-        plt.savefig(figname, bbox_inches="tight")
+        if not(ann_name):
+            ann_name = self.filter+"_"+self.instrument+"_"+self.date
+            ann_name += "_annulus_RA%.5f_DEC%.5f"%(ra, dec)+"."+self.plot_ext
+        plt.savefig(ann_name, bbox_inches="tight")
         plt.close()
         
         
-    def __plot_aperture(self, ra, dec, ap_pix, r1, r2, annulus_pix):
+    def __plot_aperture(self, ra, dec, ap_pix, r1, r2, annulus_pix, 
+                        ap_name=None):
         """
-        Input: the RA and Dec for the centre of the aperture, the radius of 
-        the aperture and inner and outer annuli, and the pixel data of the 
-        annulus 
+        Input: 
+            - RA and Dec for the centre of the aperture
+            - radius of the aperture and inner and outer annuli,
+            - pixel data of the annulus 
+            - name for the output aperture plot
+            
         Plots an image of the aperture and annuli drawn around a source of 
         interest for aperture photometry.
+        
         Output: None
         """
         image_data = self.image_data # the UNCLEANED image data 
@@ -2559,39 +2730,43 @@ class Stack(RawData):
                  fontsize=14)
         plt.xlabel("RA (J2000)", fontsize=16)
         plt.ylabel("Dec (J2000)", fontsize=16)
-        
-        figname = self.filter+"_"+self.instrument+"_"+self.date
-        figname += "_aperture_RA%.5f_DEC%.5f"%(ra, dec)+"."+self.plot_ext
-        
+
         ax.coords["ra"].set_ticklabel(size=15)
         ax.coords["dec"].set_ticklabel(size=15)
         
-        plt.savefig(figname, bbox_inches="tight")
+        if not(ap_name):
+            ap_name = self.filter+"_"+self.instrument+"_"+self.date
+            ap_name += "_aperture_RA%.5f_DEC%.5f"%(ra, dec)+"."+self.plot_ext        
+        
+        plt.savefig(ap_name, bbox_inches="tight")
         plt.close()
     
     
     def aperture_photometry(self, ra_list, dec_list, ap_radius=1.2, 
                             r1=2.0, r2=5.0, sigma=None, plot_annulus=False,
-                            plot_aperture=False):
+                            plot_aperture=False, ann_name=None, ap_name=None):
         """
-        Input: for as many sources as is desired, the RA and Dec (in degrees) 
-        of the source around which to build an aperture with radii ap_radii 
-        (in arcsec; optional; default 1.2"), and annuli with inner radii in 
-        r1_list (in arcsec; optional; default 2.0") and outer radii in r2_list 
-        (in arcsec; optional; default 5.0"), the limiting sigma below which a 
-        source is labelled non-detected (optional; default no limit), bools 
-        indicating whether to plot the annulus (optional; default False) and 
-        whether to plot the aperture and annuli as rings (optional; default 
-        False)
+        Input: 
+            - the RA and Dec (in degrees) of the source(s) around which to 
+              build an aperture
+            - radius for the aperture (in arcsec; optional; default 1.2")
+            - inner radius r1 and outer radius r2 for the annulus (in arcsec; 
+              optional; default 2.0", 5.0")
+            - limiting sigma below which a source is labelled non-detected 
+              (optional; default no limit)
+            - whether to plot the annulus (optional; default False)
+            - whether to plot the aperture (optional; default False)
+            - name for the output annulus plot (optional; default set below)
+            - name for the output aperture plot (optional; default set below)
         
-        For dim sources, this method finds the total flux in a defined 
-        aperture, computes the background in an annulus around this aperture, 
-        and computes the background-subtracted flux of the "source" defined by 
-        the aperture. Can be called multiple times if a list of RA/Decs is 
-        given. 
+        Computes the the total flux in a defined aperture around the given RA,
+        Dec, computes the background in an annulus around this aperture, and 
+        computes the background-subtracted flux of the "source" defined by the 
+        aperture. Can be called multiple times if a list of RA/Dec is given. 
         
         Output: None
         """        
+        
         if not self.image_error_computed: # if error array is not yet computed
             Stack.__error_array(self) # compute it 
             
@@ -2626,7 +2801,8 @@ class Stack(RawData):
         for i in range(0, len(ra_list)):
             phot_table = Stack.__drop_aperture(self, ra_list[i], dec_list[i],
                                                ap_radius, r1, r2, plot_annulus,
-                                               plot_aperture)
+                                               plot_aperture, ann_name, 
+                                               ap_name)
             if phot_table: # if a valid flux (non-negative) is found
                 
                 # compute error on bkg-subtracted aperture sum 
@@ -2684,10 +2860,20 @@ class Stack(RawData):
                 print(s)
                 
                 
-    def limiting_magnitude(self, ra, dec, sigma=3.0):
+    def limiting_magnitude(self, ra, dec, sigma=3.0, output=None):
         """
-        Input: the RA and Dec around which we want a limiting magnitude and the 
-        sigma defining the limiting magnitude (optional; default 3.0)
+        WIP: 
+            - add ability to write the solution
+        
+        Input: 
+            - RA, Dec around which we want limiting magnitude
+            - sigma defining the limiting magnitude (optional; default 3.0)
+            
+        For a given RA, Dec, finds the limiting magnitude at its location. If 
+        a source was previously detected <= 3" away from the given coords by 
+        astrometry.net, the aperture will randomly move about until a valid
+        RA, Dec is found. 
+        
         Output: the limiting magnitude 
         """
 
@@ -2704,10 +2890,10 @@ class Stack(RawData):
         
         # find the smallest separation between target and all sources
         smallest_sep = np.min(target.separation(coords).value)*3600.0 
-        while smallest_sep < 3.0: # while closest star is less than 1" away
+        while smallest_sep < 3.0: # while closest star is less than 3" away
             print('\nastrometry.net previously found a source < 3.0" away '+
-                  'from the target. The target will be randomly moved until '+
-                  ' it does not sit on top of a source...')
+                  'from the target. The target aperture will be randomly '+
+                  'moved until it does not sit on top of a source...')
   
             # randomly move           
             new_ra = target.ra - u.arcsec*np.random.randint(-5, 5)
@@ -2723,19 +2909,15 @@ class Stack(RawData):
             target = SkyCoord(new_ra, new_dec)
             smallest_sep = np.min(target.separation(coords).value)*3600.0
             
-        ra, dec = target.ra.value, target.dec.value            
-        
-        #w = wcs.WCS(image_header) # wcs object 
-        #position = SkyCoord(ra, dec, unit="deg", frame="icrs") # desired posn
-        #ap = SkyCircularAperture(position, r=1.2*u.arcsec) 
-        #ap_pix = ap.to_pixel(w)
+        ra, dec = target.ra.value, target.dec.value
+
+        print("\nFinding the limiting magnitude at (RA, Dec) = (%.4f, %.4f)"%(
+                ra, dec))            
         
         # do aperture photometry on region of interest
         # use a large annulus
         phot_table = Stack.__drop_aperture(self, ra, dec, r1=2.0, r2=20.0, 
                                            bkgsub_verify=False)
-        
-        #bkg_std_total = phot_table["aper_bkg_std"]*ap_pix.area()   
  
         phot_table["aper_sum_bkgsub_err"] = np.sqrt(
                 phot_table["aperture_sum_err"]**2 +
@@ -2745,19 +2927,17 @@ class Stack(RawData):
         limit = sigma*phot_table["aper_sum_bkgsub_err"][0]
         self.limiting_mag = -2.5*np.log10(limit) + self.zp_mean
         
-        #limit = sigma*bkg_std_total
-        #self.limiting_mag = -2.5*np.log10(limit) + self.zp_mean
-        
         print("\n"+self.filter+" > %.1f (%d sigma)"%(self.limiting_mag,sigma))
         return self.limiting_mag
 
 
     def write_aperture_photometry(self, output=None):
         """
-        Input: a filename for the output file which will contain a table of 
-        the sources found by aperture photometry.
-        Performs aperture photometry if it has not already been performed, and 
-        then writes aperture_sources to a .fits file. 
+        Input: name for the output file which will contain a table of the 
+        sources found by aperture photometry
+
+        Writes the table of sources detected by aperture photometry to a file.
+        
         Output: None
         """
         
@@ -2773,16 +2953,22 @@ class Stack(RawData):
         to_write.write(output, overwrite=True, format="ascii.ecsv")
         
 ###############################################################################
-    #### COMPARE APERTUTRE AND PSF PHOTOMETRY ####
+    #### COMPARE APERTUTRE AND PSF PHOTOMETRY #################################
         
     def compare_photometry(self, ap_radius=1.2, r1=2.0, r2=5.0, nsamples=100, 
                            output=None):
         """
-        Input: the aperture radius, inner and outer annuli radii, the number of 
-        samples to take from the the PSF photometry calibrated data (optional; 
-        default 100) and an output name for the figure (optional)
+        Input: 
+            - radius for the aperture (in arcsec; optional; default 1.2")
+            - inner radius r1 and outer radius r2 for the annulus (in arcsec; 
+              optional; default 2.0", 5.0")
+            - inner and outer annuli radii, the number of samples to take from 
+              the the PSF photometry calibrated data (optional; default 100) 
+            - name for the output figure (optional; default set below)
+            
         For nsamples random sources, compares the calibrated magnitude obtained
         via aperture photometry to that obtained by PSF photometry. 
+        
         Output: None 
         """ 
         temp = self.aperture_sources # store original table 
@@ -2842,11 +3028,16 @@ class Stack(RawData):
 
     def source_selection(self, ra, dec, radius=1.0):
         """
-        Input: a RA and Dec for a source of interest and a radius to search in 
-        (optional; default 1.0")
-        Parses the astropy table of sources produced by PSF_photometry() for 
-        sources within some distance radius from the given ra and dec 
-        arguments. 
+        WIP: 
+            - add parsing of aperture photometry table
+        
+        Input: 
+            - RA, Dec for a source of interest and 
+            - radius to search in (in arcsec; optional; default 1.0")
+            
+        Parses the table of sources produced by PSF_photometry() for sources 
+        within some distance from the given coordinates. 
+
         Output: a table of the source(s) satisfying the conditions
         """
         # parse PSF sources 
@@ -2867,8 +3058,10 @@ class Stack(RawData):
         """
         Input: the same as source_selection, with an additional arg for the 
         filename of the output file 
+        
         Selects sources as per source_selection() and then writes them to an 
         astropy table with the correct format.
+        
         Output: None
         """
         psf_selection = Stack.source_selection(self, ra, dec, radius)
