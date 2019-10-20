@@ -46,6 +46,12 @@ from photutils import Background2D, MMMBackground
     #### ERRORS ###############################################################
 
 class NoDataError(Exception):
+    """
+    Raise this error when a RawData object has no data.
+    """
+    pass
+
+class TooFewMatchesError(Exception):
     pass
 
 ###############################################################################
@@ -80,9 +86,8 @@ class RawData:
         
         if len(self.files) == 0:
             raise NoDataError(
-                    "The given directory does not contain any data files "+
-                    "with the extension ."+fmt+". The RawData object could "+
-                    "not be created.")
+                    "Directory "+self.loc+" does not contain any files "+
+                    "with extension ."+fmt)
             
         self.stack_dir = stack_directory # location of stacks to be produced
         self.fmt = fmt
@@ -338,7 +343,7 @@ class RawData:
         """
         l = self.loc
         all_files = self.files # make a copy 
-        self.files = []
+        new_files = []
         for f in all_files: # get data for every file 
             hdu_temp = fits.open(l+"/"+f)
             hdu = hdu_temp[0]
@@ -346,14 +351,16 @@ class RawData:
             hdu_temp.close()
             
             if not(date in d): # if file is NOT from the input date 
-                self.files.append(f)
+                new_files.append(f)
+
+        if len(all_files) == 0:
+            raise NoDataError("After exclusion, RawData object would have "+
+                              "no remaining data") 
         
+        self.files = new_files
         RawData.__dates_init(self) # rebuild list/dict of dates
         RawData.__filter_init(self) # rebuild list/dict of filters
         
-        if len(self.files) == 0:
-            print("Warning: after this operation, the RawData object has no "+
-                  "remaining data.") 
 
     
     def exclude_object(self, obj):
@@ -365,7 +372,7 @@ class RawData:
         """
         l = self.loc
         all_files = self.files # make a copy 
-        self.files = []
+        new_files = []
         for f in all_files: # get data for every file 
             hdu_temp = fits.open(l+"/"+f)
             hdu = hdu_temp[0]
@@ -373,14 +380,16 @@ class RawData:
             hdu_temp.close()
             
             if not(obj in o): # if file is NOT of the input pointing 
-                self.files.append(f)
+                new_files.append(f)
+
+        if len(all_files) == 0:
+            raise NoDataError("After exclusion, RawData object would have "+
+                              "no remaining data") 
+            
+        self.files = all_files
         
         RawData.__dates_init(self) # rebuild list/dict of dates
         RawData.__filter_init(self) # rebuild list/dict of filters
-        
-        if len(self.files) == 0:
-            print("Warning: after this operation, the RawData object has no "+
-                  "remaining data.") 
 
     
     def only_date(self, date):
@@ -606,18 +615,32 @@ class RawData:
             plt.text(3, box_y, s=txt, bbox=box,fontsize=14)
             plt.savefig(plots_dir+"/"+output_fig)
             plt.close()
+              
 
-
-    def solve_all(self, depth=None):
+    def solve_all(self, solved_dir=None, depth=None):
         """
-        Input: the number of stars to use in solving (optional; default no 
-        limit)
-        e.g. depth=100 will only use the 100 brightest stars
+        Input:
+            - whether to invert data in both the X and Y (i.e., rotate by 180 
+              degrees) prior to solving (optional; default False; necessary 
+              when one wishes to stack images that do not have the same 
+              RA-Dec orientation)*
+            - number of stars to use in solving with astrometry.net (optional; 
+              default no limit)
+              e.g. depth=100 will only use the 100 brightest stars
         
         Using astrometry.net, solve all files, and put them in a new 
         directory. This is necessary when the astrometric solution obtained by 
         CFHT is inaccurate and requires refining, or if you wish to plot the 
         radial PSFs of some point in the raw data images. 
+        
+        * For MegaCam images, 
+        Detectors [0, 17] and 36, 37 (top half of camera) are oriented with 
+        North ANTI-parallel to the y-axis and East parallel to the x-axis. 
+        Detectors [18, 35] and 38, 39 (bottom half of the camera) are oriented 
+        with North parallel to the y-axis and East ANTI-parallel to the x-axis. 
+        When trying to make a stack from images in both the top and bottom 
+        halfs, IRAF sometimes gets confused. Use the invert=True argument to 
+        
         
         Output: None
         """
@@ -629,14 +652,15 @@ class RawData:
         image_data = fits.getdata(l+"/"+self.files[0])
   
         pixscale = image_header["PIXSCAL1"] # pixel scale
-        pixmin = pixscale-0.001
-        pixmax = pixscale+0.001
+        pixmin = pixscale-0.005
+        pixmax = pixscale+0.005
 
         cent = [i//2 for i in image_data.shape]
         centy, centx = cent
         w = wcs.WCS(image_header)
         ra, dec = w.all_pix2world(centx, centy, 1) 
-        radius = 1.0/6.0 # look in a radius of 10 arcmin
+        radius = 0.5 # look in a radius of 0.5 degrees
+        
         
         for f in self.files: # astrometry on each file 
             options = "--no-verify --overwrite --no-plot --fits-image"
@@ -648,6 +672,12 @@ class RawData:
             options += " --scale-units app"
             options += " --ra "+str(ra)+" --dec "+str(dec)
             options += " --radius "+str(radius)
+            
+            # don't bother producing these files 
+            options += ' --match "none" --solved "none" --rdls "none"'
+            options += ' --corr "none" --wcs "none"'
+            
+            # stop astrometry when the solved fits file is produced
             options += " --cancel "+f.replace("."+self.fmt,"_solved.fits")
             
             if type(depth) in [float, int]:
@@ -660,17 +690,14 @@ class RawData:
         
         # get rid of unneeded files
         run("rm *.axy", shell=True)
-        run("rm *.corr", shell=True)
-        run("rm *.match", shell=True)
-        run("rm *.rdls", shell=True)
-        run("rm *.solved", shell=True)
-        run("rm *.xyls", shell=True)
-        run("rm *.wcs", shell=True)           
+        run("rm *.xyls", shell=True)  
+         
 
         # make a list of solved files, move them to a new directory, 
         # and make a list of unsolved files 
-        topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
-        solved_dir = os.path.abspath(l+"/..")+"/solved_"+topfile
+        if not(solved_dir):
+            topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
+            solved_dir = os.path.abspath(l+"/..")+"/solved_"+topfile
         run("mkdir -p "+solved_dir, shell=True)
         run("rm -f "+solved_dir+"/*.fits", shell=True) # empty existing dir
         run("rm -f "+solved_dir+"/*.txt", shell=True) # empty existing dir
@@ -699,8 +726,8 @@ class RawData:
                   self.date+":")
             for f in solved:
                 print(f)
-        print("\nThese have been written to new solved .fits files in "+
-              solved_dir)
+            print("\nThese have been written to new solved .fits files in "+
+                  solved_dir)
             
         os.chdir(script_dir)
              
@@ -730,7 +757,7 @@ class RawData:
             x_lim = [0.0+2048.0*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
             y_lim = [0.0+2048.0*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
         else:
-            x_lim = [32.0+(2080.0-32.0)*((1.0-frac)/2), 2080.0*((1.0+frac)/2)]
+            x_lim = [32.0+(2048.0-32.0)*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
             y_lim = [0.0+4612.0*((1.0-frac)/2), 4612.0*((1.0+frac)/2)]
         
         if self.nextend == 0: # if images already divided up by detector/CCD
@@ -810,8 +837,8 @@ class RawData:
                     pix_coords = np.array(w.all_world2pix(ra,dec,1))
             
             else:
-                x_lim = [32.0+(2080.0-32.0)*((1.0-frac)/2), 
-                         2080.0*((1.0+frac)/2)]
+                x_lim = [32.0+(2048.0-32.0)*((1.0-frac)/2), 
+                         2048.0*((1.0+frac)/2)]
                 y_lim = [0.0+4612.0*((1.0-frac)/2), 4612.0*((1.0+frac)/2)]
                 
                 pix_coords = np.array(w.all_world2pix(ra,dec,1))
@@ -842,6 +869,7 @@ class RawData:
         new_hdr = new_hdu.header
         new_data = new_hdu.data
         extension = fits.PrimaryHDU(data=new_data, header=new_hdr)
+        new_hdu_list.close()
         
         return extension  
 
@@ -965,7 +993,7 @@ class RawData:
             x_lim = [0.0+2048.0*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
             y_lim = [0.0+2048.0*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
         else:
-            x_lim = [32.0+(2080.0-32.0)*((1.0-frac)/2), 2080.0*((1.0+frac)/2)]
+            x_lim = [32.0+(2048.0-32.0)*((1.0-frac)/2), 2048.0*((1.0+frac)/2)]
             y_lim = [0.0+4612.0*((1.0-frac)/2), 4612.0*((1.0+frac)/2)]
         
         for f in self.files:
@@ -1473,7 +1501,7 @@ class RawData:
         Output: a Stack object
         """
         return Stack(self.loc, self.stack_dir, self.qso_grade_limit, 
-                     self.fmt, filt)
+                     self.fmt, self.plot_ext, filt)
         
 ###############################################################################
     #### STACKS, MAKING IMAGES & ASTROMETRY ####
@@ -1731,8 +1759,8 @@ class Stack(RawData):
             solve_options += " --downsample "+str(downsample)
             
         # options to speed up astrometry: pixscale and rough RA, Dec
-        pixmin = self.pixscale-0.001
-        pixmax = self.pixscale+0.001
+        pixmin = self.pixscale-0.005
+        pixmax = self.pixscale+0.005
         solve_options += " --scale-low "+str(pixmin)
         solve_options += " --scale-high "+str(pixmax)
         solve_options += " --scale-units app"
@@ -1742,13 +1770,17 @@ class Stack(RawData):
         centy, centx = cent
         w = wcs.WCS(image_header)
         ra, dec = w.all_pix2world(centx, centy, 1) 
-        radius = 1.0/6.0 # look in a radius of 10 arcmin
+        radius = 0.5 # look in a radius of 0.5 deg
         solve_options += " --ra "+str(ra)+" --dec "+str(dec)
         solve_options += " --radius "+str(radius)
         
         # stop when this file is produced:
         solve_options += " --cancel "+self.stack_name.replace(
                 ".fits", "_updated.fits")
+
+        # don't bother producing these files 
+        solve_options += ' --match "none" --solved "none" --rdls "none"'
+        solve_options += ' --corr "none" --wcs "none"'
         
         # solve the field: 
         run("solve-field "+solve_options+" "+self.stack_name, shell=True)
@@ -1763,7 +1795,8 @@ class Stack(RawData):
             os.chdir(script_dir)
             print("The WCS solution could not be obtained. This likely means "+
                   "that data is of poor quality (e.g. many cosmic rays or "+
-                  "other artifacts).")
+                  "other artifacts) or the images making up the stack "+
+                  "require astrometric alignment BEFORE stacking. Exiting.")
             return
 
         # print confirmation 
@@ -2166,6 +2199,11 @@ class Stack(RawData):
         # indices of matching sources (within 2*(pixel scale) of each other) 
         idx_image, idx_cat, d2d, d3d = cat_source_coords.search_around_sky(
                 source_coords, 2*self.pixscale*u.arcsec)
+        
+        if len(idx_image) <= 3:
+            raise TooFewMatchesError("\nFound "+str(len(idx_image))+ "<=3 "+
+                                     "matches between image and "+
+                                     self.ref_cat_name)
         
         self.nmatches = len(idx_image) # store number of matches 
         self.sep_mean = np.mean(d2d.value*3600.0) # store mean separation in "
@@ -2848,7 +2886,8 @@ class Stack(RawData):
                     
                 elif sigma and (phot_table["sigma"] < sigma):
                     print("\nA 'source' was detected, but below the requested"+
-                          " "+str(sigma)+". The source is therefore rejected.")
+                          " "+str(sigma)+" sigma level. The source is "+
+                          "therefore rejected.")
                     return
                 else:
                     self.aperture_sources.add_row(phot_table[0])
