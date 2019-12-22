@@ -44,19 +44,26 @@ for f in filter_list:
     if (filter_file in os.listdir(cwd)) and (os.stat(filter_file).st_size!=0):
         # stack the images:
         imcombine("@"+f+"_list.txt", 
-                  combine="median",
+                  combine="lmedian",
                   offset="world",
-                  output=f+"_stack_"+dat+".fits",
-                  reject="sigclip", # sigma clipping
-                  lsigma="6.0", # sigma below which to reject
-                  hsigma="6.0", # sigma above which to reject
+                  scale="median",
+                  weight="median",
+                  #masktype="badvalue", # mask pixels with a value of 0.0
+                  #maskval="0.0",
+                  #reject="sigclip", # sigma clipping
+                  #lsigma="3.0", # sigma below which to reject
+                  #hsigma="3.0", # sigma above which to reject
                   #reject="crreject", # cosmic ray reject
                   #rdnoise=readout_noise, 
                   #gain=eff_gain, 
-                  #rejmask=f+"_rejmask_"+dat+".fits", # rejected pixels
-                  #sigma = f+"_sigma_"+dat+".fits", # sigma at pixels 
-                  masktype="badvalue", # mask pixels with a value of 0.0
-                  maskval="0.0") 
+                  #rejmask=f+"_rejmask_"+dat, # rejected pixels
+                  #sigma = f+"_sigma_"+dat+".fits", # sigma at pixels
+                  #reject="minmax",
+                  #nlow="1",
+                  #nhigh="0",
+                  lthreshold="1.0", # ADU below which to reject
+                  hthreshold="65534.0", # ADU above which to reject
+                  output=f+"_stack_"+dat+".fits")  
     
     
     

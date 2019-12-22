@@ -6,14 +6,19 @@ Created on Thu May 9 11:08:26 2019
 @alala.py
 
 SECTIONS:
-    - RawData class and basic functions
+    - RawData class 
+        - Basic functions
         - Image diagnostics + pre-solving before stacking
         - Locating coordinates among raw data + writing extensions 
         - Combining/divding (WIRCam) cubes
         - Cropping images
         - Stacking and stack preparation (bad pixel masks)
         
-    - Stack class, making images, and astrometry
+    - Stack class 
+        - Background estimation (TO-DO)
+        - Bad pixel masks/source masks/error arrays
+        - Making images (plots)
+        - Astrometry
         - PSF photometry
         - Aperture photometry
         - PSF/aperture photometry comparison
@@ -32,15 +37,21 @@ import numpy.ma as ma
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')
 
+from scipy.ndimage import zoom
+
 import astropy.units as u
 from astropy.time import Time
 from astropy.io import fits
 from astropy import wcs
 from astropy.coordinates import SkyCoord
 from astropy.table import Table, Column
-from astropy.stats import gaussian_sigma_to_fwhm, sigma_clipped_stats
+from astropy.stats import (gaussian_sigma_to_fwhm, sigma_clipped_stats, 
+                           SigmaClip)
 from astropy.visualization import simple_norm
-from photutils import Background2D, MMMBackground
+from photutils import (Background2D, MMMBackground, 
+                       make_source_mask, detect_sources, source_properties, 
+                       SkyCircularAperture, SkyCircularAnnulus,
+                       aperture_photometry)
 
 ###############################################################################
     #### ERRORS ###############################################################
@@ -52,6 +63,10 @@ class NoDataError(Exception):
     pass
 
 class TooFewMatchesError(Exception):
+    """
+    Raise this error when, during PSF photometry, the no. of sources in the 
+    image which match those in some external catalog is less than 3.
+    """
     pass
 
 ###############################################################################
@@ -1342,7 +1357,7 @@ class RawData:
               " images could be cropped.\n")           
         
 ###############################################################################
-    #### STACKING AND STACK PREPARATION/EXTRACTION ####
+    #### STACKING AND STACK PREPARATION/EXTRACTION ############################
 
     def make_badpix_masks(self):
         """
@@ -1354,21 +1369,30 @@ class RawData:
         l = self.loc
         topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
         
+        from scipy.ndimage import binary_dilation
+        
         # bp_dir contains the bad pixel masks
         self.bp_dir = os.path.abspath(l+"/..")+"/badpixels_"+topfile
         run(['mkdir','-p',self.bp_dir]) # make bp_dir
+        print("hello")
         
         for f in self.files:
             # build the bad pixel mask
             image_data = fits.getdata(l+"/"+f)
             image_hdr = fits.getheader(l+"/"+f)
             
-            bp_mask = (image_data != 0)
-            bp_mask = ma.masked_where(bp_mask, image_data)
-            bp_mask.fill_value = 1.0
-            bp_img = bp_mask.filled() # 1 at good pix, 0 at bad pix 
+            # mask all bad pixels, which are flagged by CFHT with 0
+            bp_mask = (image_data == 0)
             
-            bp = fits.PrimaryHDU(bp_img, image_hdr)
+            # use binary dilation to fill holes, esp. near diffraction spikes
+            bp_mask = (binary_dilation(bp_mask, iterations=2)).astype(float)
+            
+            bp_mask = ma.masked_where(bp_mask, image_data)
+            bp_mask.fill_value = 0.0
+            bp_mask_img = bp_mask.filled() # 0 at bad pix 
+            bp_mask_img[bp_mask_img != 0] = 1 # 1 at good pix
+                
+            bp = fits.PrimaryHDU(bp_mask_img, image_hdr)
             bp.writeto(self.bp_dir+"/"+f.replace("."+self.fmt, 
                                                  "_bp_mask.fits"), 
                        overwrite=True, output_verify="ignore")
@@ -1431,8 +1455,8 @@ class RawData:
 
     def make_stacks(self, *filters):
         """
-        Input: valid filters (optional; defaults to all of the 
-        filters for which there is raw data. 
+        Input: valid filters (optional; defaults to all of the filters for 
+        which there is raw data)
 
         Uses PyRaf to coadd all of the raw data into stacks based on filter.
         Can specify a subset of these filters if you don't want to process all 
@@ -1442,12 +1466,12 @@ class RawData:
         """
         
         # check if need to make bad pixel masks 
-        hdr = fits.getheader(self.loc+"/"+self.files[0])
-        try:
-            temp = hdr["BPM"]
-            del temp
-        except KeyError:
-            RawData.make_badpix_masks(self) # make bad pixel masks    
+        #hdr = fits.getheader(self.loc+"/"+self.files[0])
+        #try:
+        #    temp = hdr["BPM"]
+        #    del temp
+        #except KeyError:
+        #    RawData.make_badpix_masks(self) # make bad pixel masks    
             
         ret = RawData.__make_stack_directory(self) # make stack directory
         
@@ -1478,7 +1502,8 @@ class RawData:
         run("bash -c 'source activate iraf27 && python2 stack.py "+cmdargs+
             " && source deactivate'", shell=True)
         
-        # update exp. time of stack to total exposure time 
+        # update exptime of stack to equal sum of exposure times
+        # "true" exptime is median of input exposure times
         for fil in filters: 
             stack = fil+"_stack_"+self.date+".fits"
             stack_file = fits.open(stack, mode="update")
@@ -1504,7 +1529,7 @@ class RawData:
                      self.fmt, self.plot_ext, filt)
         
 ###############################################################################
-    #### STACKS, MAKING IMAGES & ASTROMETRY ####
+    #### STACKS ###############################################################
 
 class Stack(RawData):
     def __init__(self, location, stack_directory, qso_grade_limit, fmt, 
@@ -1559,12 +1584,18 @@ class Stack(RawData):
         # initialize time for all files and the overall stack
         Stack.__time_init(self)            
             
-        # bools for later
-        self.astrometric_calib = False
-        self.psf_fit = False
-        self.photometric_calib = False
-        self.image_error_computed = False
-        self.aperture_fit = False
+        # for later
+        self.astrometric_calib = False # astrometry performed? 
+        self.psf_fit = False # PSF of image obtained?
+        self.photometric_calib = False # photometric zero point known?
+        self.aperture_fit = False # aperture photometry obtained?
+        self.limmag_obtained = False # limiting magnitude obtained?
+
+        self.bkg = None # background-only
+        self.bkg_rms = None # background RMS error
+        self.bp_mask = None # bad pixel mask
+        self.source_mask = None # bad pixel AND source mask
+        self.image_error = None # image error array (Gaussian + Poisson)
         
         
     def __time_init(self):
@@ -1594,37 +1625,192 @@ class Stack(RawData):
             self.times.append(t_MJD)
         
         self.stack_time = np.mean(self.times) # stack time in MJD 
+
+###############################################################################
+    #### MASKS, BACKGROUND, & IMAGE ERROR ARRAY ###############################
+
+    def bp_mask(self):
+        """
+        Input: None        
         
+        Make a bad pixel mask of pixels = 0 or nan. The mask is an array of 
+        BOOLS.
         
-    def make_image(self, clean=False, border=False, sources=False, 
-                   ra=None, dec=None, scale=None, output=None):
+        Output: None
+        """
+        print("\nCreating a bad pixel mask for the stack...")
+        start = timer()
+        self.bp_mask = np.logical_or(self.image_data==0, 
+                                     np.isnan(self.image_data))
+        end = timer()
+        print("%.2f s"%(end-start))
+
+
+    def source_mask(self, sigma=3.0):
+        """
+        Input: detection sigma to use in image segmentation (optional; default 
+        3.0)
+    
+        Use crude image segmentation to make a proto source mask, use the mask 
+        to get the background, and then perform proper image segmentation on 
+        the background-subtracted image data. The resulting segmentation image 
+        is a proper source mask, to be used in other steps in aperture 
+        photometry. The output source mask also flags bad pixels. 
+        
+        The mask is an array of INTS, where 1=masked, 0=non-masked
+            
+        Output: None
+        """   
+        
+        data = self.image_data # the unsubtracted image 
+        
+        # if bad pixel mask is not yet computed, compute it
+        if not(type(self.bp_mask) == np.ndarray): Stack.bp_mask(self) 
+
+        ## set the threshold for image segmentation
+        # use *crude* image segmentation to find sources above SNR=3, build a 
+        # source mask, and estimate the background RMS 
+        print("\nCreating a source + bad pixel mask for the stack...")
+        start = timer()
+        source_mask = make_source_mask(self.image_data, snr=3, npixels=5, 
+                                       dilate_size=15, mask=self.bp_mask)
+        rough_mask = source_mask
+        
+        # estimate the background standard deviation
+        try:
+            sigma_clip = SigmaClip(sigma=3, maxiters=5) # sigma clipping
+        except TypeError: # in older versions of astropy, "maxiters" was "iters"
+            sigma_clip = SigmaClip(sigma=3, iters=5)
+            
+        bkg_estimator = MMMBackground()
+        bkg = Background2D(data, 100, filter_size=10, 
+                           sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, 
+                           mask=rough_mask)
+        bkg_rms = bkg.background_rms
+        threshold = sigma*bkg_rms # threshold for proper image segmentation
+    
+        ## proper image segmentation to get a source mask    
+        segm = detect_sources(data-bkg.background, threshold, npixels=5).data
+        segm[segm>0] = 1 # sources have value 1, background has value 0 
+        segm[self.bp_mask] = 1 # bad pixels also get a value of 1 
+        segm = segm.astype(bool) # finally, convert to bool
+        end = timer()
+        print("%.2f s"%(end-start))
+        
+        self.source_mask = segm
+
+   
+    def bkg_compute(self, box_size=50, filter_size=5, thresh_sigma=3.0):
+        """
+        Input:             
+            - box size for the background computation (optional; default 50x50)
+            - size for the median filter applied during background computation
+              (optional; default 5x5)
+            - detection sigma to use in image segmentation (optional; default 
+              3.0; only relevant if source mask not previously found)
+            
+        Computes the background of the image, the error on the background (as 
+        the RMS deviation), and the background-subtracted image.
+        
+        Output: None
+        """
+
+        # if source mask is not yet computed, compute it
+        if not(type(self.source_mask) == np.ndarray): 
+            Stack.source_mask(self, sigma=thresh_sigma) 
+
+        print("\nComputing the background of the image...")     
+        start = timer()
+        # estimate background 
+        bkg_est = MMMBackground()
+        bkg = Background2D(self.image_data, 
+                           box_size=50, filter_size=5, 
+                           bkg_estimator=bkg_est, 
+                           mask=self.source_mask)
+        end = timer()
+        print("%.2f s"%(end-start))
+        
+        # save the backgrond, background RMS error, and background-subtracted 
+        # image to attributes 
+        self.bkg = bkg.background
+        self.bkg_rms = bkg.background_rms
+        self.image_data_bkgsub = self.image_data - self.bkg
+
+
+    def error_array(self, box_size=50, filter_size=5, thresh_sigma=3.0):
         """
         Input: 
-            - whether plot the background-subtracted data as found by 
-              astrometry.net (optional; default False)
+            only relevant if the background was not already found:
+            - box size for the background computation (optional; default 50x50)
+            - size for the median filter applied during background computation
+              (optional; default 5x5)
+            - detection sigma to use in image segmentation (optional; default 
+              3.0)
+        
+        Computes the error on the background-only image as the RMS deviation 
+        of the background, and then computes the total image error including 
+        the contribution of the Poisson noise from detected sources. Necessary 
+        for error propagation in aperture photometry. 
+        
+        Output: None 
+        """
+
+        from photutils.utils import calc_total_error
+            
+        # if background is not yet computed, compute it 
+        if not(type(self.bkg) == np.ndarray): 
+            Stack.bkg_compute(self, box_size=box_size, filter_size=filter_size,
+                              thresh_sigma=thresh_sigma) 
+            
+        print("\nComputing the error array...")
+        start = timer()
+        if "WIRCam" in self.instrument:
+            eff_gain = 3.8 # effective gain (e-/ADU) for WIRCam
+        else: 
+            eff_gain = self.image_header["GAIN"] # effective gain for MegaPrime
+        
+        # compute sum of Poisson error and background error  
+        # currently, this seems to overestimate unless the input data is 
+        # previously background-subtracted
+        err = calc_total_error(self.image_data - self.bkg, 
+                               self.bkg_rms, eff_gain)
+        end = timer()
+        print("%.2f s"%(end-start))
+        
+        self.image_error = err
+    
+###############################################################################
+    #### MAKING IMAGES (PLOTTING) #############################################
+        
+    def make_image(self, bkgsub=False, border=False, sources=False, 
+                   ra=None, dec=None, scale=None, title=None, output=None):
+        """
+        Input: 
+            - whether plot the background-subtracted data (optional; default 
+              False)
             - whether to show the region where sources are considered valid for 
               photometry (optional; default False)
             - whether to show detected sources (optional; default False), 
             - RA, Dec for a crosshair (optional; default None)
             - scale to apply to the plot (optional; default None=linear; 
               options are "linear", "log", "asinh") 
+            - title for the plot (optional; default None)
             - name for the image file (optional; default set below)
             
-        Produces and saves an an image of the stacked file.
+        Produces and saves an an image of the coadd.
         
         Output: None
         """
         # image data
-        if clean and self.astrometric_calib:
-            image_data = self.image_data_clean
-        elif clean and not(self.astrometric_calib):
+        if bkgsub and self.astrometric_calib:
+            image_data = self.image_data_bkgsub # background-sub'd image data
+        elif bkgsub and not(self.astrometric_calib):
             print("To obtain a background-subtracted, smoothed image, use "+
                   "the astrometry() function first. Exiting.")
         else:
             image_data = self.image_data
-            
-        image_header = self.image_header # image header       
-        w = wcs.WCS(image_header)
+                 
+        w = wcs.WCS(self.image_header)
         
         if not(output): # if none given, defaults to the following 
             output = self.filter+"_"+self.instrument+"_"+self.date+"."
@@ -1721,14 +1907,19 @@ class Stack(RawData):
             plt.imshow(image_data, cmap="magma", aspect=1, norm=asinhnorm,
                        interpolation="nearest", origin="lower")
             cb = plt.colorbar(orientation="vertical", fraction=0.046, pad=0.08)
-            cb.set_label(label=r"$\arcsinh{(ADU)}$", fontsize=16)
+            cb.set_label(label="a"+r"$\sinh{(ADU)}$", fontsize=16)
+        
+        if title:
+            plt.title(title, fontsize=16)
             
         plt.xlabel("RA (J2000)", fontsize=16)
         plt.ylabel("Dec (J2000)", fontsize=16)
         plt.savefig(output, bbox_inches="tight")
-        plt.close()
-            
-            
+        plt.close()         
+
+###############################################################################
+    #### ASTROMETRY ###########################################################
+
     def astrometry(self, downsample=None):
         """
         Input: a downsampling factor (optional; default None)
@@ -1743,12 +1934,6 @@ class Stack(RawData):
         
         script_dir = os.getcwd() # script directory
         os.chdir(self.calib_dir) # move to calibration directory
-        
-        # name for cleaned-up file to be produced
-        self.stack_name_clean = self.stack_name.replace(".fits", 
-                                                        "_clean.fits")
-        # name for mask to be produced
-        self.mask_name = self.stack_name.replace(".fits", "_mask.fits")
         
         # don't check WCS headers, don't plot, and input a fits image:
         solve_options = "--no-verify --overwrite --no-plot --fits-image" 
@@ -1765,10 +1950,9 @@ class Stack(RawData):
         solve_options += " --scale-high "+str(pixmax)
         solve_options += " --scale-units app"
         
-        image_header = self.image_header
         cent = [i//2 for i in self.image_data.shape]
         centy, centx = cent
-        w = wcs.WCS(image_header)
+        w = wcs.WCS(self.image_header)
         ra, dec = w.all_pix2world(centx, centy, 1) 
         radius = 0.5 # look in a radius of 0.5 deg
         solve_options += " --ra "+str(ra)+" --dec "+str(dec)
@@ -1803,9 +1987,8 @@ class Stack(RawData):
         print("The WCS solution has been updated for the stack image.")
         print("Stack name is now "+self.stack_name )
 
-        # source detection: make list of sources, background-subtracted image,
-        # and a mask 
-        options = "-O -U "+self.stack_name_clean+" -M "+self.mask_name
+        # source detection: make list of sources 
+        options = "-O "
         if downsample: # if a downsampling fraction is given
             options += " -d "+str(downsample)
         run("image2xy "+options+" "+self.stack_name, shell=True) 
@@ -1814,13 +1997,9 @@ class Stack(RawData):
         # source data for general use
         self.xy_name = self.stack_name.replace(".fits", ".xy.fits")
         self.xy_data = fits.getdata(self.xy_name) 
-        
-        # smoothed, background-subtracted, "clean" image data
-        self.image_data_clean = fits.getdata(self.stack_name_clean)     
+         
         # store updated WCS solution in header
         self.image_header = fits.getheader(self.stack_name)
-        # the mask 
-        self.mask_data = fits.getdata(self.mask_name)
         
         os.chdir(script_dir) # return to script directory 
         self.astrometric_calib = True 
@@ -1829,120 +2008,26 @@ class Stack(RawData):
         time_elaps = end-start 
         print("Time required for astrometric calibration: %.2f s\n"%
               time_elaps)
-    
+
 ###############################################################################
     #### PSF PHOTOMETRY ####
 
-    def __fit_PSF(self, plot_ePSF=True, plot_residuals=False, ePSF_name=None,
-                  resid_name=None, source_lim=None):
+    def __ePSF_FWHM(self, epsf_data, verbose=True):
         """
         Input: 
-            - whether to plot the empirically determined effective Point-Spread 
-              Function (ePSF) (optional; default True)
-            - whether to plot the residuals of the iterative PSF fitting 
-              (optional; default False)
-            - name for the output ePSF plot (optional; default set below)
-            - name for the output residuals plot (optional; default set below)
-            - limit on the no. of sources to fit with the ePSF (optional; 
-              default no limit; NOT recommended to impose a limit unless the
-              field is extremely dense)
+            - ePSF data
+            - be verbose (optional; default True)
         
-        Uses the cleaned (smoothed, background-subtracted) image to obtain 
-        the ePSF and fits this function to all of the sources previously
-        detected by astrometry. Builds a table containing the instrumental
-        magnitudes and corresponding uncertainties to be used in obtaining the 
-        zero point for PSF calibration.
-        
-        Output: None
+        Output: the FWHM of the input ePSF
         """
         
-        if not(self.astrometric_calib):
-            print("\nPSF photometry cannot be obtained because astrometric "+
-                  "calibration has not yet been performed. Exiting.")
-            return
+        # enlarge the ePSF by a factor of 100 
+        epsf_data = zoom(epsf_data, 10)
         
-        from astropy.modeling.fitting import LevMarLSQFitter
-        from photutils.psf import (BasicPSFPhotometry, DAOGroup)
-        from astropy.nddata import NDData
-        from photutils.psf import extract_stars
-        from photutils import EPSFBuilder
-            
-        image_data = self.image_data_clean # the CLEANED image data 
-        sources_data = self.xy_data # sources
-        image_header = self.image_header # image header
-        
-        ### SETUP
-        # get source WCS coords
-        x = np.array(sources_data['X'])
-        y = np.array(sources_data['Y'])
-        w = wcs.WCS(image_header)
-        wcs_coords = np.array(w.all_pix2world(x,y,1))
-        ra = Column(data=wcs_coords[0], name='ra')
-        dec = Column(data=wcs_coords[1], name='dec')
-        
-        sources = Table() # build a table 
-        sources['x_mean'] = sources_data['X'] # for BasicPSFPhotometry
-        sources['y_mean'] = sources_data['Y']
-        sources['x'] = sources_data['X'] # for EPSFBuilder 
-        sources['y'] = sources_data['Y']
-        sources.add_column(ra)
-        sources.add_column(dec)
-        sources['flux'] = sources_data['FLUX']  # already bkg-subtracted 
- 
-        # mask out edge sources:
-        # a bounding circle for WIRCam, rectangle for MegaPrime
-        if "WIRCam" in self.instrument:
-            rad_limit = self.x_size/2.0
-            dist_to_center = np.sqrt((sources['x_mean']-self.x_size/2.0)**2 + 
-                             (sources['y_mean']-self.y_size/2.0)**2)
-            mask = dist_to_center <= rad_limit
-            sources = sources[mask]
-        else: 
-            x_lims = [int(0.05*self.x_size), int(0.95*self.x_size)] 
-            y_lims = [int(0.05*self.y_size), int(0.95*self.y_size)]
-            mask = (sources['x_mean']>x_lims[0]) & (
-                    sources['x_mean']<x_lims[1]) & (
-                    sources['y_mean']>y_lims[0]) & (
-                    sources['y_mean']<y_lims[1])
-            sources = sources[mask]
-            
-
-        ### EMPIRICALLY DETERMINED ePSF
-        start = timer() # timing ePSF building time
-        
-        nddata = NDData(image_data)# NDData object
-        stars = extract_stars(nddata, sources, size=25) # extract stars
-        
-        # use only the stars with fluxes between two percentiles
-        stars_tab = Table() # temporary table 
-        stars_col = Column(data=range(len(stars.all_stars)), name="stars")
-        stars_tab["stars"] = stars_col # column of indices of each star
-        fluxes = [s.flux for s in stars]
-        fluxes_col = Column(data=fluxes, name="flux")
-        stars_tab["flux"] = fluxes_col # column of fluxes
-        
-        # get percentiles
-        per_low = np.percentile(fluxes, 80) # 80th percentile flux 
-        per_high = np.percentile(fluxes, 90) # 90th percentile flux
-        mask = (stars_tab["flux"] >= per_low) & (stars_tab["flux"] <= per_high)
-        stars_tab = stars_tab[mask] # include only stars between these fluxes
-        idx_stars = (stars_tab["stars"]).data # indices of these stars
-        self.nstars_epsf = len(idx_stars) # no. of stars used in ePSF building
-        
-        # update stars object and then build the ePSF
-        # have to manually update all_stars AND _data attributes
-        stars.all_stars = [stars[i] for i in idx_stars]
-        stars._data = stars.all_stars
-        epsf_builder = EPSFBuilder(oversampling=1, maxiters=10, # build it
-                                   progress_bar=False)
-        epsf, fitted_stars = epsf_builder(stars)
-        
-        # compute 90% radius of the ePSF to estimate appropriate aperture size
-        # for aperture photometry 
-        epsf_data = epsf.data
+        # compute FWHM of ePSF 
         y, x = np.indices(epsf_data.shape)
-        x_0 = epsf.data.shape[1]/2.0
-        y_0 = epsf.data.shape[0]/2.0
+        x_0 = epsf_data.shape[1]/2.0
+        y_0 = epsf_data.shape[0]/2.0
         r = np.sqrt((x-x_0)**2 + (y-y_0)**2) # radial distances from source
         r = r.astype(np.int) # round to ints 
         
@@ -1951,28 +2036,187 @@ class Stack(RawData):
         norm = np.bincount(r.ravel())  
         profile = tbin/norm 
         
-        # find radius at 10% of max 
-        limit = np.min(profile[0:20]) 
-        limit += 0.1*(np.max(profile[0:20])-np.min(profile[0:20]))
+        # find radius at FWHM
+        limit = np.min(profile) 
+        limit += 0.5*(np.max(profile)-np.min(profile)) # limit: half of maximum
         for i in range(len(profile)):
             if profile[i] >= limit:
                 continue
-            else: # if below the 10% of max 
-                self.epsf_radius = i # radius in pixels 
+            else: # if below 50% of max 
+                epsf_radius = i # radius in pixels 
                 break
-        print("\nePSF 90% radius: "+str(self.epsf_radius)+" pix")
+    
+        if verbose:
+            print("ePSF FWHM: "+str(epsf_radius*2.0/10.0)+" pix")
+        return epsf_radius*2.0/10.0
+
+
+    def __fit_PSF(self, nstars=40, thresh_sigma=5.0, 
+                  pixelmin=20, elongation_lim=1.4, area_max=500, 
+                  cutout=35, 
+                  source_lim=None,
+                  write=False, output=None,
+                  plot_ePSF=True, ePSF_name=None, 
+                  plot_residuals=False, resid_name=None, 
+                  verbose=True):
+        """        
+        Input: 
+            - maximum number of stars to use (optional; default 40; set to None
+              to impose no limit)
+            - sigma threshold for source detection with image segmentation 
+              (optional; default 5.0)
+            - *minimum* number of isophotal pixels (optional; default 20)
+            - *maximum* allowed elongation for sources found by image 
+              segmentation (optional; default 1.4)
+            - *maximum* allowed area for sources found by image segmentation 
+              (optional; default 500 pix**2)
+            - cutout size around each star in pix (optional; default 35 pix; 
+              must be ODD, rounded down if even)
+            - limit on number of sources to fit with ePSF (optional; default 
+              None) 
+            - whether to write the built ePSF (optional; default False)
+            - name for output ePSF .fits file (optional; default set below)
+            - whether to plot the derived ePSF (optional; default True)
+            - name for output ePSF plot (optional; default set below)
+            - whether to plot the residuals of the iterative PSF fitting 
+              (optional; default False)
+            - name for output residuals plot (optional; default set below)
+            - be verbose (optional; default True)
+    
+        Uses image segmentation to obtain a list of sources in the smoothed, 
+        background-subtracted image (provided by astrometry.net) with their 
+        x, y coordinates. Uses EPSFBuilder to empirically obtain the ePSF of 
+        these stars. Uses astrometry.net to find all sources in the image, and 
+        fits them with the empirically obtained ePSF.
+    
+        The ePSF obtained here should NOT be used in convolutions. Instead, it 
+        can serve as a tool for estimating the seeing of an image. Builds a 
+        table containing the instrumental magnitudes and corresponding 
+        uncertainties to be used in obtaining the zero point for PSF 
+        calibration.
+        
+        Output: None
+        """
+        
+        if not(self.astrometric_calib):
+            print("\nPSF photometry cannot be obtained because astrometric "+
+                  "calibration has not yet been performed. Exiting.")
+            return
+
+        from photutils import EPSFBuilder
+        from photutils.psf import (extract_stars, BasicPSFPhotometry, DAOGroup)      
+        from astropy.nddata import NDData
+        from astropy.modeling.fitting import LevMarLSQFitter
+            
+        image_data = self.image_data_bkgsub # the bkg-subtracted image data 
+        sources_data = self.xy_data # sources
+        
+        ### SOURCE DETECTION   
+        ### use image segmentation to find sources with an area > pixelmin 
+        ### pix**2 which are above the threshold sigma*std
+        image_data = np.ma.masked_where(self.bp_mask, image_data) # mask bp       
+        std = np.std(np.ma.masked_where(self.source_mask, 
+                                        image_data))
+        
+        ## use the segmentation image to get the source properties 
+        # use <bp_mask>, which does not mask sources
+        segm = detect_sources(image_data, thresh_sigma*std, npixels=pixelmin,
+                              mask=self.bp_mask) 
+        cat = source_properties(image_data, segm, mask=self.bp_mask)
+    
+        ## get the catalog and coordinates for sources
+        try:
+            tbl = cat.to_table()
+        except ValueError:
+            print("SourceCatalog contains no sources. Exiting.")
+            return
+        
+        # restrict elongation and area to obtain only unsaturated stars 
+        tbl = tbl[(tbl["elongation"] <= elongation_lim)]
+        tbl = tbl[(tbl["area"].value <= area_max)]
+    
+        sources = Table() # build a table 
+        sources['x'] = tbl['xcentroid'] # for EPSFBuilder 
+        sources['y'] = tbl['ycentroid']
+        sources['flux'] = tbl['source_sum'].data/tbl["area"].data   
+        sources.sort("flux")
+        sources.reverse()
+        
+        if nstars:
+            sources = sources[:min(nstars, len(sources))]
+    
+        ## setup: get WCS coords for all sources 
+        w = wcs.WCS(self.image_header)
+        sources["ra"], sources["dec"] = w.all_pix2world(sources["x"],
+                                                        sources["y"], 1)
+ 
+        ## mask out edge sources: 
+        # a bounding circle for WIRCam, rectangle for MegaPrime
+        if "WIRCam" in self.instrument:
+            rad_limit = self.x_size/2.0
+            dist_to_center = np.sqrt((sources['x']-self.x_size/2.0)**2 + 
+                                     (sources['y']-self.y_size/2.0)**2)
+            dmask = dist_to_center <= rad_limit
+            sources = sources[dmask]
+        else: 
+            x_lims = [int(0.05*self.x_size), int(0.95*self.x_size)] 
+            y_lims = [int(0.05*self.y_size), int(0.95*self.y_size)]
+            dmask = (sources['x']>x_lims[0]) & (sources['x']<x_lims[1]) & (
+                     sources['y']>y_lims[0]) & (sources['y']<y_lims[1])
+            sources = sources[dmask]
+            
+        ## empirically obtain the effective Point Spread Function (ePSF)  
+        nddata = NDData(image_data) # NDData object
+        if cutout%2 == 0: # if cutout even, subtract 1
+            cutout -= 1
+        stars = extract_stars(nddata, sources, size=cutout) # extract stars
+    
+        ## build the ePSF
+        nstars_epsf = len(stars.all_stars) # no. of stars used in ePSF building
+        
+        if nstars_epsf == 0:
+            print("\nNo valid sources were found to build the ePSF with the "+
+                  "given conditions. Exiting.")
+            return
+        
+        if verbose:
+            print("\n"+str(nstars_epsf)+" stars used in building the ePSF")
+            
+        start = timer()
+        epsf_builder = EPSFBuilder(oversampling=1, maxiters=7, # build it
+                                   progress_bar=False)
+        epsf, fitted_stars = epsf_builder(stars)
+        self.epsf_data = epsf.data # store ePSF data for later 
         
         end = timer() # timing 
         time_elaps = end-start
         print("Time required for ePSF building: %.2f s\n"%time_elaps)
-        
+
+        if write: # write, if desired
+            epsf_hdu = fits.PrimaryHDU(data=self.epsf_data)
+            if not(output):
+                output = self.stack_name.replace("_updated.fits", 
+                                                 "_ePSF.fits")               
+            epsf_hdu.writeto(output, overwrite=True, output_verify="ignore")
+
         psf_model = epsf # set the model
         psf_model.x_0.fixed = True # fix centroids (known beforehand) 
         psf_model.y_0.fixed = True
+        start = timer() # timing ePSF building time
+
+        # get ePSF FHWM, store for later 
+        self.epsf_radius = Stack.__ePSF_FWHM(self, epsf.data, verbose)
         
+        ### USE ASTROMETRY.NET'S SOURCES FOR FITTING
+        astrom_sources = Table() # build a table 
+        astrom_sources['x_mean'] = sources_data['X'] # for BasicPSFPhotometry
+        astrom_sources['y_mean'] = sources_data['Y']
+        astrom_sources['flux'] = sources_data['FLUX']
+    
         # initial guesses for centroids, fluxes
-        pos = Table(names=['x_0', 'y_0','flux_0'], data=[sources['x_mean'],
-                   sources['y_mean'], sources['flux']]) 
+        pos = Table(names=['x_0', 'y_0','flux_0'], 
+                    data=[astrom_sources['x_mean'], astrom_sources['y_mean'], 
+                          astrom_sources['flux']]) 
     
         ### FIT THE ePSF TO ALL DETECTED SOURCES 
         start = timer() # timing the fit 
@@ -1990,12 +2234,13 @@ class Stack(RawData):
         if source_lim:
             try: 
                 import random # pick a given no. of random sources 
-                source_rows = random.choices(sources, k=source_lim)
-                sources = Table(names=['x_mean', 'y_mean', 'x', 'y', 'ra', 
-                                       'dec', 'flux'], rows=source_rows)
+                source_rows = random.choices(astrom_sources, k=source_lim)
+                astrom_sources = Table(names=['x_mean', 'y_mean', 'flux'], 
+                                       rows=source_rows)
                 pos = Table(names=['x_0', 'y_0','flux_0'], 
-                            data=[sources['x_mean'], sources['y_mean'], 
-                                  sources['flux']])
+                            data=[astrom_sources['x_mean'], 
+                                  astrom_sources['y_mean'], 
+                                  astrom_sources['flux']])
                 
                 
             except IndexError:
@@ -2003,22 +2248,26 @@ class Stack(RawData):
                       " detected by astrometry, so no limit is imposed.\n")
         
         photometry = BasicPSFPhotometry(group_maker=daogroup,
-                                bkg_estimator=None, # bg subtract already done
-                                psf_model=psf_model,
-                                fitter=fitter_tool,
-                                fitshape=(11,11))
+                                        bkg_estimator=None, # already bkg-sub'd 
+                                        psf_model=psf_model,
+                                        fitter=fitter_tool,
+                                        fitshape=(11,11))
         
         result_tab = photometry(image=image_data, init_guesses=pos) # results
         residual_image = photometry.get_residual_image() # residuals of PSF fit
+        residual_image = np.ma.masked_where(self.bp_mask, residual_image)
+        residual_image.fill_value = 0 # set to zero
+        residual_image = residual_image.filled()
         
         end = timer() # timing 
         time_elaps = end - start
         print("Time required to fit ePSF to all sources: %.2f s\n"%time_elaps)
         
-        # include previous WCS results
-        result_tab.add_column(sources['ra'])
-        result_tab.add_column(sources['dec'])
-        
+        # include WCS coordinates
+        pos["ra"], pos["dec"] = w.all_pix2world(pos["x_0"], pos["y_0"], 1)
+        result_tab.add_column(pos['ra'])
+        result_tab.add_column(pos['dec'])
+            
         # mask out negative flux_fit values in the results 
         mask_flux = (result_tab['flux_fit'] >= 0.0)
         psf_sources = result_tab[mask_flux]
@@ -2077,34 +2326,36 @@ class Stack(RawData):
             plt.close()
         
         # save psf_sources as an attribute
-        self.psf_sources = psf_sources
-        
+        self.psf_sources = psf_sources        
         # update bool
         self.psf_fit = True      
         
         
-    def __zero_point(self, plot_corr=True, plot_source_offsets=True, 
-                     plot_field_offsets=False, gaussian_blur_sigma=30.0, 
-                     cat_num=None, corr_name=None, source_offs_name=None,
-                     field_offs_name=None):
+    def __zero_point(self, sep_max=2.0,
+                     plot_corr=True, corr_name=None, 
+                     plot_source_offsets=True, source_offs_name=None,
+                     plot_field_offsets=False, field_offs_name=None,
+                     gaussian_blur_sigma=30.0, cat_num=None):
         """
-        Input: 
+        Input:
+            - maximum allowed separation when cross-matching sources (optional;
+              default 2.0 pix ~ 0.6" for WIRCam and ~ 0.37" pix for MegaPrime)
             - whether or not to plot the correlation with linear fit (optional; 
               default True)
+            - name for output correlation plot (optional; default set below)
             - whether to plot the offsets in RA and Dec of each catalog-matched 
               source (optional; default True) 
+            - name for output plot of source offsets (optional; default set 
+              below)
             - whether to show the overall offsets as an image with a 
               Gaussian blur to visualize large-scale structure (optional; 
-              default False), 
+              default False)
+            - name for output plot of field offsets (optional; default set
+              below)
             - sigma to apply to the Gaussian filter (optional; default 30.0)
             - a Vizier catalog number to choose which catalog to cross-match 
               (optional; defaults are PanStarrs 1, SDSS DR12, and 2MASS for 
               relevant filters)
-            - name for output correlation plot (optional; default set below)
-            - name for output plot of source offsets (optional; default set 
-              below)
-            - name for output plot of field offsets (optional; default set
-              below)
         
         Uses astroquery and Vizier to query an online catalog for sources 
         which match those detected by astrometry. Computes the offset between
@@ -2157,7 +2408,7 @@ class Stack(RawData):
                 "e_"+zp_filter+"mag":"<"+str(max_emag),
                 "Nd":">"+str(nd)}, row_limit=-1) # no row limit 
         Q = v.query_region(SkyCoord(ra=ra_centre, dec=dec_centre, 
-                            unit = (u.deg, u.deg)), radius = str(radius)+'m', 
+                            unit=(u.deg, u.deg)), radius=str(radius)+'m', 
                             catalog=self.ref_cat, cache=False)
     
         if len(Q) == 0: # if no matches
@@ -2201,9 +2452,11 @@ class Stack(RawData):
                 source_coords, 2*self.pixscale*u.arcsec)
         
         if len(idx_image) <= 3:
-            raise TooFewMatchesError("\nFound "+str(len(idx_image))+ "<=3 "+
-                                     "matches between image and "+
-                                     self.ref_cat_name)
+            raise TooFewMatchesError("\nFound "+str(len(idx_image))+ 
+                                     " matches between image and "+
+                                     self.ref_cat_name+", and >3 matches "+
+                                     "are required. Exiting.")
+            return
         
         self.nmatches = len(idx_image) # store number of matches 
         self.sep_mean = np.mean(d2d.value*3600.0) # store mean separation in "
@@ -2345,15 +2598,14 @@ class Stack(RawData):
         # update attributes 
         self.zp_mean, self.zp_med, self.zp_std = zp_mean, zp_med, zp_std
         
-        # add these to the header of the uncleaned, cleaned, and mask files
+        # add these to the header of the image 
         scrip_dir = os.getcwd()
         os.chdir(self.calib_dir)
-        for n in [self.stack_name, self.stack_name_clean, self.mask_name]:
-            f = fits.open(n, mode="update")
-            f[0].header["ZP_MEAN"] = zp_mean
-            f[0].header["ZP_MED"] = zp_med
-            f[0].header["ZP_STD"] = zp_std
-            f.close()
+        f = fits.open(self.stack_name, mode="update")
+        f[0].header["ZP_MEAN"] = zp_mean
+        f[0].header["ZP_MED"] = zp_med
+        f[0].header["ZP_STD"] = zp_std
+        f.close()
         os.chdir(scrip_dir)
         
         # add a mag_calib and mag_calib_unc column to psf_sources
@@ -2396,100 +2648,161 @@ class Stack(RawData):
         self.photometric_calib = True
         
         
-    def PSF_photometry(self, plot_ePSF=True, plot_resid=False, plot_corr=True,
-                       plot_source_offsets=True, plot_field_offsets=False, 
-                       source_lim=None, gaussian_blur_sigma=30.0, 
-                       cat_num=None, ePSF_name=None, resid_name=None, 
-                       corr_name=None, source_offs_name=None, 
-                       field_offs_name=None):
-        """
+    def PSF_photometry(self, nstars=40, thresh_sigma=5.0, pixelmin=20, 
+                       elongation_lim=1.4, area_max=500, cutout=35, 
+                       source_lim=None, gaussian_blur_sigma=30.0, cat_num=None,
+                       sep_max=2.0, verbose=True, box_size=50, filter_size=5, 
+                       write_ePSF=True, ePSF_data_name=None,
+                       plot_ePSF=True, ePSF_name=None,
+                       plot_resid=False, resid_name=None,
+                       plot_corr=True, corr_name=None,
+                       plot_source_offsets=True, source_offs_name=None,
+                       plot_field_offsets=False, field_offs_name=None):
+        """        
         Input: 
-            - whether to plot the ePSF, residuals of the 
-              PSF fitting, the correlation and fit between instrumental and 
-              known magnitudes for sources in the field, a scatter plot of the 
-              offsets in RA and Dec of each source from the relevant catalog 
-              and/or a blurred image showing any possible structure in the 
-              offsets in the field (all optional; defaults True, False, True, 
-              True, False, respectively), 
-            - limit on the number of sources to fit (optional; default no 
-              limit)
-            - sigma to use when applying a Gaussian blur to the field offsets 
-              image (optional; default 30.0, only used if 
-              plot_field_offsets=True)
-            - a Vizier catalog to query for comparison sources (optional, 
-              defaults are set if None is given)
-            - names for the output plots (all optional; defaults are all set; 
-              only relevant if plot_X=True for some plot X)
+            general:
+            - maximum number of stars to use in ePSF building (optional; 
+              default 40; set to None to impose no limit)
+            - sigma threshold for source detection with image segmentation 
+              (optional; default 5.0)
+            - *minimum* number of isophotal pixels (optional; default 20)
+            - *maximum* allowed elongation for sources found by image 
+              segmentation (optional; default 1.4)
+            - *maximum* allowed area for sources found by image segmentation 
+              (optional; default 500 pix**2)
+            - cutout size around each star in pix (optional; default 35 pix; 
+              must be ODD, rounded down if even)
+            - limit on number of sources to fit with ePSF (optional; default 
+              None which imposes no limit)
+            - sigma to use for the Gaussian blur, if relevant (optional; 
+              default 30.0)
+            - Vizier catalog number to choose which catalog to cross-match 
+              (optional; defaults are PanStarrs 1, SDSS DR12, and 2MASS for 
+              relevant filters)
+            - maximum allowed separation when cross-matching sources (optional;
+              default 2.0 pix ~ 0.6" for WIRCam and ~ 0.37" pix for MegaPrime)
+            - be verbose (optional; default True)
+            
+            only relevant if background not computed beforehand:
+            - box size for the background computation (optional; default 50x50)
+            - size for the median filter applied during background computation
+              (optional; default 5x5)
+
+            - whether to write the built ePSF (optional; default False)
+            - name for output ePSF .fits file (optional; default set below)
+            - whether to plot the derived ePSF (optional; default True)
+            - name for output ePSF plot (optional; default set below)
+            - whether to plot the residuals of the iterative PSF fitting 
+              (optional; default False)
+            - name for output residuals plot (optional; default set below)
+            - whether to plot instrumental magnitude versus catalogue magnitude 
+              correlation when obtaining the zero point (optional; default 
+              True)
+            - name for output correlation (optional; default set below)
+            - whether to plot the offsets between the image WCS and catalogue 
+              WCS (optional; default True)
+            - name for output source offsets plot (optional; default set below)
+            - whether to plot the offsets across the field with a Gaussian blur
+              to visualize large-scale structure in the offsets if any is 
+              present (optional; default False)
+            - name for the output field offsets plot (optional; default set 
+              below)         
         
-        Uses the stars in the field with fluxes within the 80th and 90th 
-        percentile to develop an empirical ePSF, fits this ePSF to all of the 
-        stars some distance away from the edges of the image, obtains 
-        instrumental magnitudes, and queries an online catalogue for comparison
-        sources to obtain the zero point needed for photometric calibration.
+        Using image segmentation, finds as many sources as possible in the 
+        image with an elongation below some elongation limit. Uses these 
+        sources to build an empirical effective PSF (ePSF). Using a list of 
+        sources found by astrometry.net, fits the ePSF to all of those sources. 
+        Computes the instrumental magnitude of all of these sources. Queries 
+        the correct online catalogue for the given filter to crossmatch sources
+        in the image with those in the catalogue (e.g. Pan-STARRS 1). Finds the
+        zero point which satisfies AB_mag = ZP + instrumental_mag and gets the 
+        calibrated AB mags for all PSF-fit sources. 
         
         Output: None 
         """
-        Stack.__fit_PSF(self, plot_ePSF, plot_resid, ePSF_name, resid_name, 
-                        source_lim)
+        # compute any missing masks/background
+        if not(type(self.bkg) == np.ndarray): 
+            # --> forces all others to be built, too
+            Stack.bkg_compute(self, 
+                              box_size=box_size, 
+                              filter_size=filter_size, 
+                              thresh_sigma=thresh_sigma) 
+        
+        Stack.__fit_PSF(self, nstars, thresh_sigma, pixelmin, elongation_lim, 
+                        area_max, cutout, source_lim, 
+                        write_ePSF, ePSF_data_name,
+                        plot_ePSF, ePSF_name, 
+                        plot_resid, resid_name, 
+                        verbose)
         
         if self.psf_fit: # if the PSF Was properly fit 
-            Stack.__zero_point(self, plot_corr, plot_source_offsets, 
-                               plot_field_offsets, gaussian_blur_sigma, 
-                               cat_num, corr_name, source_offs_name, 
-                               field_offs_name)
+            Stack.__zero_point(self, sep_max, plot_corr, corr_name, 
+                               plot_source_offsets, source_offs_name, 
+                               plot_field_offsets, field_offs_name, 
+                               gaussian_blur_sigma, cat_num)
         
         
-    def write_PSF_photometry(self, plot_ePSF=True, plot_resid=True, 
-                             plot_corr=True, plot_source_offsets=True, 
-                             plot_field_offsets=False, source_lim=None, 
-                             gaussian_blur_sigma=30.0, cat_num=None, 
-                             ePSF_name=None, resid_name=None, corr_name=None,
-                             source_offs_name=None, field_offs_name=None,
+    def write_PSF_photometry(self, nstars=40, thresh_sigma=5.0, pixelmin=20, 
+                             elongation_lim=1.4, area_max=500, cutout=35, 
+                             source_lim=None, gaussian_blur_sigma=30.0, 
+                             cat_num=None, sep_max=2.0, verbose=True,  
+                             box_size=50, filter_size=5, 
+                             write_ePSF=False, ePSF_data_name=None,
+                             plot_ePSF=True, ePSF_name=None,
+                             plot_resid=False, resid_name=None,
+                             plot_corr=True, corr_name=None,
+                             plot_source_offsets=True, source_offs_name=None,
+                             plot_field_offsets=False, field_offs_name=None, 
                              output=None):
         """
         Input: the same as PSF_photometry, with an additional arg for the 
         filename of the output file 
         
         Performs PSF photometry if it has not already been performed, and then
-        writes psf_sources to a .fits file. 
+        writes a table of the PSF-fit sources to a .fits table. 
         
         Output: None
         """
         
         if not(self.photometric_calib):
-            print("\nPhotometric calibration has not yet been performed, so "+
-                  "it will be completed now.\n")
-            Stack.PSF_photometry(self, plot_ePSF, plot_resid, plot_corr, 
-                                 plot_source_offsets, plot_field_offsets, 
-                                 source_lim, gaussian_blur_sigma, cat_num,
-                                 ePSF_name, resid_name, corr_name, 
-                                 source_offs_name, field_offs_name)
+            print("\nObtaining photometric calibration...")
+            Stack.PSF_photometry(self, nstars, thresh_sigma, pixelmin, 
+                                 elongation_lim, area_max, cutout, source_lim, 
+                                 gaussian_blur_sigma, cat_num, sep_max, 
+                                 verbose, box_size, filter_size,
+                                 write_ePSF, ePSF_data_name,
+                                 plot_ePSF, ePSF_name, 
+                                 plot_resid, resid_name,
+                                 plot_corr, corr_name, 
+                                 plot_source_offsets, source_offs_name, 
+                                 plot_field_offsets, field_offs_name)
         
         if self.photometric_calib: # if successful
             to_write = self.psf_sources 
             
             if not(output): # if no name given
                 output = self.stack_name.replace("_updated.fits", 
-                                                      "_PSF_photometry.fits")
+                                                 "_PSF_photometry.fits")
             to_write.write(output, overwrite=True)
         else: 
             print("\nPhotometry failed, so no file was written. Exiting.")
-        
+            
         
     def adjust_astrometry(self, ra=None, dec=None):
-        """
-        Input: for manual adjustment, the RA and Dec by which to adjust the 
-        reference pixel (optional; default None, which calls automatic 
-        adjustment based on the offsets computed during PSF photometry)
+        """            
+        Input: 
+            - ra, dec by which to adjust the reference pixel (optional; default
+              None, in which case the offsets are taken from PSF photometry)
         
-        If PSF photometry has been completed, then the average offset in RA, 
-        Dec between the astrometric solution and the coorinates of the 
+        If PSF photometry has been completed, then the average offset in ra, 
+        dec between the astrometric solution and the coorinates of the 
         relevent catalog is known and can be used to adjust the astrometric 
-        solution of the image. PSF photometry can then be re-done. 
+        solution of the image. PSF photometry can then be re-done. OR, if the 
+        offset is known via some other method, this can be used to correct it.
+        
+        ** Not very reliable right now.
         
         Output: None
-        
-        * WIP: Not very reliable.
         """
 
         # move to calibration directory 
@@ -2516,7 +2829,6 @@ class Stack(RawData):
         f.close()
         self.image_header = fits.getheader(self.stack_name)
         
-
         # separations are now approx. 0, can be computed again by running
         # PSF_photometry once more 
         self.sep_mean = 0.0  
@@ -2530,13 +2842,13 @@ class Stack(RawData):
 
 ###############################################################################
     #### APERTURE PHOTOMETRY ##################################################
-        
+
     def __drop_aperture(self, ra, dec, ap_radius=1.2, r1=2.0, r2=5.0,
-                        plot_annulus=False, plot_aperture=False, ann_name=None,
-                        ap_name=None, bkgsub_verify=True):
+                        plot_annulus=False, ann_name=None,
+                        plot_aperture=False, ap_name=None, bkgsub_verify=True):
         """
         Input: 
-            - RA, Dec (in degrees) of a source around which to build an 
+            - ra, dec (in degrees) of a source around which to build an 
               aperture of radius ap_radius (in arcsec; optional; default 0.9")
             - radius of aperture to place around "source" (optional; default 
               1.2")
@@ -2560,15 +2872,9 @@ class Stack(RawData):
         total background in aperture, standard deviation in this background, 
         and background-subtracted aperture flux 
         """
-        from photutils import (SkyCircularAperture, aperture_photometry,
-                       SkyCircularAnnulus)
-        
-        image_data = self.image_data # the UNCLEANED image data 
-        image_header = self.image_header # image header
-        image_mask = self.mask_data # mask 
                 
         # wcs object
-        w = wcs.WCS(image_header)
+        w = wcs.WCS(self.image_header)
         
         # lay down the aperture 
         position = SkyCoord(ra, dec, unit="deg", frame="icrs") # source posn
@@ -2576,8 +2882,10 @@ class Stack(RawData):
         ap_pix = ap.to_pixel(w) # aperture in pix
         
         # table of the source's x, y, and total flux in aperture
-        phot_table = aperture_photometry(image_data, ap_pix, 
-                                         error=self.image_error)
+        # mask out only bad pixels
+        phot_table = aperture_photometry(self.image_data, ap_pix, 
+                                         error=self.image_error,
+                                         mask=self.bp_mask)
         # ra, dec of source
         ra_col = Column([ra], "ra")
         dec_col = Column([dec], "dec")
@@ -2589,22 +2897,25 @@ class Stack(RawData):
                                                r_out=r2*u.arcsec)
         annulus_apertures = annulus_apertures.to_pixel(w)
         annulus_masks = annulus_apertures.to_mask(method='center')
-        # mask out sources 
-        image_data_masked = np.ma.masked_where(image_mask, image_data)
-        image_data_masked.fill_value = 0
+        
+        # mask out bad pixels AND sources
+        image_data_masked = np.ma.masked_where(self.source_mask, 
+                                               self.image_data)
+        image_data_masked.fill_value = 0 # set to zero
         image_data_masked = image_data_masked.filled()
         annulus_data = annulus_masks[0].multiply(image_data_masked)
-        try:
-            mask = annulus_data <= 0 # mask invalid data 
+        
+        try: # mask invalid data in specific annulus
+            ann_mask = np.logical_or(annulus_data==0, np.isnan(annulus_data))
         except TypeError: # if annulus_data is None
             print("\nThere is no annulus data at this aperture. Either the "+
                   "input target is out of bounds or the entire annulus is "+
                   "filled with sources. Consider using a different radius "+
                   "for the aperture/annuli. Exiting.")
-            return
-        annulus_data = np.ma.masked_where(mask, annulus_data)
+            return      
+        annulus_data = np.ma.masked_where(ann_mask, annulus_data)
         
-        # estimate background as median in the annulus 
+        # estimate background as median in the annulus, ignoring data <= 0 
         annulus_data_1d = annulus_data[annulus_data>0]
         bkg_mean, bkg_med, bkg_std = sigma_clipped_stats(annulus_data_1d)
         bkg_total = bkg_med*ap_pix.area()
@@ -2627,67 +2938,24 @@ class Stack(RawData):
                   "is negative. It cannot be used to compute a magnitude. "+
                   "Consider using a different radius for the aperture/annuli "+
                   "and make sure that no sources remain in the annulus. "+
-                  "Exiting.")
+                  "Alternatively, get a limiting magnitude at these "+
+                  "coorindates instead. Exiting.")
             return         
         
         if plot_annulus:
-            Stack.__plot_annulus(self, ra, dec, r1, r2, annulus_data, 
-                                 ann_name)   
+            Stack.__plot_annulus(self, annulus_data, ra, dec, r1, r2, ann_name)   
         if plot_aperture:
-            Stack.__plot_aperture(self, ra, dec, ap_pix, r1, r2, 
-                                  annulus_apertures, ap_name)  
+            Stack.__plot_aperture(self, annulus_apertures, ra, dec, ap_pix, 
+                                  r1, r2, ap_name)  
         return phot_table
     
     
-    def __error_array(self):
-        """
-        Input: None
-        
-        Computes the error on the background-only image as the RMS deviation 
-        of the background, and then computes the total image error including 
-        the contribution of the Poisson noise from detected sources. Necessary 
-        for error propagation in aperture photometry. 
-        
-        Output: None 
-        """
-
-        from photutils.utils import calc_total_error
-        image_data = self.image_data # the UNCLEANED image data 
-        image_mask = self.mask_data # mask 
-        
-        if "WIRCam" in self.instrument:
-            eff_gain = 3.8 # effective gain (e-/ADU) for WIRCam
-        else: 
-            image_header = self.image_header
-            eff_gain = image_header["GAIN"] # effective gain for MegaPrime
-                    
-        # mask out sources and convert to bool for background estimation
-        image_mask = image_mask.astype(bool)
-        # mask out 0 regions near borders/corners
-        zero_mask = image_data <= 0 
-        # combine the masks with logical OR 
-        image_mask = np.ma.mask_or(image_mask, zero_mask)
-        
-        # estimate background 
-        bkg_est = MMMBackground()
-        bkg = Background2D(image_data, (10,10), filter_size=(3,3), 
-                           bkg_estimator=bkg_est, mask=image_mask)
-        # compute sum of Poisson error and background error  
-        # currently, this seems to overestimate unless the input data is 
-        # previously background-subtracted
-        err = calc_total_error(image_data-bkg.background, 
-                               bkg.background_rms, eff_gain)
-        
-        self.image_error = err
-        self.image_error_computed = True
-    
-    
-    def __plot_annulus(self, ra, dec, r1, r2, annulus_data, ann_name=None):
+    def __plot_annulus(self, annulus_data, ra, dec, r1, r2, ann_name=None):
         """
         Input: 
-            - RA and Dec for the centre of an annulus
+            - data of the annulus itself (2D array)
+            - ra, dec for the centre of an annulus
             - inner and outer radii for the annuli
-            - data of the annulus itself
             - name for the output annulus plot (optional; default set below)
             
         Plots an image of the annulus for a given aperture computation. 
@@ -2718,25 +2986,22 @@ class Stack(RawData):
         plt.close()
         
         
-    def __plot_aperture(self, ra, dec, ap_pix, r1, r2, annulus_pix, 
+    def __plot_aperture(self, annulus_pix, ra, dec, ap_pix, r1, r2, 
                         ap_name=None):
         """
         Input: 
-            - RA and Dec for the centre of the aperture
-            - radius of the aperture and inner and outer annuli,
-            - pixel data of the annulus 
+            - pixel data of the *annulus* 
+            - ra, dec for the centre of the aperture
+            - radius of the aperture, inner annulus, and outer annulus
             - name for the output aperture plot
             
         Plots an image of the aperture and annuli drawn around a source of 
         interest for aperture photometry.
         
         Output: None
-        """
-        image_data = self.image_data # the UNCLEANED image data 
-        image_header = self.image_header # image header
-        
+        """        
         # wcs object
-        w = wcs.WCS(image_header)
+        w = wcs.WCS(self.image_header)
 
         # update wcs object and image to span a box around the aperture
         xpix, ypix = ap_pix.positions[0] # pix coords of aper. centre 
@@ -2744,7 +3009,7 @@ class Stack(RawData):
         idx_x = [int(xpix-boxsize), int(xpix+boxsize)]
         idx_y = [int(ypix-boxsize), int(ypix+boxsize)]
         w.wcs.crpix = w.wcs.crpix - [idx_x[0], idx_y[0]] 
-        image_data_temp = image_data[idx_y[0]:idx_y[1], idx_x[0]:idx_x[1]] 
+        image_data_temp = self.image_data[idx_y[0]:idx_y[1], idx_x[0]:idx_x[1]] 
         
         # update aperture/annuli positions 
         ap_pix.positions -= [idx_x[0], idx_y[0]] 
@@ -2778,23 +3043,36 @@ class Stack(RawData):
         
         plt.savefig(ap_name, bbox_inches="tight")
         plt.close()
+        
     
-    
-    def aperture_photometry(self, ra_list, dec_list, ap_radius=1.2, 
-                            r1=2.0, r2=5.0, sigma=None, plot_annulus=False,
-                            plot_aperture=False, ann_name=None, ap_name=None):
+    def aperture_photometry(self, ra_list, dec_list, 
+                            sigma=None, bkgsub_verify=True, 
+                            ap_radius=1.2, r1=2.0, r2=5.0, 
+                            box_size=50, filter_size=5, 
+                            thresh_sigma=3.0,
+                            plot_annulus=False, ann_name=None,
+                            plot_aperture=False, ap_name=None):
         """
         Input: 
-            - the RA and Dec (in degrees) of the source(s) around which to 
-              build an aperture
+            - list OR single float/int of ra, dec of interest
+            - limiting sigma below which a source is labelled non-detected 
+              (optional; default no limit)
             - radius for the aperture (in arcsec; optional; default 1.2")
             - inner radius r1 and outer radius r2 for the annulus (in arcsec; 
               optional; default 2.0", 5.0")
-            - limiting sigma below which a source is labelled non-detected 
-              (optional; default no limit)
+            
+            - box size for the background computation (optional; default 50x50;
+              only relevant if background not found beforehand)
+            - size for the median filter applied during background computation
+              (optional; default 5x5; only relevant if background not found 
+              beforehand) 
+            - sigma to use as the threshold for image segmentation (optional; 
+              default 3.0; only relevant if a source mask does not exist for 
+              the object and needs to be computed)
+            
             - whether to plot the annulus (optional; default False)
-            - whether to plot the aperture (optional; default False)
             - name for the output annulus plot (optional; default set below)
+            - whether to plot the aperture (optional; default False)
             - name for the output aperture plot (optional; default set below)
         
         Computes the the total flux in a defined aperture around the given RA,
@@ -2804,9 +3082,19 @@ class Stack(RawData):
         
         Output: None
         """        
-        
-        if not self.image_error_computed: # if error array is not yet computed
-            Stack.__error_array(self) # compute it 
+
+        # if PSF photometry has not been performed, can't get aperture mags 
+        if not(self.photometric_calib):
+            print("Cannot obtain magnitudes through aperture photometry "+ 
+                  "because photometric calibration has not yet been obtained."+
+                  " Exiting.\n")
+            return
+            
+        # compute any missing masks and/or the error array
+        # --> forces all others to be built, too 
+        if not(type(self.image_error) == np.ndarray): 
+            Stack.error_array(self, box_size=box_size, filter_size=filter_size,
+                              thresh_sigma=thresh_sigma) 
             
         # initialize table of sources found by aperture photometry if needed
         if not(self.aperture_fit):
@@ -2820,13 +3108,6 @@ class Stack(RawData):
             mjd_col = Column([], "MJD")
             self.aperture_sources.add_column(filt_col)
             self.aperture_sources.add_column(mjd_col)
-            
-        # if PSF photometry has not been performed, can't get aperture mags 
-        if not(self.photometric_calib):
-            print("Cannot obtain magnitudes through aperture photometry "+ 
-                  "because photometric calibration has not yet been obtained."+
-                  " Exiting.\n")
-            return
                 
         # convert to lists if needed 
         if (type(ra_list) in [float, int]):
@@ -2836,11 +3117,14 @@ class Stack(RawData):
         
         # compute background-subtracted flux for the input aperture(s) 
         # add these to the list of sources found by aperture photometry 
+        print("\nAttemtping to perform aperture photometry...")
         for i in range(0, len(ra_list)):
             phot_table = Stack.__drop_aperture(self, ra_list[i], dec_list[i],
-                                               ap_radius, r1, r2, plot_annulus,
-                                               plot_aperture, ann_name, 
-                                               ap_name)
+                                               ap_radius, r1, r2, 
+                                               plot_annulus, ann_name,
+                                               plot_aperture, ap_name,
+                                               bkgsub_verify)
+                                               
             if phot_table: # if a valid flux (non-negative) is found
                 
                 # compute error on bkg-subtracted aperture sum 
@@ -2881,9 +3165,7 @@ class Stack(RawData):
                 
                 if sigma and (phot_table["sigma"] >= sigma):
                     self.aperture_sources.add_row(phot_table[0])
-                    self.aperture_fit = True # update 
-
-                    
+                    self.aperture_fit = True # update                  
                 elif sigma and (phot_table["sigma"] < sigma):
                     print("\nA 'source' was detected, but below the requested"+
                           " "+str(sigma)+" sigma level. The source is "+
@@ -2894,19 +3176,33 @@ class Stack(RawData):
                     self.aperture_fit = True # update 
                     
                 a = phot_table[0]
-                s = "\n"+a["filter"]+" = %.2f ± %.2f"%(a["mag_calib"],
-                    a["mag_calib_unc"])+", %.1f"%a["sigma"]+"sigma"
+                s = "\n"+a["filter"]+" = %.2f "%float(a["mag_calib"])
+                s += "+/- %.2f"%float(a["mag_calib_unc"])
+                #s += "± %.2f"%float(a["mag_calib_unc"]) # causes errors
+                s += ", %.1f"%float(a["sigma"])+"sigma"
                 print(s)
                 
                 
-    def limiting_magnitude(self, ra, dec, sigma=3.0, output=None):
-        """
-        WIP: 
-            - add ability to write the solution
-        
+    def limiting_magnitude(self, ra, dec, sigma=5.0, 
+                           thresh_sigma=3.0, box_size=50, filter_size=5,
+                           write=False, output=None):
+        """        
         Input: 
-            - RA, Dec around which we want limiting magnitude
-            - sigma defining the limiting magnitude (optional; default 3.0)
+            - ra, dec of interest
+            - sigma defining the limiting magnitude (optional; default 5.0)
+            
+            - box size for the background computation (optional; default 50x50;
+              only relevant if background not found beforehand)
+            - size for the median filter applied during background computation
+              (optional; default 5x5; only relevant if background not found 
+              beforehand) 
+            - sigma to use as the threshold for image segmentation (optional; 
+              default 3.0; only relevant if a source mask does not exist for 
+              the object and needs to be computed)
+            
+            - whether to write the resultant table (optional; default False)
+            - name for output table file (optional; default set below; only 
+              relevant if write=True)
             
         For a given RA, Dec, finds the limiting magnitude at its location. If 
         a source was previously detected <= 3" away from the given coords by 
@@ -2916,13 +3212,32 @@ class Stack(RawData):
         Output: the limiting magnitude 
         """
 
-        image_header = self.image_header
+        # if PSF photometry has not been performed, can't get aperture mags 
+        if not(self.photometric_calib):
+            print("Cannot obtain magnitudes through aperture photometry "+ 
+                  "because photometric calibration has not yet been obtained."+
+                  " Exiting.\n")
+            return
+
+        # compute any missing masks and/or the error array
+        # --> forces all others to be built, too 
+        if not(type(self.image_error) == np.ndarray): 
+            Stack.error_array(self, box_size=box_size, filter_size=filter_size,
+                              thresh_sigma=thresh_sigma) 
+
+        # initialize table of sources if needed
+        if not(self.limmag_obtained):
+            cols = ["ra", "dec", "lim_mag"]
+            self.limmag_sources = Table(names=cols)
+            filt_col = Column([], "filter", dtype='S2') # specify
+            mjd_col = Column([], "MJD")
+            self.limmag_sources.add_column(filt_col)
+            self.limmag_sources.add_column(mjd_col)
+
+
+        # get coords of all sources 
         sources_data = self.xy_data 
-                
-        if not self.image_error_computed: # if error array is not yet computed
-            Stack.__error_array(self) # compute it 
-        
-        w = wcs.WCS(image_header)
+        w = wcs.WCS(self.image_header)
         coords = w.all_pix2world(sources_data["X"], sources_data["Y"], 1)
         coords = SkyCoord(coords[0]*u.deg, coords[1]*u.deg, 1)
         target = SkyCoord(ra*u.deg, dec*u.deg)
@@ -2941,7 +3256,7 @@ class Stack(RawData):
             # make sure it hasn't gone too far, return to center if so
             x, y = w.all_world2pix(new_ra.value, new_dec.value, 1)
             if (x<0.1*self.x_size) or (y<0.1*self.y_size) or (
-                    x>0.9*self.x_size) or (y>0.9*self.y_size):
+                x>0.9*self.x_size) or (y>0.9*self.y_size):
                 new = w.all_pix2world(self.x_size//2, self.y_size//2, 1)
                 new_ra, new_dec = new[0]*u.deg, new[1]*u.deg
             
@@ -2953,9 +3268,13 @@ class Stack(RawData):
         print("\nFinding the limiting magnitude at (RA, Dec) = (%.4f, %.4f)"%(
                 ra, dec))            
         
-        # do aperture photometry on region of interest
-        # use a large annulus
-        phot_table = Stack.__drop_aperture(self, ra, dec, r1=2.0, r2=20.0, 
+        # do aperture photometry on region of interest with large annulus
+        phot_table = Stack.__drop_aperture(self, ra, dec, 
+                                           ap_radius=1.2, r1=2.0, r2=20.0, 
+                                           plot_annulus=False,
+                                           ann_name=None, 
+                                           plot_aperture=False,
+                                           ap_name=None,
                                            bkgsub_verify=False)
  
         phot_table["aper_sum_bkgsub_err"] = np.sqrt(
@@ -2964,9 +3283,16 @@ class Stack(RawData):
         
         # compute limit below which we can't make a detection
         limit = sigma*phot_table["aper_sum_bkgsub_err"][0]
-        self.limiting_mag = -2.5*np.log10(limit) + self.zp_mean
-        
+        self.limiting_mag = -2.5*np.log10(limit) + self.zp_mean       
         print("\n"+self.filter+" > %.1f (%d sigma)"%(self.limiting_mag,sigma))
+        
+        # add table with other info as attribute to the object
+        lim_table = Table(data=[[ra], [dec], [self.limiting_mag], 
+                                [self.filter], [self.stack_time]],
+                          names=["ra","dec","mag_calib","filter","MJD"])
+        self.limmag_sources.add_row(lim_table[0])
+        self.limmag_obtained = True
+    
         return self.limiting_mag
 
 
@@ -2981,7 +3307,7 @@ class Stack(RawData):
         """
         
         if not(self.aperture_fit):
-            print("No aperture photometry has been performed yet. Exiting.\n")
+            print("No aperture photometry has been performed. Exiting.\n")
             return
             
         to_write = self.aperture_sources
@@ -2990,6 +3316,28 @@ class Stack(RawData):
             output = self.stack_name.replace("_updated.fits", 
                                                   "_aperture_photometry.fits")
         to_write.write(output, overwrite=True, format="ascii.ecsv")
+
+
+    def write_limiting_magnitude(self, output=None):
+        """
+        Input: name for the output file which will contain a table of the 
+        sources with limiting magnitudes 
+
+        Writes the table of sources with aperture photometry limiting 
+        magnitudes to a file.
+        
+        Output: None
+        """
+        
+        if not(self.limmag_obtained):
+            print("No limiting magnitude has been obtained. Exiting.\n")
+            return
+            
+        to_write = self.limmag_sources
+        
+        if not(output): # if no name given
+            output = self.stack_name.replace("_updated.fits", "_limmag.fits")
+        to_write.write(output, overwrite=True, format="ascii.ecsv")   
         
 ###############################################################################
     #### COMPARE APERTUTRE AND PSF PHOTOMETRY #################################
