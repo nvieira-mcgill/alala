@@ -5,6 +5,7 @@ Named after the ʻAlalā, the Hawaiian crow, known for its intelligence and flyi
 
 # Documentation
 See: https://alala.readthedocs.io/en/latest/#
+Slightly out of date at the moment.
 
 # The project
 This project was begun in May 2019 by Nicholas Vieira, working under the supervision of Dr. Daryl Haggard and Dr. John Ruan, both at McGill University/McGill Space Institute. 
