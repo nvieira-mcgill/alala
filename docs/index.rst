@@ -301,11 +301,25 @@ And, again, the stack will first be produced if it does not already exist. A con
      >>> # let's say we only care about the J band 
      >>> j_stack = alala.Stack("/data/myWIRCam/divided_det3_WIRCam_20181106", "/exports/myWIRCam/working_dir", qso_grade_limit=2)
 
+Masks, backgrounds 
+------------------
+
+We have a few convenience functions which allow us to make masks and compute the background of our image. These are:
+
+.. code-block:: python
+     
+     >>> j_stack.bp_mask() # build a simple bad pixel mask where pixels=0 or NaN
+     >>> j_stack.source_mask() # use image segmentation to make a mask of all sources in the image
+     >>> j_stack.bkg_compute() # compute the background of the image and produce a background-subtracted image
+     >>> j_stack.error_array() # compute the total error on the image, including both Gaussian and Poisson error
+
+Computing the error array requires background subtraction, performing background subtraction requires a source mask, and masking out sources requires a basic bad pixel mask. So, if any of these steps have not yet been performed when calling any of these functions, the steps will be done automatically. The error array, background array, background-subtracted image array, etc. are all stored as attributes of the stack object for later use. 
+
 
 Performing astrometry, photometry
 ---------------------------------
 
-In this section, we will assume you have the ``j_stack`` object as defined above. Recall that, in our stack working directory, we have a file ``J_stack_20181106.fits``. First, let's refine the **astrometry** for the stack and extract as many sources as possible. To do so, we need the correct **index files** for our field. These are the files which astrometry.net uses to solve the field. For WIRCam and MegaCam images, we can use the 4201 series of 2MASS images from `here <http://data.astrometry.net/4200/>`_. (The 2 numbers immediately following 42 indicate the scale of the image, with larger numbers indicating wider fields). The `5000 <http://data.astrometry.net/5000/>`_ series of images, built from GAIA, are also well-suited. We must then determine which healpix number corresponds to the approximate RA, Dec of our image. To do see, we consult the following image:
+In this section, we will assume you have the ``j_stack`` object as defined above. Recall that, in our stack working directory, we have a file ``J_stack_20181106.fits``. First, let's refine the **astrometry** for the stack and extract as many sources as possible. To do so, we need the correct **index files** for our field. These are the files which astrometry.net uses to solve the field. For WIRCam and MegaCam images, we can use the  `5000 <http://data.astrometry.net/5000/>`_ series of images, built from GAIA. (The 2 numbers immediately following 50 indicate the scale of the image, with larger numbers indicating wider fields). The 4201 series of 2MASS images from `here <http://data.astrometry.net/4200/>`_ are also well-suited. We must then determine which healpix number corresponds to the approximate RA, Dec of our image. To do see, we consult the following image:
 
 .. image:: https://github.com/nvieira-mcgill/alala/blob/master/images/astrometry.net_hp2.png?raw=true
 
@@ -318,17 +332,14 @@ For example, for a source at an RA ~ 150 degrees, Dec ~ 10 degrees, we would wan
 This line will do the following: 
 
      1. Extract as many stars as possible, solve the field, and output an updated WCS header to ``J_stack_20181106_updated.fits``
-     2. Produce a background-subtracted, "clean" image and output it to ``J_stack_20181106_clean.fits``
-     3. Output a list of the pixel coordinates and background-subtracted flux for all the previously extracted sources in the fits bintable ``J_stack_20181106_updated.xy.fits``
-     4. Produce an image in which all sources are masked and output it to ``J_stack_20181106_mask.fits``
-     
+     2. Output a list of the pixel coordinates and background-subtracted flux for all the previously extracted sources in the fits bintable ``J_stack_20181106_updated.xy.fits``     
 
-These 4 files will be output to a new directory ``calibration`` within the stack directory. It is useful now to take a look at the actual stack itself. We can do so with the ``make_image()`` function, which has many options: 
+These 2 files will be output to a new directory ``calibration`` within the stack directory. It is useful now to take a look at the actual stack itself. We can do so with the ``make_image()`` function, which has many options: 
 
 .. code-block:: python
 
      >>> j_stack.make_image() # make a plain image with the raw, unsubtracted data
-     >>> j_stack.make_image(clean=True) # use the cleaned data
+     >>> j_stack.make_image(bkgsub=True) # use the background-subtracted data
      >>> j_stack.make_image(sources=True) # put circles around all extracted sources
      >>> j_stack.make_image(ra=275.15, dec=7.15) # plot a cross-hair at this RA, Dec
      >>> j_stack.make_image(scale="log") # use a log_10 scale 
@@ -344,12 +355,13 @@ Returning to our analysis, we now have all the files needed to perform **PSF pho
      
 This line will do the following: 
 
-     1. From the list of detected sources, take those within the 80th and 90th percentile flux, and use them to build an empirical effective point-spread-function (ePSF)
-     2. Fit this ePSF to **all** detected sources to obtain a PSF-fit flux 
-     3. Compute the instrumental magnitude of **all** detected sources 
-     4. Query an external catalog for sources whose RA and Dec puts them within 2 pixels of our detected sources, and for all matches, obtain the catalog magnitude 
-     5. Use sigma-clipping to obtain the mean, median and standard deviation of the offset between the instrumental and catalog magnitudes, i.e., the zero point 
-     6. Add this zero point to the instrumental magnitude to obtain the calibrated magnitudes for **all** sources 
+     1. Using image segmentation, find all sources in the image, and discard overly elongated or extremely large sources (default: exclude sources with elongation > 1.4 and/or area > 500 square pix.)
+     2. Using the remaining sources, empirically obtain the effective Point Spread Function (ePSF) of the image 
+     3. Fit this ePSF to **all** sources previously detected by astrometry.net to obtain a PSF-fit flux 
+     4. Compute the instrumental magnitude of **all** detected sources 
+     5. Query an external catalog for sources whose RA and Dec puts them within 2 pixels of our detected sources, and for all matches, obtain the catalog magnitude 
+     6. Use sigma-clipping to obtain the mean, median and standard deviation of the offset between the instrumental and catalog magnitudes, i.e., the zero point 
+     7. Add this zero point to the instrumental magnitude to obtain the calibrated magnitudes for **all** sources 
 
 
 Note that the instrumental magnitude is computed as: 
@@ -361,6 +373,12 @@ Note that the instrumental magnitude is computed as:
           
 When calling ``PSF_photometry()``, important optional arguments are:
 
+     * ``nstars`` `(int, default 40)` Number of stars to use in building the ePSF
+     * ``thresh_sigma`` `(float, default 5.0)` Threshold sigma for source detection with image segmentation
+     * ``pixelmin`` `(float, default 20.0)` Minimum pixel area for a source 
+     * ``elongation_max`` `(float, default 1.4)` Maximum allowed source elongation
+     * ``area_max`` `(float, default 500.0)` Maximum pixel area for a source
+     * ``sep_max`` `(float, default 2.0)` Maximum number of pixels separating two sources when cross-matching to external catalogue 
      * ``plot_ePSF`` `(bool, default True)` Plot the ePSF
      * ``plot_residuals`` `(bool, default True)` Plot the residuals of the ePSF fit 
      * ``plot_corr`` `(bool, default True)` Plot the instrumental versus catalog magnitudes, with a linear fit 
@@ -369,7 +387,7 @@ When calling ``PSF_photometry()``, important optional arguments are:
      
 The ePSF plot and the residuals plot are measures of the quality of the PSF fit. The correlation is a measure of the accuracy of the PSF calibration: the slope of the linear fit should be very close to 1, although outliers are always present. Finally, the offset plots are measures of the difference between the astrometry of the queried catalogue and our solved image.  
 
-With this step complete, we have calibrated magnitudes for several thousand stars in your image. A table of all of these sources is stored in the attribute ``j_stack.psf_sources``. **Note that in the above steps, sources near the edges of the image are ignored.** To see the border which delimits the sources which are used in photometry: 
+With this step complete, we have calibrated magnitudes for several thousand stars in our image. A table of all of these sources is stored in the attribute ``j_stack.psf_sources``. **Note that in the above steps, sources near the edges of the image are ignored.** To see the border which delimits the sources which are used in photometry: 
 
 .. code-block:: python 
 
@@ -460,20 +478,6 @@ Additional notes
      >>> j_stack.set_plot_ext("pdf")
 
 Valid options are ``png``, ``pdf``, ``bmp``, and ``jpg``. 
-
-**NOTE:** There is a function ``adjust_astrometry()`` which can be called to adjust the astrometric solution of the data based on the offsets computed during PSF photometry: 
-
-.. code-block:: python
-
-     >>> j_stack.adjust_astrometry()
-     
-One can then re-do PSF photometry. In practice, almost nothing is gained, as the solution obtained by ``astrometry.net`` is already quite accurate. If the RA and Dec offset are known (say, by inspecting the images in DS9), they can be provided directly (in degrees):
-
-.. code-block:: python
-
-     >>> j_stack.adjust_astrometry(deltara=0.005, deltadec=-0.0001)
-     
-These offsets will then be **subtracted** from the RA, Dec of the stack. 
 
 **NOTE:** The catalogues used to match sources during PSF photometry are the Sloan Digital Sky Survey Data Release 12 (SDSS DR12) for the `u` band, PanStarrs 1 (PS1) for `grizy`, and 2MASS for `JHKs`. 2MASS is an all-sky survey and PS1 is carried out from Hawaii, so it is not an issue to match sources for the `grizy` and `JHKs` bands. However, SDSS is based in New Mexico, so it is possible that a source observed by CFHT is simply nowhere near the regions of the sky observed by SDSS. 
 
