@@ -315,6 +315,8 @@ We have a few convenience functions which allow us to make masks and compute the
 
 Computing the error array requires background subtraction, performing background subtraction requires a source mask, and masking out sources requires a basic bad pixel mask. So, if any of these steps have not yet been performed when calling any of these functions, the steps will be done automatically. The error array, background array, background-subtracted image array, etc. are all stored as attributes of the stack object for later use. 
 
+Generally, you won't need to call any of these functions manually. The background-subtracted image is needed for PSF photometry, and the error array is needed for aperture photometry, so these functions will be called automatically as you do your photometry.
+
 
 Performing astrometry, photometry
 ---------------------------------
@@ -483,62 +485,4 @@ Valid options are ``png``, ``pdf``, ``bmp``, and ``jpg``.
 
 **NOTE:** ``PSF_photometry()`` can take a while for images which contain many sources. For example, the function requires ~ 1000 s to complete for an image with ~ 10 000 sources, **on irulan**. Speed will of course vary from machine to machine, but do not be surprised if this part of the analysis takes ~ an order of magnitude more time than the astrometry. 
 
---------------------------------------------------------
 
-===================
-Making light curves
-===================
-
-The script ``lightcurve.py`` is also object-oriented. The script allows you to:
-
-* Read data which has been output by ``write_PSF_photometry()``, ``write_aperture_photometry()``, or ``write_selection()``
-* Build a table with the RA, Dec, magnitudes, errors on magnitudes, filters, and MJD of all read sources
-* Plot a light curve
-
-To build a ``LightCurve`` object directly by manually inputting the RA, Dec, magnitudes, etc. or from a file/directory:
-
-.. code-block:: python
-
-     >>> import lightcurve
-     >>> single_pt_lc = lightcurve.frompoint(300.865, 20.523, 17.7, 0.3, "g", 55950) # from a point
-     >>> lc = lightcurve.fromfile("my_data/H_stack_20181106_aperture_photometry.fits") # from a file 
-     >>> bigger_lc = lightcurve.fromdirectory("my_data") # from a directory 
-     
-Alternatively, build the light curve and then read in data:
-
-.. code-block:: python
-
-     >>> lc = lightcurve.LightCurve()
-     >>> lc.read("H_stack_20181106_aperture_photometry.fits")
-
-To add new data to an existing ``LightCurve`` object:
-
-     >>> lc.add_fromtables(table1, table2) # add a table/tables
-     >>> lc.add_fromfiles("J_stack_20181106_aperture_photometry.fits", "Ks_stack_20181106_aperture_photometry.fits") # a file
-     >>> lc.add_point(157.777, 30.789, 18.3, 0.5, "r", 58010) # add a single point 
-     
-And to add a limiting magnitude, provide the RA, Dec, limiting magnitude, filter, and MJD manually:
-
-.. code-block:: python
-
-     >>> lc.add_limiting_magnitude(250.052, 70.5, 23.5, "i", 57850)
-     
-Once all of the data has been added to the object as desired, you can write it to a file for later usage. A name for the ouput file must be supplied: 
-
-.. code-block:: python
-
-     >>> lc.write("my-awesome-lightcurve.fits")
-     
-Finally, to plot your light curve:
-
-.. code-block:: python
-
-     >>> lc.plot()
-     
-This will, by default, save the file to "lightcurve.png". An alternate filename can be given by the optional argument ``output``. The plot will not have a title, by default. To supply one, use the argument ``title``. Finally, if you want to plot only certain filters, these can be specified. An example: 
-
-.. code-block:: python 
-
-     >>> lc.plot("g","r","i", output="gri_only_lightcurve.png", title="GRB200220 gri Light Curve")
-     
-And that's it. Happy light-curving!
