@@ -9,7 +9,7 @@ Named after the ʻalalā, the Hawaiian crow.
 Sections:
      * `Installing the required dependencies <https://alala.readthedocs.io/en/latest/#installing-the-required-dependencies>`_
      * `Using the pipeline <https://alala.readthedocs.io/en/latest/#using-the-pipeline>`_
-     * `Making light curves <https://alala.readthedocs.io/en/latest/#making-light-curves>`_
+     .. * `Making light curves <https://alala.readthedocs.io/en/latest/#making-light-curves>`_
 
 ====================================
 Installing the required dependencies
@@ -32,13 +32,13 @@ This software makes use of certain modules you may not already have. These are:
 
      * `astrometry.net <http://astrometry.net/doc/readme.html#installing>`_ - A tool for source detection and astrometric calibration of images.
 
-astropy, astroquery, photutils 
+``astropy``, ``astroquery``, ``photutils`` 
 ------------------------------
 
 Installing these is straightforward with ``conda``, ``pip``, etc. See the links above. You likely already have at least ``astropy`` on your own machine/on whichever server you're accessing. 
 
-astrometry.net 
---------------
+``astrometry.net``
+------------------
 
 Make sure to get the **bleeding edge** version from `github <https://github.com/dstndstn/astrometry.net>`_.
 Older versions of astrometry impose a limit on the number of sources that can be detected in an image, and this poses problems for the typically very dense images taken by WIRCam/MegaCam. Follow the instructions for installation given `here
@@ -50,8 +50,8 @@ If you are on `irulan`, you only need to add the following to your .bashrc:
      | export PATH="/data/irulan/astrometry:$PATH"
      | export PATH="/data/irulan/astrometry/bin:$PATH"
 
-Ensuring that iraf works correctly 
-----------------------------------
+Ensuring that ``iraf`` works correctly 
+--------------------------------------
 Installing this correctly can be very difficult. If you have access to the ``irulan`` server of McGill University, this will already be done. If your institution has a server dedicated to physics/astrophysics, it will probably already have ``iraf`` as well.
 
 Once you have installed ``iraf`` correctly, in order to stack images you will need an ``iraf`` directory in your **home directory**, with a ``login.cl`` file and ``pyraf`` and ``uparm`` directories inside this directory. You can use the ``login.cl`` included `here <https://github.com/nvieira-mcgill/alala/tree/master/iraf_setup>`_, remembering to change the following lines at the beginning of the file:
@@ -71,8 +71,8 @@ Using the pipeline
 
 The pipeline's main script, ``alala.py``, is object-oriented and contains two classes: the ``RawData`` class and its subclass the ``Stack``. **Here, we will work through an example using WIRCam data**. Important notes on differing conventions for MegaCam data will be marked **MegaCam Note**. 
 
-```RawData```
--------------
+``RawData``
+-----------
 
 Images from WIRCam arrive largely de-trended via CFHT's pipeline 'I'iwi. WIRCam is an array of 4 detectors, each approximately 10' (arcmin) x 10'.  Every file from WIRCam will be a multi-extension fits file, with one extension for each detector. These extensions are also usually cubes themselves. The correspondence between the detectors and extensions is:
 
@@ -147,7 +147,9 @@ Will write the 3rd extension of all files in ``datadir``, which we said was ``/d
  
 ------------------------------------------------------------------- 
  
-**MegaCam Note:** MegaCam has a much wider FOV of about 1 square degree compared to the 20' (arcmin) x 20' square spanned by WIRCam. For this reason, the FOV moves around more during MegaCam observations, especially when studying extended objects such as galaxies, nebulae, or globular clusters. Moreover, MegaCam data has the opposite convention of WIRCam for flux calibration: all detectors are calibrated to the same level. This means it is ok to stack different MegaCam CCDs into the same image. We therefore use: 
+**MegaCam Note:** MegaCam has a much wider FOV of about 1 square degree compared to the 20' (arcmin) x 20' square spanned by WIRCam. 
+
+**MegaCam Note:** MegaCam data has the opposite convention of WIRCam for flux calibration: all detectors are calibrated to the same level. This means it is ok to coadd different MegaCam CCDs into the same stack. We would therefore use: 
 
 .. code-block:: python
 
@@ -189,7 +191,7 @@ We can also examine the radial PSF for a given RA, Dec. **This method is more in
      >>> solved_finalrawdata = alala.RawData("solved"+finaldatadir, stackdir) # new object
      >>> solved_finalrawdata.radial_PSFs(ra, dec)
 
-This will save plots of the radial PSFs to a new directory for all of the raw data.
+This will extract an object (which should be an **unsaturated** star) at the given save plots of the radial PSFs to a new directory for all of the raw data.
 
 **Important:** if you don't want to diagnose the images yourself, you can provide an additional argument when initializing the ``RawData`` object to ignore data of poor quality:
 
@@ -232,12 +234,12 @@ This updates the raw data to point to these masks and creates a new directory, `
      
 -----------------------------------------
 
-**MegaCam Note:** For MegaCam data, the data does **not** need to be divided. The data never consists of cubes.
+**MegaCam Note:** For MegaCam data, the data, given a single CCD image, this image does **not** need to be divided. The data never consists of cubes.
 
 ----------------------------------------
 
-```Stack```
------------
+``Stack``
+---------
 
 We need to tell the object where to put stacks. We can do this via:
 
@@ -485,6 +487,6 @@ Valid options are ``png``, ``pdf``, ``bmp``, and ``jpg``.
 
 **NOTE:** The catalogues used to match sources during PSF photometry are the Sloan Digital Sky Survey Data Release 12 (SDSS DR12) for the `u` band, PanStarrs 1 (PS1) for `grizy`, and 2MASS for `JHKs`. 2MASS is an all-sky survey and PS1 is carried out from Hawaii, so it is not an issue to match sources for the `grizy` and `JHKs` bands. However, SDSS is based in New Mexico, so it is possible that a source observed by CFHT is simply nowhere near the regions of the sky observed by SDSS. 
 
-**NOTE:** ``PSF_photometry()`` can take a while for images which contain many sources. For example, the function requires ~ 1000 s to complete for an image with ~ 10 000 sources, **on irulan**. Speed will of course vary from machine to machine, but do not be surprised if this part of the analysis takes ~ an order of magnitude more time than the astrometry. 
+**NOTE:** ``PSF_photometry()`` can take a while for images which contain many sources. Speed will of course vary from machine to machine, but do not be surprised if this part of the pipeline takes ~ an order of magnitude more time than the astrometry. 
 
 
