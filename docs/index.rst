@@ -7,8 +7,8 @@ A pipeline for the Wide-field Infra-Red Camera (WIRCam) and MegaCam instruments 
 Named after the ʻalalā, the Hawaiian crow.
 
 Sections:
-     * `Installing the required dependencies <https://alala.readthedocs.io/en/latest/#installing-the-required-dependencies>`_
-     * `Using the pipeline <https://alala.readthedocs.io/en/latest/#using-the-pipeline>`_
+     * `Installing the required dependencies <https://alala.readthedocs.io/en/latest/#id1>`_
+     * `Using the pipeline <https://alala.readthedocs.io/en/latest/#id4>`_
      .. * `Making light curves <https://alala.readthedocs.io/en/latest/#making-light-curves>`_
 
 ====================================
