@@ -372,10 +372,10 @@ Note that the instrumental magnitude is computed as:
 
 .. math:: 
 
-     m_{ins} = -2.5\cdot\log(F)
+     m_{ins} = -2.5\cdot\log(F_{ADU})
      
           
-Where :math:`F` is the flux of some source in ADU. When calling ``PSF_photometry()``, important optional arguments are:
+Where :math:`F_{ADU}` is the flux of some source in "analog-to-digital units" (ADU) or "counts" - i.e, some arbitray number. When calling ``PSF_photometry()``, important optional arguments are:
 
      * ``nstars`` `(int, default 40)` Number of stars to use in building the ePSF
      * ``thresh_sigma`` `(float, default 5.0)` Threshold sigma for source detection with image segmentation
