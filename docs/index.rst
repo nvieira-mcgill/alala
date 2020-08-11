@@ -471,7 +471,7 @@ That's the best we can do. We decide to write out PSF photometry and aperture ph
      >>> j_stack.write_PSF_photometry()
      >>> j_stack.write_aperture_photometry()
      
-And that's it. The tables output by these write functions can then be used with ``lightcurve.py``, which is handled in a different section. The above walkthrough was for WIRCam, but the steps are largely unchanged for MegaCam. Happy pipelining!
+And that's it. The tables output by these write functions can then be used with ``lightcurve.py``, which will be described in a different section in the future. The above walkthrough was for WIRCam, but the steps are largely unchanged for MegaCam. Happy pipelining!
 
 
 Additional notes
