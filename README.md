@@ -1,7 +1,7 @@
 # alala
 A pipeline for the Wide-field Infra-Red Camera (WIRCam) and MegaPrime instruments at the Canada-France-Hawaii Telescope (CFHT). The pipeline does stacking, astrometry, PSF photometry and aperture photometry on images from either camera. 
 
-Named after the ʻAlalā, the Hawaiian crow, known for its intelligence and flying ability.
+Named after the ʻalalā, the Hawaiian crow.
 
 # Documentation
 See: https://alala.readthedocs.io/en/latest/#
