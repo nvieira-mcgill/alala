@@ -78,7 +78,7 @@ Images from WIRCam arrive largely de-trended via CFHT's pipeline 'I'iwi. WIRCam 
 
 .. image:: https://github.com/nvieira-mcgill/alala/blob/master/images/wircam_detectors.png?raw=true
 
-Importantly, the convention for WIRCam is to treat each of these 4 detectors separately. This means that the same star, observed on different detectors, can have a widely varying flux. For this reason, it is important to decide which detector you want to work with. 
+Importantly, the convention for WIRCam is to treat each of these 4 detectors separately. This means that the same star, observed on different detectors, can have a widely varying flux. For this reason, it is important to decide which detector you want to work with. This pipeline contains utility functions for determining which detector you care about if you know the Right Ascension (RA) and Declination (Dec) of some source you care about if that suits your use case.
 
 Let's say you've put your data in some directory ``/data/myWIRCam/``. Let's initialize a ``RawData`` object:
 
@@ -163,13 +163,13 @@ This extracts the CCD from each image which contains these RA, Dec and writes th
 
 -------------------------------------------------------------
 
-To allow the pipeline to smoothly handle both WIRCam and MegaCam data, we take each datacube in our new data object and divide them into separate files: 
+To allow the pipeline to smoothly handle both WIRCam and MegaCam data, the functions which "follow" the above in the pipeline require that the data we handle should all be 2D, i.e., we should be working with images and not cubes. So, we take each datacube in our new data object and divide them into separate files: 
 
 .. code-block:: python
 
     >>> newrawdata.divide_WIRCam()
 
-If each of the files in ``newdatadir`` was a cube of 2 images, this effectively just doubles the number of files. The new files will be located in ``/data/myWIRCam/divided_det3_WIRCam_20181106``. We again make a new object: 
+If each of the files in ``newdatadir`` is a cube of 2 images, this effectively just doubles the number of files. The new files are located in ``/data/myWIRCam/divided_det3_WIRCam_20181106``. We again make a new object: 
 
 .. code-block:: python
 
@@ -183,7 +183,7 @@ We can use several diagnostics to test the quality of these images and decide if
      >>> finalrawdata.value_at(ra, dec) # get the flux at this RA, Dec for all raw data
      >>> finalrawdata.background() # naively estimate background as median of the whole image for all raw data
 
-We can also examine the radial PSF for a given RA, Dec. **This method is more involved and requires that you first refine the astrometry of all the raw data. It is not very useful at the moment, so feel free to skip this next snippet.** To do so: 
+We can also examine the radial PSF for a given RA, Dec. **This method is more involved and unreliable right now, so feel free to skip this next snippet.** To do so: 
 
 .. code-block:: python
 
