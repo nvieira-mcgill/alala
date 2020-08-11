@@ -71,8 +71,8 @@ Using the pipeline
 
 The pipeline's main script, ``alala.py``, is object-oriented and contains two classes: the ``RawData`` class and its subclass the ``Stack``. **Here, we will work through an example using WIRCam data**. Important notes on differing conventions for MegaCam data will be marked **MegaCam Note**. 
 
-RawData
--------
+```RawData```
+-------------
 
 Images from WIRCam arrive largely de-trended via CFHT's pipeline 'I'iwi. WIRCam is an array of 4 detectors, each approximately 10' (arcmin) x 10'.  Every file from WIRCam will be a multi-extension fits file, with one extension for each detector. These extensions are also usually cubes themselves. The correspondence between the detectors and extensions is:
 
@@ -89,7 +89,7 @@ Let's say you've put your data in some directory ``/data/myWIRCam/``. Let's init
      >>> rawdata = alala.RawData(datadir)
      
 
-This will examine all of the data in your ``datadir`` and store it in attributes of the object based on filter and dates. The filters typically in use are Y, J, H, Ks. If you want to see all the files in the Y filter, in order of acquisition time:
+This will examine all of the data in your ``datadir`` and store it in attributes of the object based on filter and dates. The filters typically in use for WIRCam are Y, J, H, or Ks. For MegaCam, these are u, g, r, i , or z. If you want to see all the files in the Y filter, in order of acquisition time:
 
 .. code-block:: python
 
@@ -123,7 +123,7 @@ If your data spans multiple dates, this will output ``'multidate'``, in which ca
      J_file1.fits.fz J               15.0
      # and many more 
 
-Finally, to decide which detector you want to use, if you know the RA and Dec of your source: 
+Finally, to decide which detector you want to use, if you know the Right Ascension (RA) and Declination (Dec) of your source: 
 
 .. code-block:: python
 
@@ -236,8 +236,8 @@ This updates the raw data to point to these masks and creates a new directory, `
 
 ----------------------------------------
 
-Stack
------
+```Stack```
+-----------
 
 We need to tell the object where to put stacks. We can do this via:
 
@@ -273,7 +273,7 @@ Will produce only those we care about. **Note:** IRAF has a limit on the number 
 
      >>> j_stack = finalrawdata.extract_stack("J")
 
-Note that, if you try to extract a stack before it has been made, the stack will automatically be produced. A Stack object can also be initialized directly:
+Note that, if you try to extract a stack before it has been made, the stack will automatically be produced. A ```Stack``` object can also be initialized directly:
 
 .. code-block:: python
 
@@ -370,10 +370,10 @@ Note that the instrumental magnitude is computed as:
 
 .. math:: 
 
-     m_{ins} = -2.5\cdot\log(FLUX)
+     m_{ins} = -2.5\cdot\log(F_{\\mathrm{ADU}})
      
           
-When calling ``PSF_photometry()``, important optional arguments are:
+Where :math:`F_{\\mathrm{ADU}` is the flux of some source in ADU. When calling ``PSF_photometry()``, important optional arguments are:
 
      * ``nstars`` `(int, default 40)` Number of stars to use in building the ePSF
      * ``thresh_sigma`` `(float, default 5.0)` Threshold sigma for source detection with image segmentation
@@ -409,7 +409,9 @@ This will return a table containing any source(s) within 1 pixel of the input RA
 
      >>> j_stack.write_selection(ra, dec)
 
-However, our source could easily be too dim or very close to the edges. In this case, we can also do **aperture photometry**. Suppose we know the RA and Dec of the source we care about:
+---------------------------------
+
+It will almost always be the case that the source we care about is very dim. In this case, we can also do **aperture photometry**. Suppose we know the RA and Dec of the source we care about:
 
 .. code-block:: python 
 
