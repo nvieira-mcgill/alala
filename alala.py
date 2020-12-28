@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu May 9 11:08:26 2019
-@author: Nicholas Vieira
-@alala.py
+.. Created on Thu May 9 11:08:26 2019
+.. @author: Nicholas Vieira
+.. @alala.py
 
 SECTIONS:
     - RawData class 
@@ -1814,11 +1814,11 @@ class Stack(RawData):
         Output: None
         """
         # image data
-        if bkgsub and self.astrometric_calib:
+        if bkgsub and not(self.bkg == None):
             image_data = self.image_data_bkgsub # background-sub'd image data
-        elif bkgsub and not(self.astrometric_calib):
+        elif bkgsub and (self.bkg == None):
             print("To obtain a background-subtracted, smoothed image, use "+
-                  "the astrometry() function first. Exiting.")
+                  "the bkg_compute() function first.")
         else:
             image_data = self.image_data
                  
@@ -1932,13 +1932,12 @@ class Stack(RawData):
 ###############################################################################
     #### ASTROMETRY ###########################################################
 
-    def astrometry(self, downsample=None):
+    def astrometry(self, verbose=0):
         """
-        Input: a downsampling factor (optional; default None)
+        Input: level of verbosity
         
-        Performs source extraction using astrometry.net. Refines the 
-        astrometric solution and THEN does extraction to create a list of 
-        sources.
+        Performs source extraction using astrometry.net, solves the field, and 
+        outputs a list of x, y coordinates for sources. 
         
         Output: 
         """
@@ -1952,14 +1951,12 @@ class Stack(RawData):
         # build a new fits file: 
         solve_options = f"{solve_options} --new-fits "
         solve_options += self.stack_name.replace(".fits", "_updated.fits")
-        if downsample: # if a downsampling factor is given
-            solve_options = f"{solve_options} --downsample {downsample}"
             
         # options to speed up astrometry: pixscale and rough RA, Dec
         pixmin = self.pixscale-0.005
         pixmax = self.pixscale+0.005
         solve_options = f"{solve_options} --scale-low {pixmin} --scale-high"
-        solve_options = f"{solve_options} {pixmax} --scale-units app"
+        solve_options = f"{solve_options} {pixmax} --scale-units 'app'"
         
         cent = [i//2 for i in self.image_data.shape]
         centy, centx = cent
@@ -1976,6 +1973,17 @@ class Stack(RawData):
         solve_options = f'{solve_options} --match "none" --solved "none"'
         solve_options = f'{solve_options} --rdls "none" --corr "none"'
         solve_options = f'{solve_options} --wcs "none"'
+        
+        # only write a temporary *augmented* xy (deleted after solving)
+        solve_options = f'{solve_options} --temp-axy' 
+        
+        # keep the normal xy list of sources and write to this file
+        xyname = self.stack_name.replace(".fits", ".xy.fits")      
+        solve_options = f'{solve_options} --keep-xylist {xyname}'
+
+        # set level of verbosity (-v = verbose, -v -v = very verbose)
+        for i in range(min(verbose, 2)):
+            solve_options = f"{solve_options} -v" 
         
         # solve the field: 
         run(f"solve-field {solve_options} {self.stack_name}", shell=True)
@@ -1997,16 +2005,10 @@ class Stack(RawData):
         # print confirmation 
         print("The WCS solution has been updated for the stack image.")
         print(f"Stack name is now {self.stack_name}")
-
-        # source detection: make list of sources 
-        options = "-O "
-        if downsample: # if a downsampling fraction is given
-            options += f" -d {downsample}"
-        run(f"image2xy {options} {self.stack_name}", shell=True) 
         
-        # store the output in attributes 
+        # store the xy list output in attributes 
         # source data for general use
-        self.xy_name = self.stack_name.replace(".fits", ".xy.fits")
+        self.xy_name = xyname
         self.xy_data = fits.getdata(self.xy_name) 
          
         # store updated WCS solution in header
@@ -2890,11 +2892,14 @@ class Stack(RawData):
         ap = SkyCircularAperture(position, r=ap_radius*u.arcsec) # aperture 
         ap_pix = ap.to_pixel(w) # aperture in pix
         
+        # build a bad pixel mask which excludes negative pixels
+        bp_mask = np.logical_or(self.image_data<=0, self.bp_mask)
+        
         # table of the source's x, y, and total flux in aperture
         # mask out only bad pixels
         phot_table = aperture_photometry(self.image_data, ap_pix, 
                                          error=self.image_error,
-                                         mask=self.bp_mask)
+                                         mask=bp_mask)
         # ra, dec of source
         ra_col = Column([ra], "ra")
         dec_col = Column([dec], "dec")
@@ -3194,21 +3199,32 @@ class Stack(RawData):
                 
     def limiting_magnitude(self, ra, dec, sigma=5.0, 
                            thresh_sigma=3.0, box_size=50, filter_size=5,
+                           plot_annulus=True, ann_name=True, 
+                           plot_aperture=None, ap_name=None,
                            write=False, output=None):
         """        
         Input: 
+            general:
             - ra, dec of interest
             - sigma defining the limiting magnitude (optional; default 5.0)
             
+            background estimation:
             - box size for the background computation (optional; default 50x50;
               only relevant if background not found beforehand)
             - size for the median filter applied during background computation
               (optional; default 5x5; only relevant if background not found 
               beforehand) 
+            
+            image segmentation:
             - sigma to use as the threshold for image segmentation (optional; 
               default 3.0; only relevant if a source mask does not exist for 
               the object and needs to be computed)
-            
+
+            writing, plotting:
+            - whether to plot the annulus (optional; default True)
+            - whether to plot the aperture (optional; default True), 
+            - name for the output annulus plot (optional; defaults set below) 
+            - name for the output aperture plot (optional; defaults set below)            
             - whether to write the resultant table (optional; default False)
             - name for output table file (optional; default set below; only 
               relevant if write=True)
@@ -3280,10 +3296,10 @@ class Stack(RawData):
         # do aperture photometry on region of interest with large annulus
         phot_table = Stack.__drop_aperture(self, ra, dec, 
                                            ap_radius=1.2, r1=2.0, r2=20.0, 
-                                           plot_annulus=False,
-                                           ann_name=None, 
-                                           plot_aperture=False,
-                                           ap_name=None,
+                                           plot_annulus=plot_annulus,
+                                           ann_name=ann_name, 
+                                           plot_aperture=plot_aperture,
+                                           ap_name=ap_name,
                                            bkgsub_verify=False)
  
         phot_table["aper_sum_bkgsub_err"] = np.sqrt(

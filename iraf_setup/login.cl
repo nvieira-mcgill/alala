@@ -127,6 +127,6 @@ else
 keep
 
 
-# added by me
+# ADDED BY NVIEIRA
 reset use_new_imt = no
 set imcombine_maxmemory = 100000000 #default: 250000000

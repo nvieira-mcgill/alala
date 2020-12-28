@@ -1,0 +1,8 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Sphinx documentation
+docs/_build/
+
+# Particular to alala
