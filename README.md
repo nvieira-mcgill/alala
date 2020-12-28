@@ -34,13 +34,13 @@ Currently, needs to be installed directly from github. May be install-able with 
 - [``astropy``](https://docs.astropy.org/en/stable/)
 - [``astroquery``](https://astroquery.readthedocs.io/en/latest/)
 - [``photutils``](https://photutils.readthedocs.io/en/stable/)
-- [``pyraf``](https://pypi.org/project/pyraf/) (but only for stacking)
-- [``stsci.tools``](https://github.com/spacetelescope/stsci.tools) (but only for stacking)
+- [``pyraf``](https://pypi.org/project/pyraf/) (python wrapper for ``iraf``, only for stacking)
+- [``stsci.tools``](https://github.com/spacetelescope/stsci.tools) (only for stacking)
 
 **Non-Python:**
 
 - [``astrometry.net``](http://astrometry.net/use.html)
-- [``iraf``](http://ast.noao.edu/data/software) (but only for stacking)
+- [``iraf``](http://ast.noao.edu/data/software) (only for stacking)
 
 The code will be migrated from ``iraf`` to some other software (e.g. ``swarp``) in the future.
 
