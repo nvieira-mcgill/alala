@@ -6,16 +6,15 @@
 .. @alala.py
 
 SECTIONS:
-    - RawData class 
+    - `RawData` class 
         - Basic functions
         - Image diagnostics + pre-solving before stacking
         - Locating coordinates among raw data + writing extensions 
-        - Combining/divding (WIRCam) cubes
+        - Combining/dividing (WIRCam) cubes
         - Cropping images
         - Stacking and stack preparation (bad pixel masks)
         
-    - Stack class 
-        - Background estimation (TO-DO)
+    - `Stack` class 
         - Bad pixel masks/source masks/error arrays
         - Making images (plots)
         - Astrometry
@@ -25,6 +24,7 @@ SECTIONS:
         - Source selection
 
 """
+
 import os
 import glob
 from subprocess import run
@@ -54,313 +54,534 @@ from photutils import (Background2D, MMMBackground,
                        aperture_photometry)
 
 ###############################################################################
-    #### ERRORS ###############################################################
+### ERRORS ####################################################################
 
 class NoDataError(Exception):
-    """
-    Raise this error when a RawData object has no data.
-    """
+    """Raise this error when a RawData object has no data."""
     pass
+
 
 class TooFewMatchesError(Exception):
-    """
-    Raise this error when, during PSF photometry, the no. of sources in the 
-    image which match those in some external catalog is less than 3.
-    """
+    """Raise this error when, during PSF photometry, the no. of sources in the 
+    image which match those in some external catalog is less than 3."""
     pass
 
+
 ###############################################################################
-    #### RawData CLASS AND BASIC FUNCTIONS ####################################
+### CONSTANTS #################################################################
+
+VALID_DATA_EXT = ('fits', 'fits.fz', 'flt')
+"""Valid file types for the image data."""
+
+VALID_PLOT_EXT = ('pdf', 'jpg', 'bmp', 'png')
+"""Valid file types for any plots which are produced."""
+
+
+###############################################################################
+### RawData CLASS #############################################################
 
 class RawData:
-    def __init__(self, location, stack_directory=None, qso_grade_limit=None,
+    def __init__(self, data_dir, stack_dir=None, qso_grade_limit=None,
                  fmt="fits", plot_ext="png"):
-        """
-        Input: 
-            - location of the raw data
-            - directory to store potential stacks (optional; not needed if no 
-              intention to stack; default None)
-            - limit on the queue service observer (QSO) grade for the 
-              observations (optional; default is to apply no limit where 
-              1=good and 5=unusable, so that no data is ignored unless 
-              explicitly desired by the user; only relevant for WIRCam)
-            - extension for the data files (optional; default 'fits'; options 
-              include 'flt' and 'fits.fz')
-            - extension for the output plots (optional; default 'png'; other 
-              option is 'pdf')
+        """Basic class for doing image diagnostics, making stacks, doing 
+        photometry, etc.
         
-        Initializes a raw data object for CFHT WIRCam or MegaPrime data.
-        
-        Output: a RawData object
-        """
-        self.loc = location # location of data
-        
-        self.files = (os.listdir(self.loc)) # all files
-        (self.files).sort()
-        self.files = [f for f in self.files if fmt in f] # fits only
-        
-        if len(self.files) == 0:
-            raise NoDataError(
-                    f"Directory {self.loc} does not contain any files "+
-                    f"with extension .{fmt}")
+        Arguments
+        ---------
+        data_dir : str
+            Directory containing the raw data
+        stack_dir : str, optional
+            Directory in which to store stacked images (default None --> no 
+            stacks)
+        qso_grade_limit : int, optional
+            Impose a limit on the queue service observer (QSO) grade applied 
+            to the observations, where 1=good and 5=unusable (default None -->
+            impose no limit; only relevant for WIRCam)
+        fmt : {'fits', 'fits.fz', 'flt'}, optional
+            Format of the data files (default 'fits')
+        plot_ext : {'pdf', 'jpg', 'bmp', 'png'}, optional
+            File format for any output plots (default 'png')
             
-        self.stack_dir = stack_directory # location of stacks to be produced
-        self.fmt = fmt
+        Returns
+        -------
+        alala.RawData
+            A RawData object for the input data, containing either CFHT 
+            WIRCam or MegaPrime data
+
+        """
+
+        # fix directory names, if needed
+        if data_dir[-1] == "/":
+            data_dir = data_dir[:-1]
+        if not(type(stack_dir) == type(None)):
+            if stack_dir[-1] == "/":
+                stack_dir = stack_dir[:-1]
+
+        # check if the directories exist
+        if not os.path.isdir(data_dir):
+            raise FileNotFoundError(f"Directory '{data_dir}' does not exist")
+        if not(type(stack_dir) == type(None)) and not os.path.isdir(data_dir):
+            raise FileNotFoundError(f"Directory '{stack_dir}' does not exist")            
         
-        # remove / from end of location/stack_dir if necessary
-        if self.loc[-1] == "/":
-            self.loc = self.loc[:-1]
-        if stack_directory: 
-            if self.stack_dir[-1] == "/":
-                self.stack_dir = self.stack_dir[:-1]
+        # directories
+        self.__data_dir = data_dir # location of data
+        self.__stack_dir = stack_dir # location of stacks to be produced
+
+        
+        # file format of the data
+        if not fmt in VALID_DATA_EXT:
+            raise ValueError(f"Expected fmt one of {VALID_DATA_EXT}"+
+                             f"got '{fmt}'")
+        self.__fmt = fmt
+        
+        # get the files 
+        self.__files = (os.listdir(self.data_dir)) # all files
+        (self.__files).sort()
+        self.__files = [f for f in self.__files if fmt in f] # fits only
+        # check if any are present
+        if len(self.__files) == 0:
+            raise NoDataError(
+                    f"Directory {self.data_dir} does not contain any files "+
+                    f"with extension '.{fmt}'")    
+
+        # file extension for plots?
+        if not plot_ext in VALID_PLOT_EXT:
+            raise ValueError(f"Expected plot_ext one of {VALID_PLOT_EXT},"+
+                             f"got '{plot_ext}'")
+        self.__plot_ext = plot_ext        
                     
         # ***assume all extensions and files have same instrument/nextend:
         file = self.files[0]
-        hdu = fits.open(f"{self.loc}/{file}")[0]
-        self.instrument = hdu.header["INSTRUME"] # instrument in use
+        hdu = fits.open(f"{self.data_dir}/{file}")[0]
+        self.__instrument = hdu.header["INSTRUME"] # instrument in use
         try:
-             self.nextend = int(hdu.header["NEXTEND"]) # no. of extensions
+             self.__nextend = int(hdu.header["NEXTEND"]) # no. of extensions
         except KeyError:
-            self.nextend = 0
+            self.__nextend = 0
         
-        # check the QSO grade of the files and remove from the list any which 
-        # have a QSO grade of 5 (unusable); this DOES NOT delete the files
-        self.qso_grade_limit = qso_grade_limit
-        if "WIRCam" in self.instrument and qso_grade_limit:
+        # check the QSO grade of the files and remove those with a grade below 
+        # the limit; this DOES NOT delete the files
+        self.__qso_grade_limit = qso_grade_limit
+        if "WIRCam" in self.instrument and type(qso_grade_limit) == int:
             temp = []
             for f in self.files:
-                if self.nextend == 0: # if a single image
-                    hdr = fits.open(f"{self.loc}/{f}")[0].header
+                if self.__nextend == 0: # if a single image
+                    hdr = fits.open(f"{self.data_dir}/{f}")[0].header
                 else: # if a cube
-                    hdr = fits.getheader(f"{self.loc}/{f}")
+                    hdr = fits.getheader(f"{self.data_dir}/{f}")
                 if int(hdr["QSOGRADE"]) <= qso_grade_limit: 
                     temp.append(f)
-            self.files = temp
+            self.__files = temp
                 
         # check if data spans a single date or multiple dates
         # lazy check: only checking first and last files 
         # date is of format YYYY-MM-DDTHH:mm:ss, e.g. 2011-09-12T08:36:19
         # first 10 chars only and remove all - chars
-        date1 = (fits.open(f"{self.loc}/{self.files[0]}")[0]).header["DATE"]
-        date1 = (date1[0:10]).replace("-","")
-        date2 = (fits.open(f"{self.loc}/{self.files[-1]}")[0]).header["DATE"]
-        date2 = (date2[0:10]).replace("-","")
+        date_start = (
+            fits.open(f"{self.data_dir}/{self.files[0]}")[0]).header["DATE"]
+        date_start = (date_start[0:10]).replace("-","")
+        date_end = (
+            fits.open(f"{self.data_dir}/{self.files[-1]}")[0]).header["DATE"]
+        date_end = (date_end[0:10]).replace("-","")
         
-        if date1 == date2: # same day month year 
-            self.date = (hdu.header["DATE"][0:10]).replace("-","")
-        elif date1[0:6] == date2[0:6]: # if same month and year
-                self.date = date1[0:6] 
-        elif date1[0:4] == date2[0:4]: # same year
-            self.date  = date1[0:4]
+        if date_start == date_end: # same day month year 
+            self.__date = (hdu.header["DATE"][0:10]).replace("-","")
+        elif date_start[0:6] == date_end[0:6]: # if same month and year
+                self.__date = date_start[0:6] 
+        elif date_start[0:4] == date_end[0:4]: # same year
+            self.__date  = date_start[0:4]
         else:            
-            self.date = "multiyear"
-        RawData.__dates_init(self) 
+            self.__date = "multiyear"
+        self.__dates_init() 
             
-        # MJD at start of observations for *first* file in directory
-        self.mjdate = (fits.open(
-                f"{self.loc}/{self.files[0]}")[0]).header["MJDATE"]
+        # Modified Julian Date (MJD) at start of observations for *first* file 
+        # in directory
+        self.__mjdate = (fits.open(
+                f"{self.data_dir}/{self.files[0]}")[0]).header["MJDATE"]
         
         # choose potential filters based on instrument
         if "WIRCam" in self.instrument:
             # broadband filters:
-            self.J = [] # 1253 +/- 79
-            self.H = [] # 1631 +/- 144.5
-            self.Ks = [] # 2146 +/- 162.5
+            self.__J = [] # 1253 +/- 79
+            self.__H = [] # 1631 +/- 144.5
+            self.__Ks = [] # 2146 +/- 162.5
             # narrow-band filters:
-            self.Y = [] # 1020 +/- 50
-            #self.OH_1 = []
-            #self.OH_2 = []
-            #self.CH4_on = []
-            #self.CH4_off = []
-            #self.W = []
-            #self.H2 = []
-            #self.K_cont = []
-            #self.bracket_gamma = []
-            #self.CO = []
-            self.filters=['Y','J','H','Ks'] 
-            #self.filters=["Y","J","H","Ks","OH-1","OH-2","CH4_on","CH4_off",
+            self.__Y = [] # 1020 +/- 50
+            #self.__OH_1 = []
+            #self.__OH_2 = []
+            #self.__CH4_on = []
+            #self.__CH4_off = []
+            #self.__W = []
+            #self.__H2 = []
+            #self.__K_cont = []
+            #self.__bracket_gamma = []
+            #self.__CO = []
+            self.__filters=['Y','J','H','Ks'] 
+            #self.__filters=["Y","J","H","Ks","OH-1","OH-2","CH4_on","CH4_off",
             #              "W","H2","K_cont","bracket_gamma","CO"]
         
         elif "MegaPrime" in self.instrument:
             if self.mjdate > 57023: # if after 1 January 2015
                 ### new filters system
-                self.u = [] # 355 +/- 43
-                self.g = [] # 475 +/- 77
-                self.r = [] # 640 +/- 74
-                self.i = [] # 776 +/- 77.5
-                self.z = [] # 925 +/- 76.5
+                self.__u = [] # 355 +/- 43
+                self.__g = [] # 475 +/- 77
+                self.__r = [] # 640 +/- 74
+                self.__i = [] # 776 +/- 77.5
+                self.__z = [] # 925 +/- 76.5
                 # since 2015A, old filters denoted with trailing S
                 # they were retired in 2017, but for a brief period, PIs could
                 # use both the old and the new 
-                self.uS = [] # 375 +/- 37
-                self.gS = [] # 487 +/- 71.5
-                self.rS = [] # 630 +/- 62
-                self.iS = [] # 770 +/- 79.5
-                self.zS = [] # N/A, 827 to ...
-                self.filters = ["u","g","r","i","z","uS","gS","rS","iS","zS"]
+                self.__uS = [] # 375 +/- 37
+                self.__gS = [] # 487 +/- 71.5
+                self.__rS = [] # 630 +/- 62
+                self.__iS = [] # 770 +/- 79.5
+                self.__zS = [] # N/A, 827 to ...
+                self.__filters = ["u","g","r","i","z","uS","gS","rS","iS","zS"]
             else:  
                 ### old filters system
-                self.u = [] # 375 +/- 37
-                self.g = [] # 487 +/- 71.5
-                self.r = [] # 630 +/- 62
-                self.i = [] # 770 +/- 79.5
-                self.z = [] # N/A, 827 to ...
-                self.filters = ['u','g','r','i','z']
+                self.__u = [] # 375 +/- 37
+                self.__g = [] # 487 +/- 71.5
+                self.__r = [] # 630 +/- 62
+                self.__i = [] # 770 +/- 79.5
+                self.__z = [] # N/A, 827 to ...
+                self.__filters = ['u','g','r','i','z']
               
         # construct lists of files for each filter as well as a dictionary
-        RawData.__filter_init(self)
+        self.__filter_init()
         
-        # filetype (png, pdf, jpg) for plots (can be set)
-        self.plot_ext = plot_ext
+        # for later
+        self.__stack_made = False
         
-        # bools for later
-        self.stack_made = False
         
-        # flatten list of files
         
         
     def __filter_init(self):
+        """Records which filters are used in each of the image data files. 
+        Constructs a dictionary of the form {filter --> [file1,file2,...]}, 
+        e.g., {'i' --> ['file1','file2','file3']}
         """
-        Input: None
-        Records which filters are used for each raw data file and stores them 
-        in attributes of the object. Constructs a dictionary where the keys 
-        are the given filters and the values are arrays containing all of the 
-        files with the corresponding filters.
-        Output: None
-        """
-        l = self.loc 
 
         # assume all extensions have same filter for a given file
         if "WIRCam" in self.instrument:  # if WIRCam data
-            self.Y, self.J, self.H, self.Ks = [], [], [], []
+            # broadband filters:
+            self.__J = [] # 1253 +/- 79
+            self.__H = [] # 1631 +/- 144.5
+            self.__Ks = [] # 2146 +/- 162.5
+            # narrow-band filters:
+            self.__Y = [] # 1020 +/- 50
+            #self.__OH_1 = []
+            #self.__OH_2 = []
+            #self.__CH4_on = []
+            #self.__CH4_off = []
+            #self.__W = []
+            #self.__H2 = []
+            #self.__K_cont = []
+            #self.__bracket_gamma = []
+            #self.__CO = []
+            self.__filters=['Y','J','H','Ks'] 
+            #self.__filters=["Y","J","H","Ks","OH-1","OH-2","CH4_on","CH4_off",
+            #              "W","H2","K_cont","bracket_gamma","CO"]
+            
             for f in self.files:
-                hdu_temp = fits.open(l+"/"+f)
+                hdu_temp = fits.open(f"{self.data_dir}/{f}")
                 hdu = hdu_temp[0]
                 if 'Y' in hdu.header["FILTER"]:
-                    self.Y.append(f)
+                    self.__Y.append(f)
                 elif 'J' in hdu.header["FILTER"]:
-                    self.J.append(f)
+                    self.__J.append(f)
                 elif 'H' in hdu.header["FILTER"]:
-                    self.H.append(f)     
+                    self.__H.append(f)     
                 elif 'Ks' in hdu.header["FILTER"]:
-                    self.Ks.append(f)
+                    self.__Ks.append(f)
                 hdu_temp.close()
                 
-            self.filters = ["Y", "J", "H", "Ks"]        
-            filter_vals = [self.Y, self.J, self.H, self.Ks]
+            filter_vals = [self.__Y, self.__J, self.__H, self.__Ks]
                     
         else: # if MegaPrime data
-            self.u, self.g, self.r, self.i, self.z = [], [], [], [], []
-            self.uS, self.gS, self.rS, self.iS, self.zS = [], [], [], [], []
+            self.__u = [] # 355 +/- 43
+            self.__g = [] # 475 +/- 77
+            self.__r = [] # 640 +/- 74
+            self.__i = [] # 776 +/- 77.5
+            self.__z = [] # 925 +/- 76.5
+            # since 2015A, old filters denoted with trailing S
+            # they were retired in 2017, but for a brief period, PIs could
+            # use both the old and the new 
+            self.__uS = [] # 375 +/- 37
+            self.__gS = [] # 487 +/- 71.5
+            self.__rS = [] # 630 +/- 62
+            self.__iS = [] # 770 +/- 79.5
+            self.__zS = [] # N/A, 827 to ...
+            
             for f in self.files:
-                hdu_temp = fits.open(l+"/"+f)
-                hdu = fits.open(l+"/"+f)[0]
+                hdu_temp = fits.open(f"{self.data_dir}/{f}")
+                hdu = fits.open(f"{self.data_dir}/{f}")[0]
                 if 'u' in hdu.header["FILTER"]:
-                    self.u.append(f)
+                    self.__u.append(f)
                 elif 'g' in hdu.header["FILTER"]:
-                    self.g.append(f)
+                    self.__g.append(f)
                 elif 'r' in hdu.header["FILTER"]:
-                    self.r.append(f)     
+                    self.__r.append(f)     
                 elif 'i' in hdu.header["FILTER"]:
-                    self.i.append(f)
+                    self.__i.append(f)
                 elif 'z' in hdu.header["FILTER"]:
-                    self.z.append(f)
+                    self.__z.append(f)
                 elif 'uS' in hdu.header["FILTER"]:
-                    self.uS.append(f)
+                    self.__uS.append(f)
                 elif 'gS' in hdu.header["FILTER"]:
-                    self.gS.append(f)
+                    self.__gS.append(f)
                 elif 'rS' in hdu.header["FILTER"]:
-                    self.rS.append(f)
+                    self.__rS.append(f)
                 elif 'iS' in hdu.header["FILTER"]:
-                    self.iS.append(f)
+                    self.__iS.append(f)
                 elif 'zS' in hdu.header["FILTER"]:
-                    self.zS.append(f)
+                    self.__zS.append(f)
                 hdu_temp.close()
             
             if self.mjdate > 57023: # if after 1 January 2015
-                self.filters = ["u", "g", "r", "i", "z", 
-                                "uS", "gS", "rS", "iS", "zS"]
-                filter_vals = [self.u, self.g, self.r, self.i, self.z, 
-                               self.uS, self.gS, self.rS, self.iS, self.zS]
+                self.__filters = ["u", "g", "r", "i", "z",
+                                  "uS", "gS", "rS", "iS", "zS"]
+                filter_vals = [self.__u, 
+                               self.__g, 
+                               self.__r, 
+                               self.__i, 
+                               self.__z, 
+                               self.__uS, 
+                               self.__gS, 
+                               self.__rS, 
+                               self.__iS, 
+                               self.__zS]
             else: 
-                self.filters = ["u", "g", "r", "i", "z"]
-                filter_vals = [self.u, self.g, self.r, self.i, self.z]
-                
-        filter_keys = self.filters # keys for a dictionary to be produced   
-        self.filters_dict = dict(zip(filter_keys, filter_vals))
+                self.__filters = ["u", "g", "r", "i", "z"]
+                filter_vals = [self.__u, 
+                               self.__g, 
+                               self.__r, 
+                               self.__i, 
+                               self.__z]
+        
+        # make a dictionary
+        self.__filters_dict = dict(zip(self.filters, filter_vals))
         
         # get rid of unecessary filters in the dict/list
         all_filters = list(self.filters) # make a copy 
         for fil in all_filters:
             if len(self.filters_dict[fil]) == 0: # if no files for a filter
-                del self.filters_dict[fil]
+                del self.__filters_dict[fil]
                 delattr(self, fil)
-                self.filters.remove(fil)
+                self.__filters.remove(fil)
 
                 
     def __dates_init(self):
+        """Records which dates are spanned by each of the image data files. 
+        Constructs a dictionary of the form {date --> [file1, file2, file3]}, 
+        e.g., {'20190816' --> ['file1', 'file2', 'file3']} 
         """
-        Input: None
-        Records which dates are spanned by each raw data file and stores them 
-        in a list. Constructs a dictionary where the keys are the given dates 
-        and the values are arrays containing all of the files with the 
-        corresponding dates.
-        Output: None
-        """
-        l = self.loc
-        self.dates = []
-        self.dates_dict = {}
+        self.__dates = []
+        self.__dates_dict = {}
         for f in self.files:
-            hdu_temp = fits.open(f"{l}/{f}")
+            hdu_temp = fits.open(f"{self.data_dir}/{f}")
             hdu = hdu_temp[0]
             date = (hdu.header["DATE"][0:10]).replace("-","")
             hdu_temp.close()
             if not (date in(self.dates)):
-                self.dates.append(date) # add to list
-                self.dates_dict[date] = [] # add to dict
-            self.dates_dict[date].append(f)        
+                self.__dates.append(date) # add to list
+                self.__dates_dict[date] = [] # add to dict
+            self.__dates_dict[date].append(f)        
             
-            
-    def set_plot_ext(self, new_ext):
-        """
-        Input: the new plot_ext to be used
-        Output: None
-        """
-        valid_ext = ["pdf", "jpg", "bmp", "png"]
-        
-        if new_ext in valid_ext:
-            self.plot_ext = new_ext
-        else:
-            print(f"\nPlease input a valid filetype from {str(valid_ext)}. "+
-                  "Exiting.")
-            
-            
-    def set_stack_dir(self, stackdir):
-        """
-        Input: the directory to store stacked files
-        Output: None
-        """
-        self.stack_dir = stackdir
-        
-        if self.stack_dir[-1] == "/": # get rid of / at end if needed 
-            self.stack_dir = self.stack_dir[:-1]
 
+###############################################################################
+### GETTERS ###################################################################
+
+    @property
+    def data_dir(self):
+        """Directory containing the raw data"""
+        return self.__data_dir
+    
+    @property
+    def stack_dir(self):
+        """Directory in which to store stacked images, if stacking"""
+        return self.__stack_dir
+    
+    @property
+    def fmt(self):
+        """Format (file type/extension) of the data files"""
+        return self.__fmt
+
+    @property
+    def files(self):
+        """All of the data files"""
+        return self.__files
+    
+    @property
+    def plot_ext(self):
+        """Format (file type/extension) of any plots made/to be made"""
+        return self.__plot_ext
+
+    @property
+    def instrument(self):
+        """Instrument (WIRCam, MegaCam, or MegaPrime) used to acquire data""" 
+        return self.__instrument
+    
+    @property
+    def nextend(self):
+        """Number of extensions in the image data files"""
+        return self.__nextend
+    
+    @property
+    def qso_grade_limit(self):
+        """Queue Service Observer (QSO) grade limit; only relevant if using 
+        WIRCam data"""
+        return self.__qso_grade_limit
+    
+    @property
+    def date(self):
+        """Date (YYYYMMDD) **at the start** of observations""" 
+        return self.__date
+    
+    @property
+    def mjdate(self):
+        """Modified Julian Date (MJD) **at the start** of observations"""
+        return self.__mjdate
+    
+    @property
+    def dates(self):
+        """All date(s) (YYYYMMDD) spanned by the data"""
+        return self.__dates
+    
+    @property
+    def dates_dict(self):
+        """Dictionary with entries {date --> [file1,file2,...]}`, e.g., 
+        '20190816' --> ['file1','file2','file3']"""
+        return self.__dates_dict
+    
+    @property
+    def filters(self):
+        """Filters (bands) used in the observations which make up the data"""
+        return self.__filters
+
+    @property
+    def filters_dict(self):
+        """Dictionary with entries {filter --> [file1,file2,...]}`, e.g., 
+        'i' --> ['file1','file2','file3']"""
+        return self.__filters
+    
+    @property
+    def J(self):
+        """Filenames for images acquired in the J-band"""
+        return self.__J
+    
+    @property
+    def H(self):
+        """Filenames for images acquired in the H-band"""
+        return self.__H
+    
+    @property
+    def Ks(self):
+        """Filenames for images acquired in the Ks-band"""
+        return self.__Ks
+    
+    @property 
+    def Y(self):
+        """Filenames for images acquired in the Y-band"""
+        return self.__Y
+    
+    @property 
+    def u(self):
+        """Filenames for images acquired in the u-band"""
+        return self.__u
+    
+    @property
+    def g(self):
+        """Filenames for images acquired in the g-band"""
+        return self.__g
+    
+    @property
+    def r(self):
+        """Filenames for images acquired in the r-band"""
+        return self.__r
+    
+    @property
+    def i(self):
+        """Filenames for images acquired in the i-band"""
+        return self.__i
+    
+    @property
+    def z(self):
+        """Filenames for images acquired in the z-band"""
+        return self.__z
+
+    @property 
+    def uS(self):
+        """Filenames for images acquired in the uS-band"""
+        return self.__uS
+    
+    @property
+    def gS(self):
+        """Filenames for images acquired in the gS-band"""
+        return self.__gS
+    
+    @property
+    def rS(self):
+        """Filenames for images acquired in the rS-band"""
+        return self.__rS
+    
+    @property
+    def iS(self):
+        """Filenames for images acquired in the iS-band"""
+        return self.__iS
+    
+    @property
+    def zS(self):
+        """Filenames for images acquired in the zS-band"""
+        return self.__zS    
+        
+    @property
+    def stack_made(self):
+        """Whether a stack has already been made for the object"""
+        return self.__stack_made
+
+
+###############################################################################
+### SETTERS ###################################################################
+            
+    def set_stack_dir(self, stack_dir):
+        """Set the name of the directory in which to store any stacked 
+        images."""
+        if stack_dir[-1] == "/": # get rid of / at end if needed 
+            stack_dir = stack_dir[:-1]
+            
+        if not os.path.isdir(stack_dir): # check if it exists
+            raise FileNotFoundError(f"Directory '{stack_dir}' does not exist") 
+
+        self.__stack_dir = stack_dir
+        
+
+    def set_plot_ext(self, plot_ext):
+        """Set the file extension of any plots which are produced."""        
+        if plot_ext in VALID_PLOT_EXT:
+            self.__plot_ext = plot_ext
+        else:
+            raise ValueError(f"Expected plot_ext one of {VALID_PLOT_EXT},"+
+                             f"got '{plot_ext}'")
+
+
+###############################################################################
+### FILTER BY DATE, TARGET OBJECT... ##########################################
         
     def exclude_date(self, date):
-        """
-        Input: a date in the format "YYYYMMDD", "YYYYMM", or "YYYY"
-        Removes all raw data from the RawData object which was acquired on the
-        input date.
-        Output: None
+        """Exclude a specific date from the data, by parsing through the image
+        files' fits headers.
         
-        * Does not update the self.date attribute. This should be added in the 
-        future.
+        Arguments
+        ---------
+        date : str
+            A date of the format 'YYYYMMDD' or 'YYYYMM' or 'YYYY' to exclude 
+            from the raw data
+        
         """
-        l = self.loc
         all_files = self.files # make a copy 
         new_files = []
         for f in all_files: # get data for every file 
-            hdu_temp = fits.open(f"{l}/{f}")
+            hdu_temp = fits.open(f"{self.data_dir}/{f}")
             hdu = hdu_temp[0]
             d = (hdu.header["DATE"][0:10]).replace("-","")
             hdu_temp.close()
@@ -368,28 +589,31 @@ class RawData:
             if not(date in d): # if file is NOT from the input date 
                 new_files.append(f)
 
-        if len(all_files) == 0:
+        if len(new_files) == 0:
             raise NoDataError("After exclusion, RawData object would have "+
                               "no remaining data") 
         
-        self.files = new_files
-        RawData.__dates_init(self) # rebuild list/dict of dates
-        RawData.__filter_init(self) # rebuild list/dict of filters
-        
+        self.__files = new_files
+        self.__dates_init() # rebuild list/dict of dates
+        self.__filter_init() # rebuild list/dict of filters        
 
     
     def exclude_object(self, obj):
+        """Exclude a specific target object from the data, by parsing through 
+        the image files' fits headers.
+        
+        Arguments
+        ---------
+        obj : str
+            Name of a target object to exclude, e.g., 'NGC457'
+            
         """
-        Input: an object which was the target of given observations 
-        Removes all raw data from the RawData object which was aimed at the 
-        given object or pointing.
-        Output: None
-        """
-        l = self.loc
+        
         all_files = self.files # make a copy 
+
         new_files = []
         for f in all_files: # get data for every file 
-            hdu_temp = fits.open(f"{l}/{f}")
+            hdu_temp = fits.open(f"{self.data_dir}/{f}")
             hdu = hdu_temp[0]
             o = hdu.header["OBJECT"]
             hdu_temp.close()
@@ -397,29 +621,33 @@ class RawData:
             if not(obj in o): # if file is NOT of the input pointing 
                 new_files.append(f)
 
-        if len(all_files) == 0:
+        if len(new_files) == 0:
             raise NoDataError("After exclusion, RawData object would have "+
                               "no remaining data") 
-            
-        self.files = all_files
-        
-        RawData.__dates_init(self) # rebuild list/dict of dates
-        RawData.__filter_init(self) # rebuild list/dict of filters
+           
+        self.__files = new_files
+        self.__dates_init() # rebuild list/dict of dates
+        self.__filter_init() # rebuild list/dict of filters
 
     
     def only_date(self, date):
+        """Exclude **all but one** specific date in the data, by parsing 
+        through the image files' fits headers.
+        
+        Arguments
+        ---------
+        date : str
+            A date of the format 'YYYYMMDD' or 'YYYYMM' or 'YYYY' to select in 
+            the raw data
+            
         """
-        Input: a date in the format "YYYYMMDD", "YYYYMM", or "YYYY"
-        Removes all raw data from the RawData object which was ***NOT*** 
-        acquired on the input date.
-        Output: None
-        """ 
-        self.files = []
+        
+        self.__files = []
         for d in self.dates: # look at all dates 
             if date in d: # if input date is in the list of dates 
-                self.files.append(self.dates_dict[d])
+                self.__files.append(self.dates_dict[d])
         
-        self.files = self.files[0]
+        self.__files = self.__files[0]
         RawData.__dates_init(self) # rebuild list/dict of dates
         RawData.__filter_init(self) # rebuild list/dict of filters
 
@@ -428,27 +656,30 @@ class RawData:
                   "files. After this operation, the RawData object has no "+
                   "remaining data.")
         else:
-            self.date = date # update the date 
+            self.__date = date # update the date 
 
     
     def only_object(self, obj):
         """
-        Input: an object which was the target of given observations 
-        Removes all raw data from the RawData object which was ***NOT*** 
-        aimed at the given object or pointing.
-        Output: None
+        Excude **all but one** specific target object in the data to be used by 
+        parsing through the image files' fits headers.
+        
+        Arguments
+        ---------
+        obj : str
+            Name of the object, e.g., 'NGC457'
+            
         """
-        l = self.loc
         all_files = self.files # make a copy 
-        self.files = []
+        self.__files = []
         for f in all_files: # get data for every file 
-            hdu_temp = fits.open(f"{l}/{f}")
+            hdu_temp = fits.open(f"{self.data_dir}/{f}")
             hdu = hdu_temp[0]
             o = hdu.header["OBJECT"]
             hdu_temp.close()
             
             if obj in o: # if file IS of the input pointing 
-                self.files.append(f)
+                self.__files.append(f)
         
         self.files = self.files[0]
         RawData.__dates_init(self) # rebuild list/dict of dates
@@ -461,31 +692,35 @@ class RawData:
         
         
     def copy(self):
-        """
-        Input: None
-        Produces a (deep) copy of the object.
-        Output: the copy 
-        """
+        """Produces a (deep) copy of the object."""
         return deepcopy(self)
+
             
 ###############################################################################
-    #### IMAGE DIAGNOSTICS #################################################### 
+### IMAGE DIAGNOSTICS ######################################################### 
     
     def print_headers(self, ext, *headers):
+        """Print particular fits header(s) for data files. 
+        
+        Arguments
+        ---------
+        ext : {'fits', 'fits.fz', 'flt'}
+            Extension of interest for the image data to be parsed
+        headers : str
+            Name(s) of any header(s) of interest
+            
         """
-        Input: file extension of interest and the header(s) of interest  
-        For each raw data file, prints the headers of interest in readable 
-        format, if the header is present. Does so for the extension given 
-        through ext. For debugging, mostly. 
-        Output: None
-        """
-        l = self.loc # for convenience 
         headers = list(headers) # convert tuple to list 
+
+        # check file type of interest
+        if not ext in VALID_DATA_EXT:
+            raise ValueError(f"Expected ext one of {VALID_DATA_EXT}, got "+
+                             f"{ext}")
         
         # alert user that some headers are not present and remove them
         # buggy - can not handle when multiple headers are not present 
         testfile = self.files[0]
-        hdu_test_temp = fits.open(f"{l}/{testfile}")
+        hdu_test_temp = fits.open(f"{self.data_dir}/{testfile}")
         hdu_test = hdu_test_temp[ext]
         for h in headers:
             try:
@@ -507,7 +742,7 @@ class RawData:
         # print the desired headers in readable format for all raw data files
         for f in self.files:
             toprint = f"{f}\t"
-            hdu = fits.open(f"{l}/{f}")[ext]
+            hdu = fits.open(f"{self.data_dir}/{f}")[ext]
             for h in headers:
                 toprint += f"{str(hdu.header[h])}\t"
             print(toprint)
@@ -515,19 +750,23 @@ class RawData:
 
 
     def value_at(self, ra, dec):
+        """Get the value at some RA and Dec, for all images.
+        
+        Arguments
+        ---------
+        ra, dec : float
+            Right Ascension (RA) and Declination of interest 
+
+
+        For all of the files contained in the RawData object, prints the ADU 
+        value at the given RA and Dec, **if** these coordinates are within the 
+        image's bounds. Can be used to see if, e.g., the ADU was set to 0 
+        over a source of interest during image de-trending.
+        
         """
-        Input: a RA and Dec
-        For all of the files contained in some RawData object, returns the ADU 
-        value at the given RA and Dec, IF these coordinates are within the 
-        image's bounds.
-        Can be used to see if e.g. the ADU is set to 0.0 over a source of 
-        interest, if desired.
-        Output: None
-        """
-        l = self.loc
         for f in self.files:
-            data = fits.getdata(f"{l}/{f}")
-            hdr = fits.getheader(f"{l}/{f}")
+            data = fits.getdata(f"{self.data_dir}/{f}")
+            hdr = fits.getheader(f"{self.data_dir}/{f}")
             w = wcs.WCS(hdr)
             xpix, ypix = w.all_world2pix(ra, dec, 1)
             xpix = int(xpix)
@@ -537,43 +776,58 @@ class RawData:
                 
                 
     def background(self):
+        """Estimate the background of the images. 
+                
+        Returns
+        -------
+        list
+            List containing the background level of each file
+
+
+        Naively estimates the background as the median of the image's ADU 
+        for every raw image in order to see how the data varies. 
+
+        Notes
+        -----
+        Does not mask sources, but this is not important for the purpose of 
+        this function: to see if any data is dubious 
+
         """
-        Input: None
-        Naively estimates the background as the mean of the image's ADU for 
-        every raw image in order to see how the data varies. Does not mask 
-        sources, but this is not important for the purpose of this function:
-        to see if any data is dubious 
-        Output: An array containing the background level
-        """
-        l = self.loc
         bg_levels = []
         for f in self.files:
-            data = fits.getdata(f"{l}/{f}")
+            data = fits.getdata(f"{self.data_dir}/{f}")
             bg_levels.append(np.median(data))
         return bg_levels
         
     
     def radial_PSFs(self, ra, dec, solved=True, adu_min=4000, adu_max=66000):
-        """
-        Input: 
-            - RA, Dec for a source of interest (should be a bright source, 
-              but not one that saturates the detector)
-            - whether the input images have already been solved with astrometry 
-              (optional; default True)
-            - minimum and maximum ADU level to show in the profiles (optional; 
-              default 4000 and 66000, resectively)
-            
+        """Produce radial PSFs for all images. 
+        
+        Arguments
+        ---------
+        ra, dec : float
+            Right Ascension (RA) and Declination of interest         
+        solved : bool, optional
+            Have the images already been solved with astrometry? (default 
+            True)
+        adu_min, adu_max : float, optional
+            Minimum and maximum allowed ADU in the image (default 4000, 66000)
+
+
         For all of the files in the raw data directory, produces and saves a 
         figure of the radial profile around the input RA and Dec. If 
-        solved=False, first solves the image with astrometry.net and then 
-        obtains the radial profiles. (Refined astrometric solution is required 
-        to get an accurate radial profile.)
-        
-        Output: None
+        `solved=False`, first solves the image with astrometry.net. (A refined 
+        astrometric solution is required to get an accurate radial profile.) A 
+        crude technique for estimating the PSF of an image.
+            
+        Notes
+        -----
+        Best to pick a source which is bright, but not one which saturates the
+        detectors.
+
         """
-        l = self.loc
-        topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
-        plots_dir = os.path.abspath(f"{l}/..")
+        topfile = re.sub(".*/", "", self.data_dir) # for a file /a/b/c, extract the "c"
+        plots_dir = os.path.abspath(f"{self.data_dir}/..")
         plots_dir = f"{plots_dir}/profs_RA{ra:.3f}_DEC{dec:.3f}_{topfile}"
         run(f"mkdir -p {plots_dir}", shell=True)
         
@@ -589,7 +843,7 @@ class RawData:
             
         else: # if astrometry has already been done
             files = self.files
-            solved_dir = l
+            solved_dir = self.data_dir
         
         # the radial PSF 
         for f in files: 
@@ -635,38 +889,40 @@ class RawData:
               
 
     def solve_all(self, solved_dir=None, depth=None):
+        """Find the astrometric solution for all images.
+
+        Arguments
+        ---------
+        solved_dir : str, optional
+            Directory in which to store the solved images (default None --> 
+            set below)
+        depth : int, optional
+            Number of stars to use in solving with astrometry.net, e.g., 
+            `depth=100` will use only the 100 brightest stars (default None 
+            --> no limit, use all stars)
+        
+
+        Using astrometry.net, solve all files, and put them in a new directory. 
+        This is necessary when the astrometric solution obtained by CFHT is 
+        inaccurate and requires refining, or if you wish to plot the radial 
+        PSFs of some point in the raw data images.
+        
+        Notes
+        -----
+        For MegaCam images, detectors **(0, 1, ..., 17)**, **36**, **37** 
+        (top half of camera) are oriented with North ANTI-parallel to the 
+        y-axis and East parallel to the x-axis. Detectors 
+        **(18, 19, ..., 35)**, **38**, **39** (bottom half of the camera) are 
+        oriented with North parallel to the y-axis and East ANTI-parallel to 
+        the x-axis. When trying to make a stack from images in both the top 
+        and bottom halves, IRAF sometimes gets confused.
+        
         """
-        Input:
-            - whether to invert data in both the X and Y (i.e., rotate by 180 
-              degrees) prior to solving (optional; default False; necessary 
-              when one wishes to stack images that do not have the same 
-              RA-Dec orientation)*
-            - number of stars to use in solving with astrometry.net (optional; 
-              default no limit)
-              e.g. depth=100 will only use the 100 brightest stars
-        
-        Using astrometry.net, solve all files, and put them in a new 
-        directory. This is necessary when the astrometric solution obtained by 
-        CFHT is inaccurate and requires refining, or if you wish to plot the 
-        radial PSFs of some point in the raw data images. 
-        
-        * For MegaCam images, 
-        Detectors [0, 17] and 36, 37 (top half of camera) are oriented with 
-        North ANTI-parallel to the y-axis and East parallel to the x-axis. 
-        Detectors [18, 35] and 38, 39 (bottom half of the camera) are oriented 
-        with North parallel to the y-axis and East ANTI-parallel to the x-axis. 
-        When trying to make a stack from images in both the top and bottom 
-        halfs, IRAF sometimes gets confused. Use the invert=True argument to 
-        
-        
-        Output: None
-        """
-        l = self.loc
         script_dir = os.getcwd()
-        os.chdir(l)
+        os.chdir(self.data_dir)
         
-        image_header = fits.getheader(f"{l}/{self.files[0]}")
-        image_data = fits.getdata(f"{l}/{self.files[0]}")
+        image_header = fits.getheader(f"{self.data_dir}/{self.files[0]}")
+        image_data = fits.getdata(f"{self.data_dir}/{self.files[0]}")
   
         pixscale = image_header["PIXSCAL1"] # pixel scale
         pixmin = pixscale-0.005
@@ -725,9 +981,9 @@ class RawData:
 
         # make a list of solved files, move them to a new directory, 
         # and make a list of unsolved files 
-        if not(solved_dir):
-            topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
-            solved_dir = f'{os.path.abspath(l+"/..")}/solved_{topfile}'
+        if type(solved_dir) == type(None):
+            topfile = re.sub(".*/", "", self.data_dir)
+            solved_dir = f'{os.path.abspath(self.data_dir+"/..")}/solved_{topfile}'
         run(f"mkdir -p {solved_dir}", shell=True)
         run(f"rm -f {solved_dir}/*.fits", shell=True) # empty existing dir
         run(f"rm -f {solved_dir}/*.txt", shell=True) # empty existing dir
@@ -736,9 +992,9 @@ class RawData:
         unsolved = []
         files = [f.replace(f".{self.fmt}", "_solved.fits") for f in self.files]
         for f in files: 
-            if os.path.exists(f"{l}/{f}"):
+            if os.path.exists(f"{self.data_dir}/{f}"):
                 solved.append(f.replace("_solved.fits", f".{self.fmt}"))
-                run(f"mv {l}/{f} {solved_dir}", shell=True)
+                run(f"mv {self.data_dir}/{f} {solved_dir}", shell=True)
             else:
                 unsolved.append(f.replace("_solved.fits", f".{self.fmt}"))
         
@@ -760,26 +1016,34 @@ class RawData:
                   solved_dir)
             
         os.chdir(script_dir)
-             
+    
+    
 ###############################################################################
-    #### WCS LOCATING & EXTENSION WRITING #####################################
+### WCS LOCATING & EXTENSION WRITING ##########################################
 
     def WCS_check(self, ra, dec, frac=1.0, verbose=True, checkall=True):
-        """
-        Input: 
-            - RA, Dec of interest
-            - the fraction of the image bounds to consider valid (optional; 
-              default 1.0 which is to consider the entire image) 
-            - whether to be verbose (optional; default True)
-            - whether to check all files or just return the first file which 
-              contains the given WCS (optional; default True --> return all 
-              files spanning the given coords)
+        """Check if the input coordinates are spanned by any of the data.
         
-        Checks if the input coordinates are spanned by any of the data. 
+        Arguments            
+        ---------
+        ra, dec : float
+            Right Ascension (RA) and Declination of interest
+        frac : float, optional
+            Fraction of the image to consider valid, e.g., 0.9 will 
+            exclude the outermost 10% of the image (default 1.0 --> whole 
+            image)
+        verbose : bool, optional
+            Print lots of details? (default True)
+        checkall : bool, optional
+            Check all files, or, just return the first matching file? 
+            (default True --> check all files)
         
-        Output: a list of these files' locations
+        Returns
+        -------
+        list
+            List of files which span the given coordinates
+        
         """
-        l = self.loc
         good_files = []
         
         # set x and y limits of each detector
@@ -792,7 +1056,7 @@ class RawData:
         
         if self.nextend == 0: # if images already divided up by detector/CCD
             for f in self.files: 
-                hdr = fits.getheader(f"{l}/{f}")
+                hdr = fits.getheader(f"{self.data_dir}/{f}")
                 w = wcs.WCS(hdr)
                 naxis = int(hdr["NAXIS"])
 
@@ -804,9 +1068,9 @@ class RawData:
                 # check if located in detector  
                 if (x_lim[0]<pix_coords[0]<x_lim[1]) and (
                     y_lim[0]<pix_coords[1]<y_lim[1]):
-                    good_files.append(f"{l}/{f}")
+                    good_files.append(f"{self.data_dir}/{f}")
                     if verbose:
-                        print(f"{l}/{f}")
+                        print(f"{self.data_dir}/{f}")
                     if not(checkall): # if we only want the first file
                         return good_files
                     
@@ -814,9 +1078,9 @@ class RawData:
             for f in self.files: 
                 n = RawData.locate_WCS(self, ra, dec)
                 if n:
-                    good_files.append(f"{l}/{f}")
+                    good_files.append(f"{self.data_dir}/{f}")
                     if verbose:
-                        print(f"{l}/{f} [detector {n}]")
+                        print(f"{self.data_dir}/{f} [detector {n}]")
                     if not(checkall): # if we only want the first file
                         return good_files
                         
@@ -828,28 +1092,33 @@ class RawData:
  
     
     def locate_WCS(self, ra, dec, frac=1.0):
-        """
-        Input: 
-            - RA, Dec of interest
-            - the fraction of the image bounds to consider valid (optional; 
-              default 1.0 which is to consider the entire image)
-        
-        Examines all of the detectors of some multi-detector image (a multi-
-        extension fits file) and returns the number of the detector where the 
-        coordinates are located. 
-        
-        Output: The number of extension which contains the detector of interest
+        """Given some coordinates and a multi-detector image, find the number 
+        ID of the detector where the coordinates are located.
+
+        Arguments
+        ---------
+        ra, dec : float
+            Right Ascension (RA) and Declination of interest
+        frac : float, optional
+            Fraction of the image to consider valid, e.g., 0.9 will 
+            exclude the outermost 10% of the image (default 1.0 --> whole 
+            image)
+
+        Returns
+        -------
+        int
+            Number ID of the detector where the coordinates are located
+
         """
         
         if self.nextend == 0:
             print("Cannot call locate_WCS() on a file without extensions.")
             return
         
-        l = self.loc
         # assume the instruments do not drift and WCS does not significantly 
         # change from one image to another 
         testfile = self.files[0]
-        hdu_list_test = fits.open(f"{l}/{testfile}")
+        hdu_list_test = fits.open(f"{self.data_dir}/{testfile}")
         
         for n in range(self.nextend): # for all extensions
             w = wcs.WCS(hdu_list_test[n+1].header) # WCS object
@@ -883,17 +1152,13 @@ class RawData:
 
             
     def __get_extension(self, fits_file, n_ext):
-        """
-        Input: A single fits file and the extension number of interest. 
-        Extracts the header and image data of the given extension. Helper fn. 
-        Output: The header and image data 
-        """
-        l = self.loc
+        """Extract the image data and header of a fits file's `n_ext`th 
+        extension."""
         
         # WIRCam: 1 to 4
         # MegaPrime: 1 to 36 pre-2015A, 1 to 40 post-2015A 
         
-        new_hdu_list = fits.open(f"{l}/{fits_file}")
+        new_hdu_list = fits.open(f"{self.data_dir}/{fits_file}")
         new_hdu = new_hdu_list[n_ext] # compressed
         
         new_hdr = new_hdu.header
@@ -904,40 +1169,51 @@ class RawData:
         return extension  
 
     
-    def write_extensions(self, n_ext, exten_dir):
-        """
-        Input: 
-            - extension number of interest (should be at least 1, n_ext=1 -->
-              extract the 1st extension in the file which corresponds to the 
-              0th detector/CCD)
-            - name for the directory which will hold the written extensions 
-              (optional; default set below)
+    def write_extensions(self, n_ext, exten_dir=None):
+        """Write a specific extension of each multi-header fits file to 
+        individual files.
+        
+        Arguments
+        ---------
+        n_ext : int
+            Extension number of interest (should be at least 1, n_ext=1 --> 
+            extract the 1st extension in the file which corresponds to the 0th 
+            detector/CCD)
+        exten_dir : str, optional
+            Name for the directory which will hold the written extensions 
+            (default None --> set below)
+
         
         Gets the header and image data for the given extension and writes them
-        to a new .fits file. Does so for all raw data files. 
-        Stores them in a new subdirectory. Used to extract image data for one 
-        of many CCDs/detectors on either MegaPrime/WIRCam. 
+        to a new .fits file. Does so for all raw data files. Stores them in a 
+        new subdirectory. Used to extract image data for one of many CCDs / 
+        detectors on either MegaPrime/WIRCam. 
         
-        Output: None
+        Notes
+        -----
+        - For a given dataset, once `locate_WCS()` has been used to find the 
+          extension containing the WCS of interest, run this function once to 
+          extract that specific extension. Can then use this newly made folder 
+          for stacking.
         
-        * For a given dataset, once locate_WCS() has been used to find the ext
-        containing the WCS of interest, run this function once to extract that
-        specific extension. Can then use this newly made folder for stacking.
-        * If the extensions are themselves cubes (sometimes the case for 
-        WIRCam), see combine_WIRCam() or divide_WIRCam().
-        * Currently only works for cubes of the form fits.fz, and produces
-        files of form fits
+        - If the extensions are themselves cubes (sometimes the case for 
+          WIRCam), see `combine_WIRCam()` or `divide_WIRCam()`.
+        
+        - Currently only works for cubes of the form fits.fz, and produces
+          files of form fits.
+        
         """
-        l = self.loc
         
-        if n_ext < 11:
+        if n_ext < 1:
+            raise ValueError(f"Expected n_ext >= 1, got {n_ext}")
+        elif n_ext < 11:
             det_name = f"0{n_ext-1}"
         else:
             det_name = str(n_ext-1)
         
-        if not(exten_dir):
+        if type(exten_dir) == type(None):
             # exten_dir encodes the detector number, instrument, and date
-            exten_dir = f'{os.path.abspath(l+"/..")}/det{det_name}_'
+            exten_dir = f'{os.path.abspath(self.data_dir+"/..")}/det{det_name}_'
             exten_dir = f'{exten_dir}{self.instrument}_{self.date}'
         run(f"mkdir -p {exten_dir}", shell=True) # make exten_dir
         
@@ -953,25 +1229,31 @@ class RawData:
         
         
     def write_extensions_all(self, all_exten_dir=None):
+        """Write each extension of each multi-header fits file to individual 
+        files.
+             
+        Arguments
+        ---------
+        all_exten_dir : str, optional
+            Name for the directory which will hold the written extensions 
+            (default None --> set below)
+
+        
+        Gets the header and image data for **all** extensions of a 
+        multi-header fits file and writes each extension to a new .fits file. 
+        Useful for MegaPrime data where the scope moves a lot and the 
+        detectors are all calibrated to the same ADU level.         
+        
+        Notes
+        -----
+        Currently only works for cubes of the form fits.fz, and produces 
+        files of form fits.
+
         """
-        Input: name for the directory which will hold all of the extensions
-        (optional; default set below)
         
-        Gets the header and image data for ALL extensions of a multi-extension
-        fits file and writes each extension to a new .fits file. Useful for 
-        MegaPrime data where the scope moves a lot and the detectors are all 
-        calibrated to the same ADU level. 
-        
-        Output: None 
-        
-        * Currently only works for cubes of the form fits.fz, and produces
-        files of form fits
-        """
-        l = self.loc
-        
-        if not(all_exten_dir):
+        if type(all_exten_dir) == type(None):
             # all_exten_dir encodes the instrument and date            
-            all_exten_dir = f'{os.path.abspath(l+"/..")}/dets_ALL_'
+            all_exten_dir = f'{os.path.abspath(self.data_dir+"/..")}/dets_ALL_'
             all_exten_dir = f'{all_exten_dir}{self.instrument}_{self.date}'            
         run(f"mkdir -p {all_exten_dir}", shell=True) # make all_exten_dir
 
@@ -993,27 +1275,35 @@ class RawData:
     
     
     def write_extensions_by_WCS(self, ra, dec, frac=1.0, wcs_exten_dir=None):
+        """Same as `write_extensions()`, but select the extension using an RA 
+        and Dec.
+        
+        Arguments
+        ---------
+        ra, dec : float
+            Right Ascension (RA) and Declination of interest
+        frac : float, optional
+            Fraction of the image to consider valid, e.g., 0.9 will 
+            exclude the outermost 10% of the image (default 1.0 --> whole 
+            image)
+        wcs_exten_dir : str, optional
+            Name for the directory which will hold the written extensions 
+            (default None --> set below)
+
+        
+        For a directory full of multi-extension fits files, gets the extensions
+        which contain the input RA, Dec and writes them to a new file. 
+        
+        Notes
+        -----
+        Currently only works for cubes of the form fits.fz, and produces files 
+        of form fits.
+        
         """
-        Input: 
-            - RA, Dec of interest
-            - the fraction of the image bounds to consider valid (optional; 
-              default 1.0 which is to consider the entire image) 
-            - name for the directory which will hold the written extensions 
-              (optional; default set below)
-        
-        For a directory full of multi-extension fits files, gets the extension
-        which contains the input RA, Dec and writes it to a new file 
-        
-        Output: None
-        
-        * Currently only works for cubes of the form fits.fz, and produces
-        files of form fits
-        """
-        l = self.loc
         
         if not(wcs_exten_dir):
             # wcs_exten_dir encodes the wcs of interest, instrument, and date
-            wcs_exten_dir = os.path.abspath(f"{l}/..")
+            wcs_exten_dir = os.path.abspath(f"{self.data_dir}/..")
             wcs_exten_dir = f"{wcs_exten_dir}/dets_RA{ra:.3f}_DEC{dec:.3f}_"
             wcs_exten_dir = f"{wcs_exten_dir}{self.instrument}_{self.date}"
         
@@ -1031,7 +1321,7 @@ class RawData:
                     det_name = f"0{n}"
                 else:
                     det_name = str(n)
-                exten = RawData.__get_extension(self, f, n+1)
+                exten = self.__get_extension(f, n+1)
                 w = wcs.WCS(exten.header) # WCS object
                  
                 naxis = int(exten.header["NAXIS"])
@@ -1057,45 +1347,45 @@ class RawData:
         
         
     def write_source(self, name, ra, dec, frac=1.0):
-        """
-        Input: 
-            - name, RA, and Dec for some interesting source (such as a 
-              transient) 
-            - the fraction of the image bounds to consider valid when searching
-              for the source (optional; default 1.0 which is to consider the 
-              entire image)
+        """Same as `write_extensions_by_WCS()`, but write the files to a new 
+        directory with name `name`.
+        
+        Arguments
+        ---------
+        name : str
+            Name of the source of interest (e.g. some transient)
+        ra, dec : float
+            Right Ascension (RA) and Declination of interest
+        frac : float, optional
+            Fraction of the image to consider valid, e.g., 0.9 will 
+            exclude the outermost 10% of the image (default 1.0 --> whole 
+            image)
+
         
         Parses all raw data and copies any images which contain the input RA, 
-        Dec to a new directory with the name of the source.
-        
-        Output: None
+        Dec to a new sub-directory with the name of the source.
         """
-        l = self.loc
+
         source_files = RawData.WCS_check(self, ra, dec, frac)
         if source_files:  
-            run(f"mkdir -p {l}/{name}", shell=True)
+            run(f"mkdir -p {self.data_dir}/{name}", shell=True)
             for f in source_files:
-                run(f"cp {f} {l}/{name}", shell=True)
+                run(f"cp {f} {self.data_dir}/{name}", shell=True)
         else:
             print("\nNone of the raw data contains the input RA, Dec.")
 
+
 ###############################################################################    
-    #### COMBINING/DIVIDING CUBES #############################################
+### COMBINING/DIVIDING CUBES ##################################################
             
     def __combine_cube(self, fits_file):
+        """For a file composed of multiple 2D image data arrays (i.e. a cube), 
+        combine the image data into one single 2D array. Only needed for 
+        WIRCam data, which sometimes contains a cube for each of the 4 
+        detectors.
         """
-        Input: the name of a fits file containing a cube 
-        
-        For a file composed of multiple 2D image data arrays (i.e. a 
-        cube), combines the image data into one single 2D array. Only 
-        needed for WIRCam data, which sometimes contains a cube for each 
-        of the 4 detectors.
-        
-        Output: The header and image data of the new combined image with 
-        correctly updated exposure times, dimensions, and observation dates 
-        """
-        l = self.loc
-        f = fits.open(f"{l}/{fits_file}")[0]
+
+        f = fits.open(f"{self.data_dir}/{fits_file}")[0]
         
         n_images = len(f.data) # no. of images in the cube 
         new_data = f.data[0] # first image's data
@@ -1130,52 +1420,41 @@ class RawData:
 
 
     def combine_WIRCam(self):
-        """
-        Input: None
+        """For a directory full of WIRCam images, if the images are cubes, 
+        **combines** the multiple 2D arrays into single arrays. Then writes 
+        this combination to a single file.
         
-        For a directory full of WIRCam images, if the images are cubes, 
-        COMBINES the multiple 2D arrays into single arrays. Then writes this
-        combination to a single file.
-        
-        Output: None
-        
-        * Use this function once to take a folder full of cubes and turn them 
-        into single-frame fits files. Can NOT be called on non-cubes. Only used 
-        for WIRCam.
+        Use this function once to take a folder full of cubes and turn them 
+        into single-frame fits files. Can **not** be called on non-cubes. Only 
+        used for WIRCam.
         """
         
-        l = self.loc
-        topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
+        topfile = re.sub(".*/", "", self.data_dir) # for a file /a/b/c, extract the "c"
         if not("WIRCam" in self.instrument):
             print("Cannot call combine_WIRCam() except on WIRCam cubes.")
             return
         
         # combin_dir encodes the detector number, instrument, and date
-        combin_dir = f'{os.path.abspath(l+"/..")}/combined_{topfile}'
+        combin_dir = f'{os.path.abspath(self.data_dir+"/..")}/combined_{topfile}'
         run(f"mkdir -p {combin_dir}", shell=True) # make combin_dir
         
         for f in self.files: 
-            if len((fits.getdata(f"{l}/{f}")).shape) > 2: # if a cube 
+            if len((fits.getdata(f"{self.data_dir}/{f}")).shape) > 2: # if a cube 
                 combin = RawData.__combine_cube(self, f)
                 new_f = f.replace(".fits","_combined.fits")
                 combin.writeto(f"{combin_dir}/{new_f}", overwrite=True, 
                               output_verify="ignore") # write them
             else: # if not, just copy it over without changing filename
-                run(f"cp -p {l}/{f} {combin_dir}", shell=True)
+                run(f"cp -p {self.data_dir}/{f} {combin_dir}", shell=True)
 
             
     def __divide_cube(self, fits_file):
-        """
-        Input: the name of a fits file containing a cube
-        
-        For a file composed of multiple 2D image data arrays (i.e. a cube), 
+        """For a file composed of multiple 2D image data arrays (i.e. a cube), 
         divides the image data into separate files. Only needed for WIRCam 
         data, which sometimes contains a cube for each of the 4 detectors.
-        
-        Output: The header and image data of new divided images
         """
-        l = self.loc
-        f = fits.open(f"{l}/{fits_file}")[0]
+
+        f = fits.open(f"{self.data_dir}/{fits_file}")[0]
         
         n_images = len(f.data) # no. of images in the cube 
         new_header = f.header
@@ -1193,33 +1472,27 @@ class RawData:
     
     
     def divide_WIRCam(self):
-        """
-        Input: None
+        """For a directory full of WIRCam images, if the images are cubes, 
+        **divides** the multiple 2D arrays into individual arrays. Then writes 
+        each division to a separate new file.
         
-        For a directory full of WIRCam images, if the images are cubes, DIVIDES 
-        the multiple 2D arrays into individual arrays. Then writes each 
-        division to a separate new file.
-        
-        Output: None
-        
-        * Use this function once to take a folder full of cubes and turn them 
-        into single-frame fits files. Can NOT be called on non-cubes. Only used 
-        for WIRCam.
+        Use this function once to take a folder full of cubes and turn them 
+        into single-frame fits files. Can **not** be called on non-cubes. 
+        Only used for WIRCam.
         """
         
-        l = self.loc
-        topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
+        topfile = re.sub(".*/", "", self.data_dir) # for a file /a/b/c, extract the "c"
         if not("WIRCam" in self.instrument):
             print("Cannot call divide_WIRCam() except on WIRCam cubes. "+
                   "Exiting.")
             return
         
         # div_dir encodes the detector number, instrument, date
-        div_dir = f'{os.path.abspath(l+"/..")}/divided_{topfile}'
+        div_dir = f'{os.path.abspath(self.data_dir+"/..")}/divided_{topfile}'
         run(f"mkdir -p {div_dir}", shell=True) # make div_dir
         
         for f in self.files: 
-            if len((fits.getdata(f"{l}/{f}")).shape) > 2: # if a cube 
+            if len((fits.getdata(f"{self.data_dir}/{f}")).shape) > 2: # if a cube 
                 divs = RawData.__divide_cube(self, f)
                 for div in divs:
                     temp_header = div.header
@@ -1229,26 +1502,35 @@ class RawData:
                                 output_verify="ignore") # write them
             else: # if not, just copy it over without changing filename
                   # but assign a SLICEID
-                run(f"cp -p {l}/{f} {div_dir}", shell=True)
+                run(f"cp -p {self.data_dir}/{f} {div_dir}", shell=True)
                 temp = fits.open(f"{div_dir}/{f}", mode="update")
                 temp[0].header["SLICEID"] = "01"
                 temp.close()
 
 ###############################################################################
-    #### CROP IMAGES BASED ON PIXEL FRACTIONS/WCS #############################
+### CROP IMAGES BASED ON PIXEL FRACTIONS/WCS ##################################
         
     def __get_crop(self, fits_file, frac_hori=[0,1], frac_vert=[0,1]):
-        """
-        Input: 
-            - single fits file
-            - horizontal fraction of the fits file's image to crop (default 
-              [0,1], which does not crop), 
-            - vertical fraction (default [0,1])
-            
-        e.g. __get_crop("foo.fits", [0.5,1], [0,0.5]) would crop the bottom 
-        right corner of the image
+        """Crop an image. 
         
-        Output: a new fits HDU containing the header and the cropped image
+        Arguments
+        ---------
+        fits_file : str
+            Name of a single fits file
+        frac_hori, frac_vert : length-two list, optional
+            Horizontal and vertical fractions of the images to crop (default 
+            [0,1] for both --> no cropping)
+
+        Returns
+        -------
+        astropy.io.fits.PrimaryHDU
+            New fits HDU containing the header and cropped image
+        
+        Examples
+        --------
+        `__get_crop("foo.fits", [0.5,1], [0,0.5])` would crop the bottom 
+        right corner of the image
+
         """
             
         # get data 
@@ -1271,28 +1553,29 @@ class RawData:
         
     
     def crop_images(self, frac_hori=[0,1], frac_vert=[0,1]):
-        """
-        Input: 
-            - horizontal fraction of the fits file's image to crop (default 
-              [0,1], which does not crop)
-            - vertical fraction (default [0,1])
+        """Crop several fits images. 
+        
+        Arguments
+        ---------
+        frac_hori, frac_vert : length-two list, optional
+            Horizontal and vertical fractions of the images to crop (default 
+            [0,1] for both --> no cropping)
+
             
-        For a directory full of WIRCam/MegaPrime images (should NOT be cubes), 
-        crops the images based on the input x-axis and y-axis boundaries and 
-        writes them all to a new directory.
+        For a directory full of WIRCam/MegaPrime images (should **not** be 
+        cubes), crops the images based on the input x-axis and y-axis 
+        boundaries and writes them all to a new directory.
         
-        Output: None
         """
         
-        l = self.loc
-        topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
+        topfile = re.sub(".*/", "", self.data_dir) # for a file /a/b/c, extract the "c"
         
         # crop_dir encodes the detector number, instrument, date
-        crop_dir = f'{os.path.abspath(l+"/..")}/cropped_{topfile}'
+        crop_dir = f'{os.path.abspath(self.data_dir+"/..")}/cropped_{topfile}'
         run(f"mkdir -p {crop_dir}", shell=True) # make crop_dir
         
         for f in self.files:  
-            cropped_hdu = RawData.__get_crop(self, f"{l}/{f}", frac_hori, 
+            cropped_hdu = RawData.__get_crop(self, f"{self.data_dir}/{f}", frac_hori, 
                                              frac_vert)
             new_f = f.replace(".fits","_cropped.fits")
             cropped_hdu.writeto(f"{crop_dir}/{new_f}", overwrite=True, 
@@ -1300,32 +1583,33 @@ class RawData:
           
             
     def crop_images_wcs(self, ra, dec, size):
-        """
-        Input: 
-            - RA, Dec (degrees) 
-            - size of a box (in pixels) to crop around the input coordinates
+        """Crop several fits images by picking out a source based on its RA 
+        and Dec.
+        
+        Arguments
+        ---------
+        ra, dec : float
+            Right Ascension (RA) and Declination of interest, in degrees
+        size : float
+            Size of a box (in pixels) to crop around the input coordinates
+
             
-        For a directory full of WIRCam/MegaPrime images (should NOT be cubes), 
-        crops the images based on the input WCS coordinates, creating a box 
-        centred on these coordinates and writing the new files to a new 
-        directory. 
-        
-        * If the given box extends beyond the bounds of the image, the box will
-        be truncated at these bounds. 
-        
-        Output: None
+        For a directory full of WIRCam/MegaPrime images (should **not** be 
+        cubes), crops the images based on the input WCS coordinates, creating 
+        a box centred on these coordinates and writing the new files to a new 
+        directory. If the given box extends beyond the bounds of the image, 
+        the box will be truncated at these bounds.         
         """
-        l = self.loc
-        topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
+        topfile = re.sub(".*/", "", self.data_dir) # for a file /a/b/c, extract the "c"
 
         # crop_dir encodes the detector number, instrument, date
-        crop_dir = f'{os.path.abspath(l+"/..")}/cropped_{topfile}'
+        crop_dir = f'{os.path.abspath(self.data_dir+"/..")}/cropped_{topfile}'
         run(f"mkdir -p {crop_dir}", shell=True) # make crop_dir
         
         crop_counter = 0
         for f in self.files:
-            hdr = fits.getheader(f"{l}/{f}")
-            img = fits.getdata(f"{l}/{f}")
+            hdr = fits.getheader(f"{self.data_dir}/{f}")
+            img = fits.getdata(f"{self.data_dir}/{f}")
             y_size, x_size = img.shape # total image dims in pix 
             w = wcs.WCS(hdr)
             
@@ -1361,37 +1645,34 @@ class RawData:
                 continue
             
             crop_counter += 1
-            cropped_hdu = RawData.__get_crop(self, f"{l}/{f}", frac_hori, 
+            cropped_hdu = RawData.__get_crop(self, f"{self.data_dir}/{f}", frac_hori, 
                                              frac_vert)
             new_f = f.replace(".fits","_cropped.fits")
             cropped_hdu.writeto(f"{crop_dir}/{new_f}", overwrite=True, 
                           output_verify="ignore") # write them
             
         print(f"{crop_counter}/{len(self.files)} images could be cropped.\n")           
+
         
 ###############################################################################
-    #### STACKING AND STACK PREPARATION/EXTRACTION ############################
+### STACKING AND STACK PREPARATION/EXTRACTION #################################
 
     def make_badpix_masks(self):
-        """
-        Input: None
-        For each file, builds and points to the corresponding bad pixel mask 
-        for later stacking.
-        Output: None
-        """
-        l = self.loc
-        topfile = re.sub(".*/", "", l) # for a file /a/b/c, extract the "c"
+        """Builds a bad pixel mask for all image files, and places them in a 
+        new directory which is stored in `self.bp_dir`."""
+
+        topfile = re.sub(".*/", "", self.data_dir) # for a file /a/b/c, extract the "c"
         
         from scipy.ndimage import binary_dilation
         
         # bp_dir contains the bad pixel masks
-        self.bp_dir = f'{os.path.abspath(l+"/..")}/badpixels_{topfile}'
+        self.__bp_dir = f'{os.path.abspath(self.data_dir+"/..")}/badpixels_{topfile}'
         run(f"mkdir -p {self.bp_dir}", shell=True)
         
         for f in self.files:
             # build the bad pixel mask
-            image_data = fits.getdata(f"{l}/{f}")
-            image_hdr = fits.getheader(f"{l}/{f}")
+            image_data = fits.getdata(f"{self.data_dir}/{f}")
+            image_hdr = fits.getheader(f"{self.data_dir}/{f}")
             
             # mask all bad pixels, which are flagged by CFHT with 0
             bp_mask = (image_data == 0)
@@ -1409,83 +1690,83 @@ class RawData:
                                                    "_bp_mask.fits"), 
                        overwrite=True, output_verify="ignore")
             # set the bad pixel mask
-            hdu = fits.open(f"{l}/{f}", mode="update") 
+            hdu = fits.open(f"{self.data_dir}/{f}", mode="update") 
             hdu[0].header["BPM"] =  f.replace(f".{self.fmt}", "_bp_mask.fits")
             hdu.close(output_verify="ignore")
             
 
     def __make_stack_directory(self):
-        """
-        Input: None
-        Makes a directory to store stacked image(s).
-        Output: None
-        """
-        sd = self.stack_dir
-        if sd:
-            run(f"mkdir -p {sd}", shell=True) # create it
+        """Makes a directory to store stacked image(s)."""
+
+        if not(type(self.stack_dir) == type(None)):
+            run(f"mkdir -p {self.stack_dir}", shell=True) # create it
         else: # if not yet defined
             print("\nPlease set a stack directory using set_stack_dir() "+
                   "before attempting to stack images. Exiting.\n")
             return 
         # get rid of calibration file if it exists:
-        run(f"rm -rf {sd}/calibration", shell=True) 
-        run(f"rm -rf {sd}/*.fits", shell=True)
-        run(f"rm -rf {sd}/*.flt", shell=True)
+        run(f"rm -rf {self.stack_dir}/calibration", shell=True) 
+        run(f"rm -rf {self.stack_dir}/*.fits", shell=True)
+        run(f"rm -rf {self.stack_dir}/*.flt", shell=True)
         
         # get rid of previous .fits, .flt and .txt files
         # need to use glob to use wildcards (*):
-        textfiles = glob.glob(f"{sd}/*.txt")
-        fitsfiles = glob.glob(f"{sd}/*.fits")
-        fitsfiles = glob.glob(f"{sd}/*.flt")
+        textfiles = glob.glob(f"{self.stack_dir}/*.txt")
+        fitsfiles = glob.glob(f"{self.stack_dir}/*.fits")
+        fitsfiles = glob.glob(f"{self.stack_dir}/*.flt")
         allfiles = textfiles + fitsfiles
         for a in allfiles:
             os.remove(a)
 
-        run(f"chmod 777 {sd}", shell=True) # give full permissions to the dir
+        run(f"chmod 777 {self.stack_dir}", shell=True) # give full permissions to the dir
         
         # needed for iraf[?]
-        run(f"cp -f ~/iraf/login.cl {sd}", shell=True)
-        run(f"mkdir -p {sd}/uparm", shell=True)
-        run(f"cp -f ~/iraf/uparm/* {sd}/uparm", shell=True) 
+        run(f"cp -f ~/iraf/login.cl {self.stack_dir}", shell=True)
+        run(f"mkdir -p {self.stack_dir}/uparm", shell=True)
+        run(f"cp -f ~/iraf/uparm/* {self.stack_dir}/uparm", shell=True) 
         
         for fil in self.filters:
-            np.savetxt(f"{sd}/{fil}_list.txt", self.filters_dict[fil], 
+            np.savetxt(f"{self.stack_dir}/{fil}_list.txt", 
+                       self.filters_dict[fil], 
                        fmt="%s")
 
         # location of bad pixel masks
-        l = self.loc
-        topfile = re.sub(".*/", "", l)
-        self.bp_dir = f'{os.path.abspath(l+"/..")}/badpixels_{topfile}'
+        topfile = re.sub(".*/", "", self.data_dir)
+        self.bp_dir = f'{os.path.abspath(self.data_dir+"/..")}/badpixels_{topfile}'
 
         # copy fits files
-        run(f"cp -f {self.loc}/*.{self.fmt} {self.stack_dir}", shell=True)
+        run(f"cp -f {self.data_dir}/*.{self.fmt} {self.stack_dir}", shell=True)
         run(f"cp -f {self.bp_dir}/*.fits {self.stack_dir}", shell=True)
-        run(f"chmod 777 {sd}/*", shell=True) # give full perms
+        run(f"chmod 777 {self.stack_dir}/*", shell=True) # give full perms
         
         return True
         
 
     def make_stacks(self, *filters):
-        """
-        Input: valid filters (optional; defaults to all of the filters for 
-        which there is raw data)
+        """Co-add images with PyRaf.
+        
+        Arguments
+        ---------
+        filters : str, optional
+            Filters of interest (defaults to all of the filters for which 
+            there is raw data)
+
 
         Uses PyRaf to coadd all of the raw data into stacks based on filter.
         Can specify a subset of these filters if you don't want to process all 
-        of them. 
- 
-        Output: None
+        of them at once.
+        
         """
         
         # check if need to make bad pixel masks 
-        #hdr = fits.getheader(self.loc+"/"+self.files[0])
+        #hdr = fits.getheader(self.data_dir+"/"+self.files[0])
         #try:
         #    temp = hdr["BPM"]
         #    del temp
         #except KeyError:
         #    RawData.make_badpix_masks(self) # make bad pixel masks    
             
-        ret = RawData.__make_stack_directory(self) # make stack directory
+        ret = self.__make_stack_directory() # make stack directory
         
         if not(ret): # if stack directory not successfully made
             return 
@@ -1533,15 +1814,14 @@ class RawData:
         
         
     def extract_stack(self, filt): 
-        """
-        Input: a filter of choice
-        Output: a Stack object
-        """
-        return Stack(self.loc, self.stack_dir, self.qso_grade_limit, 
+        """Given a filter, create a `Stack` object which contains only stacks 
+        in that filter from a base `RawData` object."""
+        return Stack(self.data_dir, self.stack_dir, self.qso_grade_limit, 
                      self.fmt, self.plot_ext, filt)
-        
+ 
+       
 ###############################################################################
-    #### STACKS ###############################################################
+### STACKS ####################################################################
 
 class Stack(RawData):
     def __init__(self, location, stack_directory, qso_grade_limit, fmt, 
@@ -1550,77 +1830,73 @@ class Stack(RawData):
              qso_grade_limit, fmt, plot_ext)
                 
         # only one filter is spanned by a given stack
-        self.files = self.filters_dict[filt]
+        self.__files = self.filters_dict[filt]
         for fil in self.filters:
             if filt != fil:
                 delattr(self, fil)
 
         # stack file specifics
-        self.stack_name = f"{filt}_stack_{self.date}.fits" # name
-        self.stack_size = len(self.files) # size
+        self.__stack_name = f"{filt}_stack_{self.date}.fits" # name
+        self.__stack_size = len(self.files) # size
         
         # check if stack file is present before continuing and make it if not
         if not(self.stack_name in os.listdir(self.stack_dir)):
             print("\nSince the stacked image is not yet present, it will be "+
                   "produced now.")
-            Stack.make_stacks(self, filt)
+            self.make_stacks(filt)
             
         #if not(Stack.stack_made): # if stack was not successfuly made 
         #    exit
             
         delattr(self, "filters") # don't need a list anymore 
-        self.filter = filt # just one filter 
+        self.__filter = filt # just one filter 
         delattr(self,'filters_dict') # filters dict no longer needed
 
         # image data and header for general use
-        self.image_data = fits.getdata(f"{self.stack_dir}/{self.stack_name}")
-        self.image_header = fits.getheader(
+        self.__image_data = fits.getdata(f"{self.stack_dir}/{self.stack_name}")
+        self.__image_header = fits.getheader(
                 f"{self.stack_dir}/{self.stack_name}")
         
         # total exposure time (in seconds)
-        self.exptime = self.image_header['EXPTIME']
+        self.__exptime = self.image_header['EXPTIME']
             
         # pixel scale of image (same scale in x and y)
-        self.pixscale = self.image_header['PIXSCAL1']
+        self.__pixscale = self.image_header['PIXSCAL1']
         
         # dimensions of image (pixels)
-        self.y_size, self.x_size  = self.image_data.shape 
+        self.__y_size, self.__x_size  = self.image_data.shape 
         
         # make a directory for astrometric/photometric calibration
         # copy the stack file accordingly 
-        self.calib_dir = f"{self.stack_dir}/calibration"
+        self.__calib_dir = f"{self.stack_dir}/calibration"
         run(f"mkdir -p {self.calib_dir}", shell=True)
         run(f"cp {self.stack_dir}/{self.stack_name} {self.calib_dir}", 
             shell=True)
         
         # initialize time for all files and the overall stack
-        Stack.__time_init(self)            
+        self.__time_init()            
             
         # for later
-        self.astrometric_calib = False # astrometry performed? 
-        self.psf_fit = False # PSF of image obtained?
-        self.photometric_calib = False # photometric zero point known?
-        self.aperture_fit = False # aperture photometry obtained?
-        self.limmag_obtained = False # limiting magnitude obtained?
+        self.__astrometric_calib = False # astrometry performed? 
+        self.__psf_fit = False # PSF of image obtained?
+        self.__photometric_calib = False # photometric zero point known?
+        self.__aperture_fit = False # aperture photometry obtained?
+        self.__limmag_obtained = False # limiting magnitude obtained?
 
-        self.bkg = None # background-only
-        self.bkg_rms = None # background RMS error
-        self.bp_mask = None # bad pixel mask
-        self.source_mask = None # bad pixel AND source mask
-        self.image_error = None # image error array (Gaussian + Poisson)
+        self.__bkg = None # background-only
+        self.__bkg_rms = None # background RMS error
+        self.__bp_mask = None # bad pixel mask
+        self.__source_mask = None # bad pixel AND source mask
+        self.__image_error = None # image error array (Gaussian + Poisson)
+        self.__image_data_bkgsub = None # background-subtracted image
         
         
     def __time_init(self):
-        """
-        Input: None
-        Initializes a list of observation times for each file in the stack 
-        and a time for the entire stack (in Modified Julian Date (MJD)).
-        Output: None
-        """
-        l = self.loc
-        self.times = []
+        """Initializes a list of observation times for each file in the stack 
+        and a time for the entire stack (in Modified Julian Date (MJD))."""
+        self.__times = []
         for f in self.files:
-            hdr = fits.getheader(l+"/"+f)
+            hdr = fits.getheader(self.data_dir+"/"+f)
             
             if "WIRCam" in self.instrument:
                 # check if the file comes from a divided cube 
@@ -1634,50 +1910,167 @@ class Stack(RawData):
                 t_isot = Time(date_isot, format='isot', scale='utc')
                 
             t_MJD = t_isot.mjd # convert ISOT in UTC to MJD
-            self.times.append(t_MJD)
+            self.__times.append(t_MJD)
         
-        self.stack_time = np.mean(self.times) # stack time in MJD 
+        self.__stack_time = np.mean(self.times) # stack time in MJD 
+
 
 ###############################################################################
-    #### MASKS, BACKGROUND, & IMAGE ERROR ARRAY ###############################
-
+### GETTERS ###################################################################
+        
+    def stack_size(self):
+        return self.__stack_size
+    
+    def stack_time(self):
+        return self.__stack_time
+    
+    def image_data(self):
+        return self.__image_data
+    
+    def image_header(self):
+        return self.__image_header
+    
+    def bp_dir(self):
+        return self.__bp_dir
+    
+    def calib_dir(self):
+        return self.__calib_dir
+    
+    def exptime(self):
+        return self.__exptime
+    
+    def pixscale(self):
+        return self.__pixscale
+    
+    def x_size(self):
+        return self.__x_size
+    
+    def y_size(self):
+        return self.__y_size
+    
+    def astrometric_calib(self):
+        return self.__astrometric_calib
+    
+    def psf_fit(self):
+        return self.__psf_fit
+    
+    def photometric_calib(self):
+        return self.__photometric_calib
+    
+    def aperture_fit(self):
+        return self.__aperture_fit
+    
+    def limmag_obtained(self):
+        return self.__limmag_obtained
+    
+    def bkg(self):
+        return self.__bkg
+    
     def bp_mask(self):
-        """
-        Input: None        
-        
-        Make a bad pixel mask of pixels = 0 or nan. The mask is an array of 
-        BOOLS.
-        
-        Output: None
-        """
+        return self.__bp_mask
+    
+    def source_mask(self):
+        return self.__source_mask
+    
+    def image_error(self):
+        return self.__image_error
+    
+    def image_data_bkgsub(self):
+        return self.__image_data_bkgsub
+    
+    def xy_data(self):
+        return self.__xy_data
+    
+    def xy_name(self):
+        return self.__xy_name
+    
+    def epsf_data(self):
+        return self.__epsf_data
+    
+    def epsf_radius(self):
+        return self.__epsf_radius
+    
+    def ref_cat(self):
+        return self.__ref_cat
+    
+    def ref_cat_name(self):
+        return self.__ref_cat_name
+    
+    def zp_mean(self):
+        return self.__zp_mean
+    
+    def zp_med(self):
+        return self.__zp_med
+    
+    def zp_std(self):
+        return self.__zp_std
+    
+    def ra_offsets_mean(self):
+        return self.__ra_offsets_mean
+    
+    def dec_offsets_mean(self):
+        return self.__dec_offsets_mean
+    
+    def nmatches(self):
+        return self.__nmatches
+    
+    def sep_mean(self):
+        return self.__sep_mean
+    
+    def mag_diff_mean(self):
+        return self.__mag_diff_mean
+    
+    def psf_sources(self):
+        return self.__psf_sources
+    
+    def aperture_sources(self):
+        return self.__aperture_sources
+    
+    def limmag_sources(self):
+        return self.__limmag_sources
+    
+
+###############################################################################
+### MASKS, BACKGROUND, & IMAGE ERROR ARRAY ####################################
+
+    def mask_bp(self):
+        """Make a bad pixel mask of pixels = 0 or nan. The mask is an array of 
+        **bools**."""
         print("\nCreating a bad pixel mask for the stack...")
         start = timer()
-        self.bp_mask = np.logical_or(self.image_data==0, 
-                                     np.isnan(self.image_data))
+        self.__bp_mask = np.logical_or(self.image_data==0, 
+                                       np.isnan(self.image_data))
         end = timer()
         print(f"{(end-start):.2f} s")
 
 
-    def source_mask(self, sigma=3.0):
-        """
-        Input: detection sigma to use in image segmentation (optional; default 
-        3.0)
-    
+    def mask_source(self, sigma=3.0):
+        """Make a mask of pixels containing sources. 
+        
+        Arguments
+        ---------
+        sigma : float, optional
+            Detection sigma to use in image segmentation (default 3.0)
+
+        
         Use crude image segmentation to make a proto source mask, use the mask 
         to get the background, and then perform proper image segmentation on 
         the background-subtracted image data. The resulting segmentation image 
         is a proper source mask, to be used in other steps in aperture 
         photometry. The output source mask also flags bad pixels. 
         
-        The mask is an array of INTS, where 1=masked, 0=non-masked
-            
-        Output: None
+        Notes
+        -----
+        The mask is an array of **ints**, where 1=masked, 0=non-masked. Not 
+        to be confused with `bp_mask`.
+        
         """   
         
         data = self.image_data # the unsubtracted image 
         
         # if bad pixel mask is not yet computed, compute it
-        if not(type(self.bp_mask) == np.ndarray): Stack.bp_mask(self) 
+        if not(type(self.bp_mask) == np.ndarray): 
+            self.mask_bp() 
 
         ## set the threshold for image segmentation
         # use *crude* image segmentation to find sources above SNR=3, build a 
@@ -1709,27 +2102,38 @@ class Stack(RawData):
         end = timer()
         print(f"{(end-start):.2f} s")
         
-        self.source_mask = segm
+        self.__source_mask = segm
 
    
     def bkg_compute(self, box_size=50, filter_size=5, thresh_sigma=3.0):
-        """
-        Input:             
-            - box size for the background computation (optional; default 50x50)
-            - size for the median filter applied during background computation
-              (optional; default 5x5)
-            - detection sigma to use in image segmentation (optional; default 
-              3.0; only relevant if source mask not previously found)
+        """Compute the background of the image.
+        
+        Arguments
+        ---------
+        box_size : int, optional
+            Size of box for background estimation (default 50 --> 50x50 boxes)
+        filter_size : int, optional
+            Size of the median filter applied during background estimation 
+            (default 5 --> 5x5 filter)
+        thresh_sigma : float, optional
+            Detection to use in image segmentation when producing a source 
+            mask (default 3.0; only relevant if a source mask does not already 
+            exist and needs to be computed)        
+        
             
         Computes the background of the image, the error on the background (as 
-        the RMS deviation), and the background-subtracted image.
-        
-        Output: None
+        the RMS deviation), and the background-subtracted image. Assigns these 
+        to the attributes `self.bkg`, `self.bkg_rms`, `self.image_data_bkgsub`.
+
+        Notes
+        -----
+        A new source mask will be obtained only if `self.source_mask` does 
+        not exist. 
         """
 
         # if source mask is not yet computed, compute it
         if not(type(self.source_mask) == np.ndarray): 
-            Stack.source_mask(self, sigma=thresh_sigma) 
+            self.mask_source(sigma=thresh_sigma) 
 
         print("\nComputing the background of the image...")     
         start = timer()
@@ -1744,35 +2148,42 @@ class Stack(RawData):
         
         # save the backgrond, background RMS error, and background-subtracted 
         # image to attributes 
-        self.bkg = bkg.background
-        self.bkg_rms = bkg.background_rms
-        self.image_data_bkgsub = self.image_data - self.bkg
+        self.__bkg = bkg.background
+        self.__bkg_rms = bkg.background_rms
+        self.__image_data_bkgsub = self.image_data - self.bkg
 
 
     def error_array(self, box_size=50, filter_size=5, thresh_sigma=3.0):
-        """
-        Input: 
-            only relevant if the background was not already found:
-            - box size for the background computation (optional; default 50x50)
-            - size for the median filter applied during background computation
-              (optional; default 5x5)
-            - detection sigma to use in image segmentation (optional; default 
-              3.0)
-        
+        """Compute the error (uncertainty) on the background-only image.
+
+        Arguments
+        ---------
+        box_size : int, optional
+            Size of box for background estimation (default 50 --> 50x50 boxes; 
+            only relevant if background not previously computed)
+        filter_size : int, optional
+            Size of the median filter applied during background estimation 
+            (default 5 --> 5x5 filter, only relevant if background not 
+            previously computed)
+        thresh_sigma : float, optional
+            Detection to use in image segmentation when producing a source 
+            mask (default 3.0; only relevant if source mask not previously 
+            computed) 
+ 
+       
         Computes the error on the background-only image as the RMS deviation 
         of the background, and then computes the total image error including 
         the contribution of the Poisson noise from detected sources. Necessary 
         for error propagation in aperture photometry. 
-        
-        Output: None 
+ 
         """
 
         from photutils.utils import calc_total_error
             
         # if background is not yet computed, compute it 
         if not(type(self.bkg) == np.ndarray): 
-            Stack.bkg_compute(self, box_size=box_size, filter_size=filter_size,
-                              thresh_sigma=thresh_sigma) 
+            self.bkg_compute(box_size=box_size, filter_size=filter_size,
+                             thresh_sigma=thresh_sigma) 
             
         print("\nComputing the error array...")
         start = timer()
@@ -1789,10 +2200,11 @@ class Stack(RawData):
         end = timer()
         print(f"{(end-start):.2f} s")
         
-        self.image_error = err
+        self.__image_error = err
+    
     
 ###############################################################################
-    #### MAKING IMAGES (PLOTTING) #############################################
+### MAKING IMAGES (PLOTTING) ##################################################
         
     def make_image(self, bkgsub=False, border=False, sources=False, 
                    ra=None, dec=None, scale=None, title=None, output=None):
@@ -1930,7 +2342,7 @@ class Stack(RawData):
         plt.close()         
 
 ###############################################################################
-    #### ASTROMETRY ###########################################################
+### ASTROMETRY ################################################################
 
     def astrometry(self, verbose=0):
         """
@@ -2008,8 +2420,8 @@ class Stack(RawData):
         
         # store the xy list output in attributes 
         # source data for general use
-        self.xy_name = xyname
-        self.xy_data = fits.getdata(self.xy_name) 
+        self.__xy_name = xyname
+        self.__xy_data = fits.getdata(self.xy_name) 
          
         # store updated WCS solution in header
         self.image_header = fits.getheader(self.stack_name)
@@ -2021,7 +2433,7 @@ class Stack(RawData):
         print(f"Time for astrometric calibration: {(end-start):.2f} s\n")
 
 ###############################################################################
-    #### PSF PHOTOMETRY ####
+### PSF PHOTOMETRY ############################################################
 
     def __ePSF_FWHM(self, epsf_data, verbose=True):
         """
@@ -2197,7 +2609,7 @@ class Stack(RawData):
         epsf_builder = EPSFBuilder(oversampling=1, maxiters=7, # build it
                                    progress_bar=False)
         epsf, fitted_stars = epsf_builder(stars)
-        self.epsf_data = epsf.data # store ePSF data for later 
+        self.__epsf_data = epsf.data # store ePSF data for later 
         
         end = timer() # timing 
         print(f"Time required for ePSF building: {(end-start):.2f} s\n")
@@ -2215,7 +2627,7 @@ class Stack(RawData):
         start = timer() # timing ePSF building time
 
         # get ePSF FHWM, store for later 
-        self.epsf_radius = Stack.__ePSF_FWHM(self, epsf.data, verbose)
+        self.__epsf_radius = self.__ePSF_FWHM(epsf.data, verbose)
         
         ### USE ASTROMETRY.NET'S SOURCES FOR FITTING
         astrom_sources = Table() # build a table 
@@ -2335,9 +2747,9 @@ class Stack(RawData):
             plt.close()
         
         # save psf_sources as an attribute
-        self.psf_sources = psf_sources        
+        self.__psf_sources = psf_sources        
         # update bool
-        self.psf_fit = True      
+        self.__psf_fit = True      
         
         
     def __zero_point(self, sep_max=2.0,
@@ -2379,21 +2791,21 @@ class Stack(RawData):
         
         # determine the catalog to compare to for photometry
         if cat_num: # if a Vizier catalog number is given 
-            self.ref_cat = cat_num
-            self.ref_cat_name = cat_num
+            self.__ref_cat = cat_num
+            self.__ref_cat_name = cat_num
         else:  
             if self.filter in ['g','r','i','z','Y']:
                 zp_filter = (self.filter).lower() # lowercase needed for PS1
-                self.ref_cat = "II/349/ps1" # PanStarrs 1
-                self.ref_cat_name = "PS1" 
+                self.__ref_cat = "II/349/ps1" # PanStarrs 1
+                self.__ref_cat_name = "PS1" 
             elif self.filter == 'u':
                 zp_filter = 'u' # closest option right now 
-                self.ref_cat = "V/147" 
-                self.ref_cat_name = "SDSS DR12"
+                self.__ref_cat = "V/147" 
+                self.__ref_cat_name = "SDSS DR12"
             else: 
                 zp_filter = self.filter[0] # Ks must be K for 2MASS 
-                self.ref_cat = "II/246/out" # 2MASS
-                self.ref_cat_name = "2MASS"
+                self.__ref_cat = "II/246/out" # 2MASS
+                self.__ref_cat_name = "2MASS"
             
         w = wcs.WCS(self.image_header) # WCS object and coords of centre           
         wcs_centre = np.array(w.all_pix2world(
@@ -2466,8 +2878,8 @@ class Stack(RawData):
                                      "and >3 matches are required. Exiting.")
             return
         
-        self.nmatches = len(idx_image) # store number of matches 
-        self.sep_mean = np.mean(d2d.value*3600.0) # store mean separation in "
+        self.__nmatches = len(idx_image) # store number of matches 
+        self.__sep_mean = np.mean(d2d.value*3600.0) # store mean separation in "
         print(f'\nFound {self.nmatches:d} sources in {self.ref_cat_name} '+
               f'within {sep_max} pix of sources detected by astrometry, with '+
               f'average separation {self.sep_mean:.3f}" ')
@@ -2482,8 +2894,8 @@ class Stack(RawData):
         # compute offsets (in arcsec)
         ra_offsets = np.subtract(source_matches_ra, cat_matches_ra)*3600.0
         dec_offsets = np.subtract(source_matches_dec, cat_matches_dec)*3600.0
-        self.ra_offsets_mean = np.mean(ra_offsets)
-        self.dec_offsets_mean = np.mean(dec_offsets)
+        self.__ra_offsets_mean = np.mean(ra_offsets)
+        self.__dec_offsets_mean = np.mean(dec_offsets)
 
         # plot the correlation
         if plot_corr:
@@ -2606,7 +3018,7 @@ class Stack(RawData):
         zp_mean, zp_med, zp_std = sigma_clipped_stats(mag_offsets)
         
         # update attributes 
-        self.zp_mean, self.zp_med, self.zp_std = zp_mean, zp_med, zp_std
+        self.__zp_mean, self.__zp_med, self.__zp_std = zp_mean, zp_med, zp_std
         
         # add these to the header of the image 
         scrip_dir = os.getcwd()
@@ -2624,8 +3036,8 @@ class Stack(RawData):
         # propagate errors 
         mag_calib_unc = np.sqrt(self.psf_sources['mag_unc']**2 + zp_std**2)
         mag_calib_unc.name = 'mag_calib_unc'
-        self.psf_sources['mag_calib'] = mag_calib
-        self.psf_sources['mag_calib_unc'] = mag_calib_unc
+        self.__psf_sources['mag_calib'] = mag_calib
+        self.__psf_sources['mag_calib_unc'] = mag_calib_unc
         
         # add flag indicating if source is in a catalog and which catalog 
         in_cat = []
@@ -2635,15 +3047,15 @@ class Stack(RawData):
             else:
                 in_cat.append(False)
         in_cat_col = Column(data=in_cat, name="in_catalog")
-        self.psf_sources[f"in {self.ref_cat_name}"] = in_cat_col
+        self.__psf_sources[f"in {self.ref_cat_name}"] = in_cat_col
         
         # add new columns 
         nstars = len(self.psf_sources)
         col_filt = Column([self.filter for i in range(nstars)], "filter",
                            dtype = np.dtype("U2"))
         col_mjd = Column([self.stack_time for i in range(nstars)], "MJD")
-        self.psf_sources["filter"] = col_filt
-        self.psf_sources["MJD"] = col_mjd
+        self.__psf_sources["filter"] = col_filt
+        self.__psf_sources["MJD"] = col_mjd
         
         # compute magnitude differences between catalog and calibration 
         # diagnostic for quality of zero point determination 
@@ -2652,10 +3064,10 @@ class Stack(RawData):
         mag_diff_mean = np.mean(sources_mags - cat_mags)
         print("\nMean difference between calibrated magnitudes and "+
               f"{self.ref_cat_name} magnitudes = {mag_diff_mean}")
-        self.mag_diff_mean = mag_diff_mean
+        self.__mag_diff_mean = mag_diff_mean
         
         # update bool
-        self.photometric_calib = True
+        self.__photometric_calib = True
         
         
     def PSF_photometry(self, nstars=40, thresh_sigma=5.0, pixelmin=20, 
@@ -2733,24 +3145,23 @@ class Stack(RawData):
         # compute any missing masks/background
         if not(type(self.bkg) == np.ndarray): 
             # --> forces all others to be built, too
-            Stack.bkg_compute(self, 
-                              box_size=box_size, 
-                              filter_size=filter_size, 
-                              thresh_sigma=thresh_sigma) 
+            self.bkg_compute(box_size=box_size, 
+                             filter_size=filter_size, 
+                             thresh_sigma=thresh_sigma) 
         
-        Stack.__fit_PSF(self, nstars, thresh_sigma, pixelmin, elongation_lim, 
-                        area_max, cutout, source_lim, 
-                        write_ePSF, ePSF_data_name,
-                        plot_ePSF, ePSF_name, 
-                        plot_resid, resid_name, 
-                        verbose)
+        self.__fit_PSF(nstars, thresh_sigma, pixelmin, elongation_lim, 
+                       area_max, cutout, source_lim, 
+                       write_ePSF, ePSF_data_name,
+                       plot_ePSF, ePSF_name, 
+                       plot_resid, resid_name, 
+                       verbose)
         
         if self.psf_fit: # if the PSF Was properly fit 
-            Stack.__zero_point(self, sep_max, plot_corr, corr_name, 
-                               plot_source_offsets, source_offs_name, 
-                               plot_field_offsets, field_offs_name, 
-                               gaussian_blur_sigma, cat_num)
-        
+            self.__zero_point(sep_max, plot_corr, corr_name, 
+                              plot_source_offsets, source_offs_name, 
+                              plot_field_offsets, field_offs_name, 
+                              gaussian_blur_sigma, cat_num)
+    
         
     def write_PSF_photometry(self, nstars=40, thresh_sigma=5.0, pixelmin=20, 
                              elongation_lim=1.4, area_max=500, cutout=35, 
@@ -2776,16 +3187,16 @@ class Stack(RawData):
         
         if not(self.photometric_calib):
             print("\nObtaining photometric calibration...")
-            Stack.PSF_photometry(self, nstars, thresh_sigma, pixelmin, 
-                                 elongation_lim, area_max, cutout, source_lim, 
-                                 gaussian_blur_sigma, cat_num, sep_max, 
-                                 verbose, box_size, filter_size,
-                                 write_ePSF, ePSF_data_name,
-                                 plot_ePSF, ePSF_name, 
-                                 plot_resid, resid_name,
-                                 plot_corr, corr_name, 
-                                 plot_source_offsets, source_offs_name, 
-                                 plot_field_offsets, field_offs_name)
+            self.PSF_photometry(nstars, thresh_sigma, pixelmin, 
+                                elongation_lim, area_max, cutout, source_lim, 
+                                gaussian_blur_sigma, cat_num, sep_max, 
+                                verbose, box_size, filter_size,
+                                write_ePSF, ePSF_data_name,
+                                plot_ePSF, ePSF_name, 
+                                plot_resid, resid_name,
+                                plot_corr, corr_name, 
+                                plot_source_offsets, source_offs_name, 
+                                plot_field_offsets, field_offs_name)
         
         if self.photometric_calib: # if successful
             to_write = self.psf_sources 
@@ -2838,13 +3249,13 @@ class Stack(RawData):
             f[0].header["CRVAL1"] -= ra
             f[0].header["CRVAL2"] -= dec
         f.close()
-        self.image_header = fits.getheader(self.stack_name)
+        self.__image_header = fits.getheader(self.stack_name)
         
         # separations are now approx. 0, can be computed again by running
         # PSF_photometry once more 
-        self.sep_mean = 0.0  
-        self.ra_offsets_mean = 0.0
-        self.dec_offsets_mean = 0.0
+        self.__sep_mean = 0.0  
+        self.__ra_offsets_mean = 0.0
+        self.__dec_offsets_mean = 0.0
               
         print("Offset attributes have been set to 0.0, but will be updated if"+
               " PSF_photometry is called again.")
@@ -2957,10 +3368,10 @@ class Stack(RawData):
             return         
         
         if plot_annulus:
-            Stack.__plot_annulus(self, annulus_data, ra, dec, r1, r2, ann_name)   
+            self.__plot_annulus(annulus_data, ra, dec, r1, r2, ann_name)   
         if plot_aperture:
-            Stack.__plot_aperture(self, annulus_apertures, ra, dec, ap_pix, 
-                                  r1, r2, ap_name)  
+            self.__plot_aperture(annulus_apertures, ra, dec, ap_pix, 
+                                 r1, r2, ap_name)  
         return phot_table
     
     
@@ -3109,8 +3520,8 @@ class Stack(RawData):
         # compute any missing masks and/or the error array
         # --> forces all others to be built, too 
         if not(type(self.image_error) == np.ndarray): 
-            Stack.error_array(self, box_size=box_size, filter_size=filter_size,
-                              thresh_sigma=thresh_sigma) 
+            self.error_array(box_size=box_size, filter_size=filter_size,
+                             thresh_sigma=thresh_sigma) 
             
         # initialize table of sources found by aperture photometry if needed
         if not(self.aperture_fit):
@@ -3119,11 +3530,11 @@ class Stack(RawData):
                     "annulus_median", "aper_bkg", "aper_bkg_std", 
                     "aper_sum_bkgsub", "aper_sum_bkgsub_err", "mag_fit", 
                     "mag_unc", "mag_calib", "mag_calib_unc", "sigma"]
-            self.aperture_sources = Table(names=cols)
+            self.__aperture_sources = Table(names=cols)
             filt_col = Column([], "filter", dtype='S2') # specify
             mjd_col = Column([], "MJD")
-            self.aperture_sources.add_column(filt_col)
-            self.aperture_sources.add_column(mjd_col)
+            self.__aperture_sources.add_column(filt_col)
+            self.__aperture_sources.add_column(mjd_col)
                 
         # convert to lists if needed 
         if (type(ra_list) in [float, int]):
@@ -3135,11 +3546,11 @@ class Stack(RawData):
         # add these to the list of sources found by aperture photometry 
         print("\nAttemtping to perform aperture photometry...")
         for i in range(0, len(ra_list)):
-            phot_table = Stack.__drop_aperture(self, ra_list[i], dec_list[i],
-                                               ap_radius, r1, r2, 
-                                               plot_annulus, ann_name,
-                                               plot_aperture, ap_name,
-                                               bkgsub_verify)
+            phot_table = self.__drop_aperture(ra_list[i], dec_list[i],
+                                              ap_radius, r1, r2, 
+                                              plot_annulus, ann_name,
+                                              plot_aperture, ap_name,
+                                              bkgsub_verify)
                                                
             if phot_table: # if a valid flux (non-negative) is found
                 
@@ -3180,16 +3591,16 @@ class Stack(RawData):
                 phot_table.remove_column("id") # id is not accurate 
                 
                 if sigma and (phot_table["sigma"] >= sigma):
-                    self.aperture_sources.add_row(phot_table[0])
-                    self.aperture_fit = True # update                  
+                    self.__aperture_sources.add_row(phot_table[0])
+                    self.__aperture_fit = True # update                  
                 elif sigma and (phot_table["sigma"] < sigma):
                     print("\nA source was detected, but below the requested "+
                           f"{sigma} sigma level. The source is therefore "+
                           "rejected.")
                     return
                 else:
-                    self.aperture_sources.add_row(phot_table[0])
-                    self.aperture_fit = True # update 
+                    self.__aperture_sources.add_row(phot_table[0])
+                    self.__aperture_fit = True # update 
                     
                 a = phot_table[0]
                 s = f'\n{a["filter"]} = {a["mag_calib"]:.2f} +/- '
@@ -3253,11 +3664,11 @@ class Stack(RawData):
         # initialize table of sources if needed
         if not(self.limmag_obtained):
             cols = ["ra", "dec", "lim_mag"]
-            self.limmag_sources = Table(names=cols)
+            self.__limmag_sources = Table(names=cols)
             filt_col = Column([], "filter", dtype='S2') # specify
             mjd_col = Column([], "MJD")
-            self.limmag_sources.add_column(filt_col)
-            self.limmag_sources.add_column(mjd_col)
+            self.__limmag_sources.add_column(filt_col)
+            self.__limmag_sources.add_column(mjd_col)
 
 
         # get coords of all sources 
@@ -3294,13 +3705,13 @@ class Stack(RawData):
               f"({ra:.4f}, {dec:.4f})")
         
         # do aperture photometry on region of interest with large annulus
-        phot_table = Stack.__drop_aperture(self, ra, dec, 
-                                           ap_radius=1.2, r1=2.0, r2=20.0, 
-                                           plot_annulus=plot_annulus,
-                                           ann_name=ann_name, 
-                                           plot_aperture=plot_aperture,
-                                           ap_name=ap_name,
-                                           bkgsub_verify=False)
+        phot_table = self.__drop_aperture(ra, dec, 
+                                          ap_radius=1.2, r1=2.0, r2=20.0, 
+                                          plot_annulus=plot_annulus,
+                                          ann_name=ann_name, 
+                                          plot_aperture=plot_aperture,
+                                          ap_name=ap_name,
+                                          bkgsub_verify=False)
  
         phot_table["aper_sum_bkgsub_err"] = np.sqrt(
                 phot_table["aperture_sum_err"]**2 +
@@ -3308,15 +3719,15 @@ class Stack(RawData):
         
         # compute limit below which we can't make a detection
         limit = sigma*phot_table["aper_sum_bkgsub_err"][0]
-        self.limiting_mag = -2.5*np.log10(limit) + self.zp_mean       
+        self.__limiting_mag = -2.5*np.log10(limit) + self.zp_mean       
         print(f"\n{self.filter} > {self.limiting_mag:.1f} ({sigma:d} sigma)")
         
         # add table with other info as attribute to the object
         lim_table = Table(data=[[ra], [dec], [self.limiting_mag], 
                                 [self.filter], [self.stack_time]],
                           names=["ra","dec","mag_calib","filter","MJD"])
-        self.limmag_sources.add_row(lim_table[0])
-        self.limmag_obtained = True
+        self.__limmag_sources.add_row(lim_table[0])
+        self.__limmag_obtained = True
     
         return self.limiting_mag
 
@@ -3365,7 +3776,7 @@ class Stack(RawData):
         to_write.write(output, overwrite=True, format="ascii.ecsv")   
         
 ###############################################################################
-    #### COMPARE APERTUTRE AND PSF PHOTOMETRY #################################
+### COMPARE APERTUTRE AND PSF PHOTOMETRY ######################################
         
     def compare_photometry(self, ap_radius=1.2, r1=2.0, r2=5.0, nsamples=100, 
                            output=None):
@@ -3393,7 +3804,7 @@ class Stack(RawData):
         psf_mags_errs = sample["mag_calib_unc"].data
         
         # perform aperture photometry on the same sources 
-        Stack.aperture_photometry(self, ras, decs, ap_radius, r1, r2)
+        self.aperture_photometry(ras, decs, ap_radius, r1, r2)
         
         # get the magnitudes from aperture photometry for these sources 
         ap_sample = self.aperture_sources[-nsamples:] 
@@ -3433,10 +3844,10 @@ class Stack(RawData):
         plt.savefig(output, bbox_inches="tight")
         plt.close()
         
-        self.aperture_sources = temp # restore original table 
+        self.__aperture_sources = temp # restore original table 
         
 ###############################################################################
-    #### SOURCE SELECTION ####
+### SOURCE SELECTION ##########################################################
 
     def source_selection(self, ra, dec, radius=1.0):
         """
@@ -3476,7 +3887,7 @@ class Stack(RawData):
         
         Output: None
         """
-        psf_selection = Stack.source_selection(self, ra, dec, radius)
+        psf_selection = self.source_selection(ra, dec, radius)
         
         if not(output): # if no name given
             output = self.stack_name.replace("_updated.fits", 
