@@ -19,7 +19,8 @@ The code is named after the ʻalalā, the Hawaiian crow.
 
 Documentation
 =============
-WIP.
+
+Detailed documentation (WIP) for all modules can be found [here](https://alala.readthedocs.io/en/latest/). In the future, example scripts/notebooks will be added.
 
 Installation
 ============
