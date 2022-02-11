@@ -366,7 +366,7 @@ class RawData:
         for fil in all_filters:
             if len(self.filters_dict[fil]) == 0: # if no files for a filter
                 del self.__filters_dict[fil]
-                delattr(self, fil)
+                delattr(self, f"__{fil}")
                 self.__filters.remove(fil)
 
                 
@@ -461,7 +461,7 @@ class RawData:
     def filters_dict(self):
         """Dictionary with entries `{filter --> [file1,file2,...]}`, e.g., 
         'i' --> ['file1','file2','file3']"""
-        return self.__filters
+        return self.__filters_dict
     
     @property
     def J(self):
@@ -1856,7 +1856,7 @@ class Stack(RawData):
         self.__files = self.filters_dict[filt]
         for fil in self.filters:
             if filt != fil:
-                delattr(self, fil)
+                delattr(self, f"__{fil}")
 
         # stack file specifics
         self.__stack_name = f"{filt}_stack_{self.date}.fits" # name
@@ -1868,12 +1868,9 @@ class Stack(RawData):
                   "produced now.", flush=True)
             self.make_stacks(filt)
             
-        #if not(self.stack_made): # if stack was not successfuly made 
-        #    exit
-            
-        delattr(self, "filters") # don't need a list anymore 
+        delattr(self, "__filters") # don't need a list anymore 
         self.__filter = filt # just one filter 
-        delattr(self,'filters_dict') # filters dict no longer needed
+        delattr(self,'__filters_dict') # filters dict no longer needed
 
         # image data and header for general use
         self.__image_data = fits.getdata(f"{self.stack_dir}/{self.stack_name}")
