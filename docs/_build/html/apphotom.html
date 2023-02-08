@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>apphotom module &mdash; alala  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="lightcurve module" href="lightcurve.html" />
+    <link rel="prev" title="alala module" href="alala.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> alala
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">alala</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="alala.html">alala module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">apphotom module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lightcurve.html">lightcurve module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="psfphotom.html">psfphotom module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stack.html">stack module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">alala</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">alala</a></li>
+      <li class="breadcrumb-item active">apphotom module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/apphotom.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-apphotom">
+<span id="apphotom-module"></span><h1>apphotom module<a class="headerlink" href="#module-apphotom" title="Permalink to this heading"></a></h1>
+<dl>
+<dt>CONTENTS:</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt>image2xy:</dt><dd><p>make a list of sources with astrometry.net</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>imsegm_make_source_mask:</dt><dd><p>make a proper mask of sources using image segmentation</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>error_array:</dt><dd><p>compute the combination of the Gaussian + Poissonian error in the image</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>aperture_photom:</dt><dd><p>perform aperture photometry on an image</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>limiting_magnitude:</dt><dd><p>get the limiting magnitude of an image</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+<dt>DEPENDENCIES:</dt><dd><p>python:
+- astropy (everywhere)
+- photutils (everywhere)
+external:
+- astrometry.net (making a list of sources, only needed for computing</p>
+<blockquote>
+<div><p>limiting magnitudes)</p>
+</div></blockquote>
+</dd>
+</dl>
+<dl class="py function">
+<dt class="sig sig-object py" id="apphotom.image2xy">
+<span class="sig-prename descclassname"><span class="pre">apphotom.</span></span><span class="sig-name descname"><span class="pre">image2xy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">astrom_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psf_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#apphotom.image2xy" title="Permalink to this definition"></a></dt>
+<dd><dl class="simple">
+<dt>Input:</dt><dd><ul class="simple">
+<li><p>filename for <strong>NOT background-subtracted</strong> image</p></li>
+<li><p>sigma threshold for astrometry.net source detection image (optional;
+default 5.0)</p></li>
+<li><p>sigma of the Gaussian PSF of the image (optional; default 5.0)</p></li>
+<li><p>maximum allowed source area in pix**2 for astrometry.net for
+deblending (optional; default 10000)</p></li>
+<li><p>whether to write the list of sources (optional; default False)</p></li>
+<li><p>name for the output source list (optional; default set below)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Uses astrometry.net’s image2xy to detect sources in the image and write
+them to a list of sources and/or a file to be used as a source mask in
+aperture photometry.</p>
+<p>Output: source list (as a fits bintable)</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="apphotom.imsegm_make_source_mask">
+<span class="sig-prename descclassname"><span class="pre">apphotom.</span></span><span class="sig-name descname"><span class="pre">imsegm_make_source_mask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#apphotom.imsegm_make_source_mask" title="Permalink to this definition"></a></dt>
+<dd><dl class="simple">
+<dt>Input:</dt><dd><ul class="simple">
+<li><p>filename for <strong>NOT background-subtracted</strong> image</p></li>
+<li><p>filename for a bad pixel mask (optional; default None)</p></li>
+<li><p>detection sigma to use in image segmentation (optional; default 3.0)</p></li>
+<li><p>whether to write the source mask to a file (optional; default False)</p></li>
+<li><p>name for the output file (optional; default set below)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Use crude image segmentation to make a proto source mask, use the mask to
+get the background, and then perform proper image segmentation on the
+background-subtracted image data. The resulting segmentation image is a
+proper source mask, to be used in other steps in aperture photometry. The
+output source mask also flags bad pixels.</p>
+<p>Output: the source mask, where 0=background, 1=source</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="apphotom.error_array">
+<span class="sig-prename descclassname"><span class="pre">apphotom.</span></span><span class="sig-name descname"><span class="pre">error_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#apphotom.error_array" title="Permalink to this definition"></a></dt>
+<dd><dl class="simple">
+<dt>Input:</dt><dd><ul class="simple">
+<li><p>filename for <strong>NOT background-subtracted</strong> image</p></li>
+<li><p>filename for SOURCE mask OR the mask data itself (optional; default
+None, in which case a source mask is made)</p></li>
+<li><p>the detection sigma to use in image segmentation if a source mask is
+to be made (optional; default 3.0, only relevant if a source mask
+file is not provided)</p></li>
+<li><p>whether to write the error array to a file (optional; default True)</p></li>
+<li><p>name for the output file (optional; default set below)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Computes the error on the background-only image as the RMS deviation
+of the background, and then computes the total image error including
+the contribution of the Poisson noise for detected sources. Necessary
+for error propagation in aperture photometry.</p>
+<p>Output: the image error array</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="apphotom.aperture_photom">
+<span class="sig-prename descclassname"><span class="pre">apphotom.</span></span><span class="sig-name descname"><span class="pre">aperture_photom</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ra_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bkgsub_verify</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ap_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_annulus</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_aperture</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ann_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ap_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bone'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#apphotom.aperture_photom" title="Permalink to this definition"></a></dt>
+<dd><dl>
+<dt>Inputs:</dt><dd><p>general:
+- filename for <strong>NOT background-subtracted</strong> image
+- list OR single float/int of ra, dec of interest
+- filename for source mask OR the mask data itself (optional; default</p>
+<blockquote>
+<div><p>None, in which case a source mask is made)</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>filename for the image error array OR the image error data itself
+(optional; default None, in which case an error array is made)</p></li>
+<li><p>sigma below which to reject a source (optional; default None, in
+which case a source is not rejected as long as sigma&gt;0)</p></li>
+<li><p>whether to verify that the background-subtracted flux is non-negative
+(optional; default True)</p></li>
+</ul>
+<p>aperture/anulus parameters:
+- aperture radius (in arcsec; optional; default 1.2”)
+- inner and outer radii for the annulus (in arcsec; optional; default</p>
+<blockquote>
+<div><p>2.0” and 5.0”)</p>
+</div></blockquote>
+<p>image segmentation (only relevant if mask and/or error are not given):
+- sigma to use as the threshold for image segmentation (optional;</p>
+<blockquote>
+<div><p>default 3.0)</p>
+</div></blockquote>
+<p>writing, plotting:
+- whether to plot the annulus (optional; default True)
+- whether to plot the aperture (optional; default True),
+- name for the output annulus plot (optional; defaults set below)
+- name for the output aperture plot (optional; defaults set below)
+- whether to write the resultant table (optional; default False)
+- name for output table file (optional; default set below; only</p>
+<blockquote>
+<div><p>relevant if write=True)</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>colourmap for plotting (optional; default “bone”)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Finds the total flux in a defined aperture, computes the background in an
+annulus around this aperture, and computes the background-subtracted flux
+of the “source” defined by the aperture. Can be called multiple times if a
+list of RA/Decs is given.</p>
+<p>If the background-subtracted flux at some location is negative, make sure
+that no sources remain in the annulus of the data, or consider getting a
+limiting magnitude at the ra, dec of interest instead.</p>
+<p>Output: table containing the results of aperture photometry</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="apphotom.limiting_magnitude">
+<span class="sig-prename descclassname"><span class="pre">apphotom.</span></span><span class="sig-name descname"><span class="pre">limiting_magnitude</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">astrom_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psf_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ap_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_annulus</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_aperture</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ann_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ap_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bone'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#apphotom.limiting_magnitude" title="Permalink to this definition"></a></dt>
+<dd><dl>
+<dt>Input:</dt><dd><p>general:
+- filename for <strong>NOT background-subtracted</strong> image
+- ra, dec of interest
+- the sigma to use when computing the limiting magnitude (optional;</p>
+<blockquote>
+<div><p>default 5.0)</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>filename for source list OR the source list fits bintable itself
+(optional; default None, in which case a list is made)</p></li>
+<li><p>filename for source mask OR the mask data itself (optional; default
+None, in which case a source mask is made)</p></li>
+<li><p>filename for image error array OR the error data itself (optional;
+default None; in which case an error array is computed)</p></li>
+</ul>
+<p>astrometry.net (only relevant if a source list is not given):
+- sigma threshold for astrometry.net source detection image (optional;</p>
+<blockquote>
+<div><p>default 5.0)</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>sigma of the Gaussian PSF of the image (optional; default 5.0)</p></li>
+<li><p>maximum allowed source area in pix**2 for astrometry.net for
+deblending (optional; default 10000)</p></li>
+</ul>
+<p>image segmentation (only relevant if mask and/or error are not given):
+- sigma threshold for image segmentation (optional; default 3.0)</p>
+<p>aperture/anulus parameters:
+- aperture radius (in arcsec; optional; default 1.2”)
+- inner and outer radii for the annulus (in arcsec; optional; default</p>
+<blockquote>
+<div><p>2.0” and 10.0”)</p>
+</div></blockquote>
+<p>writing, plotting:
+- whether to plot the annulus (optional; default True)
+- whether to plot the aperture (optional; default True),
+- name for the output annulus plot (optional; defaults set below)
+- name for the output aperture plot (optional; defaults set below)
+- whether to write the resultant table (optional; default False)
+- name for output table file (optional; default set below; only</p>
+<blockquote>
+<div><p>relevant if write=True)</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>colourmap for plots (optional; default “bone”)</p></li>
+</ul>
+</dd>
+</dl>
+<p>For a given RA, Dec, finds the limiting magnitude at its location. If
+a source was previously detected &lt;= 3” away from the given coords by
+astrometry.net, the aperture will randomly move about until a valid
+RA, Dec is found.</p>
+<p>Output: table containing the ra, dec, calibrated magnitude, filter used,
+and MJD for the limiting magnitude</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="apphotom.ellipse_photom">
+<span class="sig-prename descclassname"><span class="pre">apphotom.</span></span><span class="sig-name descname"><span class="pre">ellipse_photom</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">guess_sma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">guess_eps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">guess_pa</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sma_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sma_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">12.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flux_sub</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_annulus</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_ellipses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ann_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ell_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bone'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#apphotom.ellipse_photom" title="Permalink to this definition"></a></dt>
+<dd><dl>
+<dt>Inputs:</dt><dd><p>general:
+- filename for <strong>NOT background-subtracted</strong> image
+- ra, dec of interest
+- filename for source mask OR the mask data itself (optional; default</p>
+<blockquote>
+<div><p>None, in which case a source mask is made)</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>#filename for the image error array OR the image error data itself
+#(optional; default None, in which case an error array is made)</p></li>
+</ul>
+<p>ellipse parameters:
+- guess_sma: guess for initial semi-major axis length (in arcsec;</p>
+<blockquote>
+<div><p>optional; default 1.0”)</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>guess_eps: guess for initial ellipticity (optional; default 0.3)</p></li>
+<li><p>guess_pa: guess for initial position angle (in degrees; optional;
+default 60.0)</p></li>
+<li><p>minimum semi-major axis length (in arcsec; optional; default 0.2”)</p></li>
+<li><p>maximum semi-major axis length (in arcsec; optional; default 2.5”)</p></li>
+</ul>
+<p>anulus parameters:
+- inner and outer radii for the annulus (in arcsec; optional; default</p>
+<blockquote>
+<div><p>4.0” and 10.0”)</p>
+</div></blockquote>
+<p>image segmentation (only relevant if mask and/or error are not given):
+- sigma to use as the threshold for image segmentation (optional;</p>
+<blockquote>
+<div><p>default 3.0)</p>
+</div></blockquote>
+<p>other:
+- additional flux to subtract, e.g. if you’re getting the flux of some</p>
+<blockquote>
+<div><p>galaxy and want to subtract off some flux from a transient source
+in the galaxy (optional; default 0)</p>
+</div></blockquote>
+<p>writing, plotting:
+- whether to plot the annulus (optional; default True)
+- whether to plot elliptical isophotes (optional; default True)
+- name for the output annulus plot (optional; defaults set below)
+- name for the output ellipses plot (optional; defaults set below)
+- whether to write the resultant table (optional; default False)
+- name for output table file (optional; default set below; only</p>
+<blockquote>
+<div><p>relevant if write=True)</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>colourmap for plotting (optional; default “bone”)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="alala.html" class="btn btn-neutral float-left" title="alala module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="lightcurve.html" class="btn btn-neutral float-right" title="lightcurve module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Nicholas Vieira.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

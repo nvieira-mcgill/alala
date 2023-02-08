@@ -2,7 +2,7 @@
 
 Overview
 ========
-A pipeline for the MegaCam (a.k.a. MegaPrime) Wide-field Infra-Red Camera (WIRCam) instruments of the Canada-France-Hawaii Telescope (CFHT). Includes the following:
+A pipeline for the MegaCam (a.k.a. MegaPrime) and Wide-field Infra-Red Camera (WIRCam) instruments of the Canada-France-Hawaii Telescope (CFHT). Includes the following:
 
 - Stacking (co-addition) of individual exposures
 - Obtaining astrometric solutions
@@ -17,10 +17,14 @@ This pipeline was used for all of these steps in the following paper describing 
 
 The code is named after the ʻalalā, the Hawaiian crow.
 
+
+
 Documentation
 =============
 
 Detailed documentation (WIP) for all modules can be found [here](https://alala.readthedocs.io/en/latest/). In the future, example scripts/notebooks will be added.
+
+
 
 Installation
 ============
@@ -33,8 +37,8 @@ Currently, needs to be installed directly from github. May be install-able with 
 - ``scipy``
 - ``matplotlib``
 - [``astropy``](https://docs.astropy.org/en/stable/)
-- [``astroquery``](https://astroquery.readthedocs.io/en/latest/)
 - [``photutils``](https://photutils.readthedocs.io/en/stable/)
+- [``astroquery``](https://astroquery.readthedocs.io/en/latest/)
 - [``pyraf``](https://pypi.org/project/pyraf/) (python wrapper for ``iraf``, only for stacking)
 - [``stsci.tools``](https://github.com/spacetelescope/stsci.tools) (only for stacking)
 
@@ -45,9 +49,13 @@ Currently, needs to be installed directly from github. May be install-able with 
 
 The code will be migrated from ``iraf`` to some other software (e.g. ``swarp``) in the future.
 
+
+
 Contact
 =======
 [nicholas.vieira@mail.mcgill.ca](nicholas.vieira@mail.mcgill.ca)
+
+
 
 Acknowledgements
 ================

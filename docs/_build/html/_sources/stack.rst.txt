@@ -1,7 +1,7 @@
-alala module
+stack module
 ============
 
-.. automodule:: alala
+.. automodule:: stack
    :members:
    :undoc-members:
    :show-inheritance:

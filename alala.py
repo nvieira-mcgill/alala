@@ -50,7 +50,9 @@ from astropy.stats import (gaussian_sigma_to_fwhm, sigma_clipped_stats,
                            SigmaClip)
 from astropy.visualization import simple_norm
 from photutils import (Background2D, MMMBackground, 
-                       make_source_mask, detect_sources, source_properties, 
+                       make_source_mask, detect_sources, 
+                       #source_properties,
+                       SourceCatalog,
                        SkyCircularAperture, SkyCircularAnnulus,
                        aperture_photometry)
 
@@ -2689,7 +2691,10 @@ class Stack(RawData):
         # use <bp_mask>, which does not mask sources
         segm = detect_sources(image_data, thresh_sigma*std, npixels=pixelmin,
                               mask=self.bp_mask) 
-        cat = source_properties(image_data, segm, mask=self.bp_mask)
+        #cat = source_properties(image_data, segm, 
+        #                        mask=self.bp_mask) # photutils 0.8
+        cat = SourceCatalog(data=image_data, segment_image=segm, 
+                            mask=self.bp_mask) # photutils >=1.1
     
         ## get the catalogue and coordinates for sources
         try:

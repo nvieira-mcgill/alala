@@ -45,7 +45,9 @@ from astropy.modeling.fitting import LevMarLSQFitter
 from astroquery.vizier import Vizier
 
 from photutils.psf import (extract_stars, BasicPSFPhotometry, DAOGroup)
-from photutils import (make_source_mask, detect_sources, source_properties, 
+from photutils import (make_source_mask, detect_sources, 
+                       #source_properties,
+                       SourceCatalog,
                        EPSFBuilder)
 
 # disable annoying warnings
@@ -306,7 +308,9 @@ def __fit_PSF(image_file, mask_file=None, nstars=40,
     # use <mask>, which does not mask sources
     segm = detect_sources(image_data, thresh_sigma*std, npixels=pixelmin,
                           mask=mask) 
-    cat = source_properties(image_data, segm, mask=mask)
+    #cat = source_properties(image_data, segm, mask=mask) # photutils 0.8
+    cat = SourceCatalog(data=image_data, segment_image=segm,
+                        mask=mask) # photutils >=1.1
 
     ## get the catalog and coordinates for sources
     try:

@@ -4,6 +4,10 @@
 .. Created on Wed May 29 16:43:27 2019
 .. @author: Nicholas Vieira
 .. @lightcurve.py
+
+Combine aperture and/or PSF photometry (from `apphotom` and `psfphotom`) to 
+generate light curves.
+
 """
 
 #import os 

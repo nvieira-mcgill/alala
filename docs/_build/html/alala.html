@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>alala module &mdash; alala  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="apphotom module" href="apphotom.html" />
+    <link rel="prev" title="alala" href="modules.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> alala
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">alala</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">alala module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="apphotom.html">apphotom module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lightcurve.html">lightcurve module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="psfphotom.html">psfphotom module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stack.html">stack module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">alala</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">alala</a></li>
+      <li class="breadcrumb-item active">alala module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/alala.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-alala">
+<span id="alala-module"></span><h1>alala module<a class="headerlink" href="#module-alala" title="Permalink to this heading"></a></h1>
+<dl class="simple">
+<dt>SECTIONS:</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt><a class="reference internal" href="#alala.RawData" title="alala.RawData"><code class="xref py py-class docutils literal notranslate"><span class="pre">RawData</span></code></a></dt><dd><ul>
+<li><p>Initialization; basic functions</p></li>
+<li><p>Image diagnostics + pre-solving before stacking</p></li>
+<li><p>Locating coordinates among raw data + writing extensions</p></li>
+<li><p>Combining/dividing (WIRCam) cubes</p></li>
+<li><p>Cropping images</p></li>
+<li><p>Stacking (co-adding images)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><a class="reference internal" href="#alala.Stack" title="alala.Stack"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack</span></code></a></dt><dd><ul>
+<li><p>Bad pixel masks / source masks / error arrays</p></li>
+<li><p>Making images (plots)</p></li>
+<li><p>Astrometry</p></li>
+<li><p>PSF photometry</p></li>
+<li><p>Aperture photometry</p></li>
+<li><p>PSF/aperture photometry comparison</p></li>
+<li><p>Source selection</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+<dl class="py exception">
+<dt class="sig sig-object py" id="alala.NoDataError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">alala.</span></span><span class="sig-name descname"><span class="pre">NoDataError</span></span><a class="headerlink" href="#alala.NoDataError" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+<p>Raise this error when a RawData object has no data.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="alala.TooFewMatchesError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">alala.</span></span><span class="sig-name descname"><span class="pre">TooFewMatchesError</span></span><a class="headerlink" href="#alala.TooFewMatchesError" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+<p>Raise this error when, during PSF photometry, the no. of sources in the
+image which match those in some external catalogue is less than 3.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="alala.VALID_DATA_EXT">
+<span class="sig-prename descclassname"><span class="pre">alala.</span></span><span class="sig-name descname"><span class="pre">VALID_DATA_EXT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('fits',</span> <span class="pre">'fits.fz',</span> <span class="pre">'flt')</span></em><a class="headerlink" href="#alala.VALID_DATA_EXT" title="Permalink to this definition"></a></dt>
+<dd><p>Valid file types for the image data.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="alala.VALID_PLOT_EXT">
+<span class="sig-prename descclassname"><span class="pre">alala.</span></span><span class="sig-name descname"><span class="pre">VALID_PLOT_EXT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('pdf',</span> <span class="pre">'jpg',</span> <span class="pre">'bmp',</span> <span class="pre">'png')</span></em><a class="headerlink" href="#alala.VALID_PLOT_EXT" title="Permalink to this definition"></a></dt>
+<dd><p>Valid file types for any plots which are produced.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="alala.RawData">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">alala.</span></span><span class="sig-name descname"><span class="pre">RawData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stack_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qso_grade_limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'fits'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_ext</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'png'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.data_dir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">data_dir</span></span><a class="headerlink" href="#alala.RawData.data_dir" title="Permalink to this definition"></a></dt>
+<dd><p>Directory containing the raw data</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.stack_dir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stack_dir</span></span><a class="headerlink" href="#alala.RawData.stack_dir" title="Permalink to this definition"></a></dt>
+<dd><p>Directory in which to store stacked images, if stacking</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.fmt">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">fmt</span></span><a class="headerlink" href="#alala.RawData.fmt" title="Permalink to this definition"></a></dt>
+<dd><p>Format (file type/extension) of the data files</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.files">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">files</span></span><a class="headerlink" href="#alala.RawData.files" title="Permalink to this definition"></a></dt>
+<dd><p>All of the data files</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.plot_ext">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">plot_ext</span></span><a class="headerlink" href="#alala.RawData.plot_ext" title="Permalink to this definition"></a></dt>
+<dd><p>Format (file type/extension) of any plots made/to be made</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.instrument">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">instrument</span></span><a class="headerlink" href="#alala.RawData.instrument" title="Permalink to this definition"></a></dt>
+<dd><p>Instrument (WIRCam, MegaCam, or MegaPrime) used to acquire data</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.nextend">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nextend</span></span><a class="headerlink" href="#alala.RawData.nextend" title="Permalink to this definition"></a></dt>
+<dd><p>Number of extensions in the image data files</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.qso_grade_limit">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">qso_grade_limit</span></span><a class="headerlink" href="#alala.RawData.qso_grade_limit" title="Permalink to this definition"></a></dt>
+<dd><p>Queue Service Observer (QSO) grade limit; only relevant if using
+WIRCam data</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.date">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">date</span></span><a class="headerlink" href="#alala.RawData.date" title="Permalink to this definition"></a></dt>
+<dd><p>Date (YYYYMMDD) <strong>at the start</strong> of observations</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.mjdate">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mjdate</span></span><a class="headerlink" href="#alala.RawData.mjdate" title="Permalink to this definition"></a></dt>
+<dd><p>Modified Julian Date (MJD) <strong>at the start</strong> of observations</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.dates">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dates</span></span><a class="headerlink" href="#alala.RawData.dates" title="Permalink to this definition"></a></dt>
+<dd><p>All date(s) (YYYYMMDD) spanned by the data</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.dates_dict">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dates_dict</span></span><a class="headerlink" href="#alala.RawData.dates_dict" title="Permalink to this definition"></a></dt>
+<dd><p>Dictionary with entries <cite>{date –&gt; [file1,file2,…]}</cite>, e.g.,
+‘20190816’ –&gt; [‘file1’,’file2’,’file3’]</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.filters">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">filters</span></span><a class="headerlink" href="#alala.RawData.filters" title="Permalink to this definition"></a></dt>
+<dd><p>Filters (bands) used in the observations which make up the data</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.filters_dict">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">filters_dict</span></span><a class="headerlink" href="#alala.RawData.filters_dict" title="Permalink to this definition"></a></dt>
+<dd><p>Dictionary with entries <cite>{filter –&gt; [file1,file2,…]}</cite>, e.g.,
+‘i’ –&gt; [‘file1’,’file2’,’file3’]</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.J">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">J</span></span><a class="headerlink" href="#alala.RawData.J" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the J-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.H">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">H</span></span><a class="headerlink" href="#alala.RawData.H" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the H-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.Ks">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Ks</span></span><a class="headerlink" href="#alala.RawData.Ks" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the Ks-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.Y">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Y</span></span><a class="headerlink" href="#alala.RawData.Y" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the Y-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.u">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">u</span></span><a class="headerlink" href="#alala.RawData.u" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the u-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.g">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">g</span></span><a class="headerlink" href="#alala.RawData.g" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the g-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.r">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">r</span></span><a class="headerlink" href="#alala.RawData.r" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the r-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.i">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">i</span></span><a class="headerlink" href="#alala.RawData.i" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the i-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.z">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">z</span></span><a class="headerlink" href="#alala.RawData.z" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the z-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.uS">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">uS</span></span><a class="headerlink" href="#alala.RawData.uS" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the uS-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.gS">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">gS</span></span><a class="headerlink" href="#alala.RawData.gS" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the gS-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.rS">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">rS</span></span><a class="headerlink" href="#alala.RawData.rS" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the rS-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.iS">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">iS</span></span><a class="headerlink" href="#alala.RawData.iS" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the iS-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.zS">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">zS</span></span><a class="headerlink" href="#alala.RawData.zS" title="Permalink to this definition"></a></dt>
+<dd><p>Filenames for images acquired in the zS-band</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.RawData.stack_made">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stack_made</span></span><a class="headerlink" href="#alala.RawData.stack_made" title="Permalink to this definition"></a></dt>
+<dd><p>Whether a stack has already been made for the object</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.set_stack_dir">
+<span class="sig-name descname"><span class="pre">set_stack_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stack_dir</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.set_stack_dir" title="Permalink to this definition"></a></dt>
+<dd><p>Set the name of the directory in which to store any stacked
+images.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.set_plot_ext">
+<span class="sig-name descname"><span class="pre">set_plot_ext</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plot_ext</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.set_plot_ext" title="Permalink to this definition"></a></dt>
+<dd><p>Set the file extension of any plots which are produced.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.exclude_date">
+<span class="sig-name descname"><span class="pre">exclude_date</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">date</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.exclude_date" title="Permalink to this definition"></a></dt>
+<dd><p>Exclude a specific date from the data, by parsing through the image
+files’ fits headers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>date</strong> (<em>str</em>) – A date of the format ‘YYYYMMDD’ or ‘YYYYMM’ or ‘YYYY’ to exclude
+from the raw data</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.exclude_object">
+<span class="sig-name descname"><span class="pre">exclude_object</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.exclude_object" title="Permalink to this definition"></a></dt>
+<dd><p>Exclude a specific target object from the data, by parsing through
+the image files’ fits headers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>obj</strong> (<em>str</em>) – Name of a target object to exclude, e.g., ‘NGC457’</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.only_date">
+<span class="sig-name descname"><span class="pre">only_date</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">date</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.only_date" title="Permalink to this definition"></a></dt>
+<dd><p>Exclude <strong>all but one</strong> specific date in the data, by parsing
+through the image files’ fits headers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>date</strong> (<em>str</em>) – A date of the format ‘YYYYMMDD’ or ‘YYYYMM’ or ‘YYYY’ to select in
+the raw data</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.only_object">
+<span class="sig-name descname"><span class="pre">only_object</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.only_object" title="Permalink to this definition"></a></dt>
+<dd><p>Excude <strong>all but one</strong> specific target object in the data to be used by
+parsing through the image files’ fits headers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>obj</strong> (<em>str</em>) – Name of the object, e.g., ‘NGC457’</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.copy" title="Permalink to this definition"></a></dt>
+<dd><p>Produces a (deep) copy of the object.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.print_headers">
+<span class="sig-name descname"><span class="pre">print_headers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ext</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">headers</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.print_headers" title="Permalink to this definition"></a></dt>
+<dd><p>Print particular fits header(s) for data files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ext</strong> (<em>{‘fits’, ‘fits.fz’, ‘flt’}</em>) – Extension of interest for the image data to be parsed</p></li>
+<li><p><strong>headers</strong> (<em>str</em>) – Name(s) of any header(s) of interest</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.value_at">
+<span class="sig-name descname"><span class="pre">value_at</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.value_at" title="Permalink to this definition"></a></dt>
+<dd><p>Get the value at some RA and Dec, for all images.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>ra, dec</strong> (<em>float</em>) – Right Ascension (RA) and Declination of interest</p>
+</dd>
+</dl>
+<p>For all of the files contained in the RawData object, prints the ADU
+value at the given RA and Dec, <strong>if</strong> these coordinates are within the
+image’s bounds. Can be used to see if, e.g., the ADU was set to 0
+over a source of interest during image de-trending.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.background">
+<span class="sig-name descname"><span class="pre">background</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.background" title="Permalink to this definition"></a></dt>
+<dd><p>Estimate the background of the images.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>List containing the background level of each file</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>list</p>
+</dd>
+</dl>
+<p>Naively estimates the background as the median of the image’s ADU
+for every raw image in order to see how the data varies.</p>
+<p class="rubric">Notes</p>
+<p>Does not mask sources, but this is not important for the purpose of
+this function: to see if any data is dubious</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.radial_PSFs">
+<span class="sig-name descname"><span class="pre">radial_PSFs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solved</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adu_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adu_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">66000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.radial_PSFs" title="Permalink to this definition"></a></dt>
+<dd><p>Produce radial PSFs for all images.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra, dec</strong> (<em>float</em>) – Right Ascension (RA) and Declination of interest</p></li>
+<li><p><strong>solved</strong> (<em>bool, optional</em>) – Have the images already been solved with astrometry? (default
+True)</p></li>
+<li><p><strong>adu_min, adu_max</strong> (<em>float, optional</em>) – Minimum and maximum allowed ADU in the image (default 4000, 66000)</p></li>
+</ul>
+</dd>
+</dl>
+<p>For all of the files in the raw data directory, produces and saves a
+figure of the radial profile around the input RA and Dec. If
+<cite>solved=False</cite>, first solves the image with astrometry.net. (A refined
+astrometric solution is required to get an accurate radial profile.) A
+crude technique for estimating the PSF of an image.</p>
+<p class="rubric">Notes</p>
+<p>Best to pick a source which is bright, but not one which saturates the
+detectors.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.solve_all">
+<span class="sig-name descname"><span class="pre">solve_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solved_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.solve_all" title="Permalink to this definition"></a></dt>
+<dd><p>Find the astrometric solution for all images.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>solved_dir</strong> (<em>str, optional</em>) – Directory in which to store the solved images (default None –&gt;
+set automatically)</p></li>
+<li><p><strong>depth</strong> (<em>int, optional</em>) – Number of stars to use in solving with astrometry.net, e.g.,
+<cite>depth=100</cite> will use only the 100 brightest stars (default None
+–&gt; no limit, use all stars)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Using astrometry.net, solve all files, and put them in a new directory.
+This is necessary when the astrometric solution obtained by CFHT is
+inaccurate and requires refining, or if you wish to plot the radial
+PSFs of some point in the raw data images.</p>
+<p class="rubric">Notes</p>
+<p>For MegaCam images, detectors <strong>(0, 1, …, 17)</strong>, <strong>36</strong>, <strong>37</strong>
+(top half of camera) are oriented with North <strong>ANTI</strong>-parallel to the
+y-axis and East parallel to the x-axis. Detectors
+<strong>(18, 19, …, 35)</strong>, <strong>38</strong>, <strong>39</strong> (bottom half of the camera) are
+oriented with North parallel to the y-axis and East <strong>ANTI</strong>-parallel
+to the x-axis. When trying to make a stack from images in both the top
+and bottom halves, IRAF sometimes gets confused.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.WCS_check">
+<span class="sig-name descname"><span class="pre">WCS_check</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frac</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">checkall</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.WCS_check" title="Permalink to this definition"></a></dt>
+<dd><p>Check if the input coordinates are spanned by any of the data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra, dec</strong> (<em>float</em>) – Right Ascension (RA) and Declination of interest</p></li>
+<li><p><strong>frac</strong> (<em>float, optional</em>) – Fraction of the image to consider valid, e.g., 0.9 will
+exclude the outermost 10% of the image (default 1.0 –&gt; whole
+image)</p></li>
+<li><p><strong>verbose</strong> (<em>bool, optional</em>) – Print lots of details? (default True)</p></li>
+<li><p><strong>checkall</strong> (<em>bool, optional</em>) – Check all files, or, just return the first matching file?
+(default True –&gt; check all files)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>List of files which span the given coordinates</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.locate_WCS">
+<span class="sig-name descname"><span class="pre">locate_WCS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frac</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.locate_WCS" title="Permalink to this definition"></a></dt>
+<dd><p>Given some coordinates and a multi-detector image, find the number
+ID of the detector where the coordinates are located.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra, dec</strong> (<em>float</em>) – Right Ascension (RA) and Declination of interest</p></li>
+<li><p><strong>frac</strong> (<em>float, optional</em>) – Fraction of the image to consider valid, e.g., 0.9 will
+exclude the outermost 10% of the image (default 1.0 –&gt; whole
+image)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Number ID of the detector where the coordinates are located</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.write_extensions">
+<span class="sig-name descname"><span class="pre">write_extensions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_ext</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exten_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.write_extensions" title="Permalink to this definition"></a></dt>
+<dd><p>Write a specific extension of each multi-header fits file to
+individual files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_ext</strong> (<em>int</em>) – Extension number of interest (should be at least 1, n_ext=1 –&gt;
+extract the 1st extension in the file which corresponds to the 0th
+detector/CCD)</p></li>
+<li><p><strong>exten_dir</strong> (<em>str, optional</em>) – Name for the directory which will hold the written extensions
+(default None –&gt; set automatically)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Gets the header and image data for the given extension and writes them
+to a new .fits file. Does so for all raw data files. Stores them in a
+new subdirectory. Used to extract image data for one of many CCDs /
+detectors on either MegaPrime/WIRCam.</p>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>For a given dataset, once <a class="reference internal" href="#alala.RawData.locate_WCS" title="alala.RawData.locate_WCS"><code class="xref py py-func docutils literal notranslate"><span class="pre">RawData.locate_WCS()</span></code></a> has been used
+to find the extension containing the WCS of interest, run this
+function once to extract that specific extension. Can then use this
+newly made folder for stacking.</p></li>
+<li><p>If the extensions are themselves cubes (sometimes the case for
+WIRCam), see <a class="reference internal" href="#alala.RawData.combine_WIRCam" title="alala.RawData.combine_WIRCam"><code class="xref py py-func docutils literal notranslate"><span class="pre">RawData.combine_WIRCam()</span></code></a> or
+<a class="reference internal" href="#alala.RawData.divide_WIRCam" title="alala.RawData.divide_WIRCam"><code class="xref py py-func docutils literal notranslate"><span class="pre">RawData.divide_WIRCam()</span></code></a>.</p></li>
+<li><p>Currently only works for cubes of the form fits.fz, and produces
+files of form fits.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.write_extensions_all">
+<span class="sig-name descname"><span class="pre">write_extensions_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">all_exten_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.write_extensions_all" title="Permalink to this definition"></a></dt>
+<dd><p>Write each extension of each multi-header fits file to individual
+files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>all_exten_dir</strong> (<em>str, optional</em>) – Name for the directory which will hold the written extensions
+(default None –&gt; set automatically)</p>
+</dd>
+</dl>
+<p>Gets the header and image data for <strong>all</strong> extensions of a
+multi-header fits file and writes each extension to a new .fits file.
+Useful for MegaPrime data where the scope moves a lot and the
+detectors are all calibrated to the same ADU level.</p>
+<p class="rubric">Notes</p>
+<p>Currently only works for cubes of the form fits.fz, and produces
+files of form fits.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.write_extensions_by_WCS">
+<span class="sig-name descname"><span class="pre">write_extensions_by_WCS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frac</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wcs_exten_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.write_extensions_by_WCS" title="Permalink to this definition"></a></dt>
+<dd><p>Same as <a class="reference internal" href="#alala.RawData.write_extensions" title="alala.RawData.write_extensions"><code class="xref py py-func docutils literal notranslate"><span class="pre">RawData.write_extensions()</span></code></a>, but select the
+extension using an RA and Dec.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra, dec</strong> (<em>float</em>) – Right Ascension (RA) and Declination of interest</p></li>
+<li><p><strong>frac</strong> (<em>float, optional</em>) – Fraction of the image to consider valid, e.g., 0.9 will
+exclude the outermost 10% of the image (default 1.0 –&gt; whole
+image)</p></li>
+<li><p><strong>wcs_exten_dir</strong> (<em>str, optional</em>) – Name for the directory which will hold the written extensions
+(default None –&gt; set automatically)</p></li>
+</ul>
+</dd>
+</dl>
+<p>For a directory full of multi-extension fits files, gets the extensions
+which contain the input RA, Dec and writes them to a new file.</p>
+<p class="rubric">Notes</p>
+<p>Currently only works for cubes of the form fits.fz, and produces files
+of form fits.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.write_source">
+<span class="sig-name descname"><span class="pre">write_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frac</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.write_source" title="Permalink to this definition"></a></dt>
+<dd><p>Same as <a class="reference internal" href="#alala.RawData.write_extensions_by_WCS" title="alala.RawData.write_extensions_by_WCS"><code class="xref py py-func docutils literal notranslate"><span class="pre">RawData.write_extensions_by_WCS()</span></code></a>, but write the
+files to a new directory with name <cite>name</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>str</em>) – Name of the source of interest (e.g. some transient)</p></li>
+<li><p><strong>ra, dec</strong> (<em>float</em>) – Right Ascension (RA) and Declination of interest</p></li>
+<li><p><strong>frac</strong> (<em>float, optional</em>) – Fraction of the image to consider valid, e.g., 0.9 will
+exclude the outermost 10% of the image (default 1.0 –&gt; whole
+image)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Parses all raw data and copies any images which contain the input RA,
+Dec to a new sub-directory with the name of the source.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.combine_WIRCam">
+<span class="sig-name descname"><span class="pre">combine_WIRCam</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.combine_WIRCam" title="Permalink to this definition"></a></dt>
+<dd><p>For a directory full of WIRCam images, if the images are cubes,
+<strong>combine</strong> the multiple 2D arrays into single arrays.</p>
+<p class="rubric">Notes</p>
+<p>Use this function once to take a folder full of cubes and turn them
+into single-frame fits files. Can <strong>not</strong> be called on non-cubes. Only
+used for WIRCam.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.divide_WIRCam">
+<span class="sig-name descname"><span class="pre">divide_WIRCam</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.divide_WIRCam" title="Permalink to this definition"></a></dt>
+<dd><p>For a directory full of WIRCam images, if the images are cubes,
+<strong>divide</strong> the multiple 2D arrays into individual arrays.</p>
+<p class="rubric">Notes</p>
+<p>Use this function once to take a folder full of cubes and turn them
+into single-frame fits files. Can <strong>not</strong> be called on non-cubes.
+Only used for WIRCam.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.crop_images">
+<span class="sig-name descname"><span class="pre">crop_images</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frac_hori</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0,</span> <span class="pre">1]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frac_vert</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0,</span> <span class="pre">1]</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.crop_images" title="Permalink to this definition"></a></dt>
+<dd><p>Crop several fits images.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>frac_hori, frac_vert</strong> (<em>length-two list, optional</em>) – Horizontal and vertical fractions of the images to crop (default
+[0,1] for both –&gt; no cropping)</p>
+</dd>
+</dl>
+<p>For a directory full of WIRCam/MegaPrime images (should <strong>not</strong> be
+cubes), crops the images based on the input x-axis and y-axis
+boundaries and writes them all to a new directory.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.crop_images_wcs">
+<span class="sig-name descname"><span class="pre">crop_images_wcs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.crop_images_wcs" title="Permalink to this definition"></a></dt>
+<dd><p>Crop several fits images by picking out a source based on its RA
+and Dec.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra, dec</strong> (<em>float</em>) – Right Ascension (RA) and Declination of interest, in degrees</p></li>
+<li><p><strong>size</strong> (<em>float</em>) – Size of a box (in pixels) to crop around the input coordinates</p></li>
+</ul>
+</dd>
+</dl>
+<p>For a directory full of WIRCam/MegaPrime images (should <strong>not</strong> be
+cubes), crops the images based on the input WCS coordinates, creating
+a box centred on these coordinates and writing the new files to a new
+directory. If the given box extends beyond the bounds of the image,
+the box will be truncated at these bounds.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.make_badpix_masks">
+<span class="sig-name descname"><span class="pre">make_badpix_masks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.make_badpix_masks" title="Permalink to this definition"></a></dt>
+<dd><p>Builds a bad pixel mask for all image files, and places them in a
+new directory which is stored in <a class="reference internal" href="#alala.Stack.bp_dir" title="alala.Stack.bp_dir"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack.bp_dir</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.make_stacks">
+<span class="sig-name descname"><span class="pre">make_stacks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">filters</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.make_stacks" title="Permalink to this definition"></a></dt>
+<dd><p>Co-add images with PyRaf.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>filters</strong> (<em>str, optional</em>) – Filters of interest (defaults to all of the filters for which
+there is raw data)</p>
+</dd>
+</dl>
+<p>Uses PyRaf to coadd all of the raw data into stacks based on filter.
+Can specify a subset of these filters if you don’t want to process all
+of them at once.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.RawData.extract_stack">
+<span class="sig-name descname"><span class="pre">extract_stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filt</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.RawData.extract_stack" title="Permalink to this definition"></a></dt>
+<dd><p>Given a filter, create a <a class="reference internal" href="#alala.Stack" title="alala.Stack"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack</span></code></a> object which contains only
+stacks in that filter, from a base <a class="reference internal" href="#alala.RawData" title="alala.RawData"><code class="xref py py-class docutils literal notranslate"><span class="pre">RawData</span></code></a> object.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="alala.Stack">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">alala.</span></span><span class="sig-name descname"><span class="pre">Stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">location</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stack_directory</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qso_grade_limit</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_ext</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filt</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#alala.RawData" title="alala.RawData"><code class="xref py py-class docutils literal notranslate"><span class="pre">RawData</span></code></a></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.stack_size">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stack_size</span></span><a class="headerlink" href="#alala.Stack.stack_size" title="Permalink to this definition"></a></dt>
+<dd><p>Number of files used in the stacking</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.stack_time">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stack_time</span></span><a class="headerlink" href="#alala.Stack.stack_time" title="Permalink to this definition"></a></dt>
+<dd><p>Observation time in Modified Julian Date (MJD)</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.image_data">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">image_data</span></span><a class="headerlink" href="#alala.Stack.image_data" title="Permalink to this definition"></a></dt>
+<dd><p>Stacked image data</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.image_header">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">image_header</span></span><a class="headerlink" href="#alala.Stack.image_header" title="Permalink to this definition"></a></dt>
+<dd><p>Image fits header</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.bp_dir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">bp_dir</span></span><a class="headerlink" href="#alala.Stack.bp_dir" title="Permalink to this definition"></a></dt>
+<dd><p>Directory containing the bad pixel mask</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.calib_dir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">calib_dir</span></span><a class="headerlink" href="#alala.Stack.calib_dir" title="Permalink to this definition"></a></dt>
+<dd><p>Directory containing photometric/astrometric calibration files</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.exptime">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">exptime</span></span><a class="headerlink" href="#alala.Stack.exptime" title="Permalink to this definition"></a></dt>
+<dd><p>Total exposure time of the stacked image</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.pixscale">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">pixscale</span></span><a class="headerlink" href="#alala.Stack.pixscale" title="Permalink to this definition"></a></dt>
+<dd><p>Pixel scale of the instrument used</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.x_size">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">x_size</span></span><a class="headerlink" href="#alala.Stack.x_size" title="Permalink to this definition"></a></dt>
+<dd><p><cite>x</cite> dimension of the image, in pixels</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.y_size">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">y_size</span></span><a class="headerlink" href="#alala.Stack.y_size" title="Permalink to this definition"></a></dt>
+<dd><p><cite>y</cite> dimension of the image, in pixels</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.astrometric_calib">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">astrometric_calib</span></span><a class="headerlink" href="#alala.Stack.astrometric_calib" title="Permalink to this definition"></a></dt>
+<dd><p>Has astrometric calibration been performed?</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.psf_fit">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">psf_fit</span></span><a class="headerlink" href="#alala.Stack.psf_fit" title="Permalink to this definition"></a></dt>
+<dd><p>Has the effective Point-Spread Function (ePSF) been fit?</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.photometric_calib">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">photometric_calib</span></span><a class="headerlink" href="#alala.Stack.photometric_calib" title="Permalink to this definition"></a></dt>
+<dd><p>Has photometric calibration (i.e., obtaining a zero point) been
+performed?</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.aperture_fit">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">aperture_fit</span></span><a class="headerlink" href="#alala.Stack.aperture_fit" title="Permalink to this definition"></a></dt>
+<dd><p>Has aperture photometry been performed?</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.bkg">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">bkg</span></span><a class="headerlink" href="#alala.Stack.bkg" title="Permalink to this definition"></a></dt>
+<dd><p>Background-only image</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.bp_mask">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">bp_mask</span></span><a class="headerlink" href="#alala.Stack.bp_mask" title="Permalink to this definition"></a></dt>
+<dd><p>Bad pixel mask; array of <strong>bools</strong></p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.source_mask">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">source_mask</span></span><a class="headerlink" href="#alala.Stack.source_mask" title="Permalink to this definition"></a></dt>
+<dd><p>Mask of sources; array of <strong>ints</strong>, where 0=non-masked and
+1=masked</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.image_error">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">image_error</span></span><a class="headerlink" href="#alala.Stack.image_error" title="Permalink to this definition"></a></dt>
+<dd><p>Estimate of the error (Gaussian + Poisson) across the image</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.image_data_bkgsub">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">image_data_bkgsub</span></span><a class="headerlink" href="#alala.Stack.image_data_bkgsub" title="Permalink to this definition"></a></dt>
+<dd><p>Background-subtracted image data</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.xy_data">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">xy_data</span></span><a class="headerlink" href="#alala.Stack.xy_data" title="Permalink to this definition"></a></dt>
+<dd><p>Table of (x, y) coordinates for sources found with astrometry.net</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.xy_name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">xy_name</span></span><a class="headerlink" href="#alala.Stack.xy_name" title="Permalink to this definition"></a></dt>
+<dd><p>Name of the file containing <a class="reference internal" href="#alala.Stack.xy_data" title="alala.Stack.xy_data"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack.xy_data</span></code></a></p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.epsf_data">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">epsf_data</span></span><a class="headerlink" href="#alala.Stack.epsf_data" title="Permalink to this definition"></a></dt>
+<dd><p>Effective Point-Spread Function (ePSF) data</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.epsf_radius">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">epsf_radius</span></span><a class="headerlink" href="#alala.Stack.epsf_radius" title="Permalink to this definition"></a></dt>
+<dd><p>Radius of the effective Point Spread Function (ePSF), in pixels</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.ref_cat">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ref_cat</span></span><a class="headerlink" href="#alala.Stack.ref_cat" title="Permalink to this definition"></a></dt>
+<dd><p>Vizier code/ID for the reference catalogue used in photometric
+calibration</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.ref_cat_name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ref_cat_name</span></span><a class="headerlink" href="#alala.Stack.ref_cat_name" title="Permalink to this definition"></a></dt>
+<dd><p>Name of the reference catalogue used in photometric calibration</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.zp_mean">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">zp_mean</span></span><a class="headerlink" href="#alala.Stack.zp_mean" title="Permalink to this definition"></a></dt>
+<dd><p>Mean zero point from photometric calibration</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.zp_med">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">zp_med</span></span><a class="headerlink" href="#alala.Stack.zp_med" title="Permalink to this definition"></a></dt>
+<dd><p>Median zero point from photometric calibration</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.zp_std">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">zp_std</span></span><a class="headerlink" href="#alala.Stack.zp_std" title="Permalink to this definition"></a></dt>
+<dd><p>Standard deviation (uncertainty) of the zero point from photometric
+calibration</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.ra_offsets_mean">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ra_offsets_mean</span></span><a class="headerlink" href="#alala.Stack.ra_offsets_mean" title="Permalink to this definition"></a></dt>
+<dd><p>Mean offset in Right Ascension (RA) between the image and
+reference catalogue</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.dec_offsets_mean">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dec_offsets_mean</span></span><a class="headerlink" href="#alala.Stack.dec_offsets_mean" title="Permalink to this definition"></a></dt>
+<dd><p>Mean offset in Declination between the image and reference
+catalogue</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.nmatches">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nmatches</span></span><a class="headerlink" href="#alala.Stack.nmatches" title="Permalink to this definition"></a></dt>
+<dd><p>Number of matches between astrometry-detected sources in the image
+and the reference catalogue</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.sep_mean">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sep_mean</span></span><a class="headerlink" href="#alala.Stack.sep_mean" title="Permalink to this definition"></a></dt>
+<dd><p>Mean separation between sources, in arcseconds</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.mag_diff_mean">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mag_diff_mean</span></span><a class="headerlink" href="#alala.Stack.mag_diff_mean" title="Permalink to this definition"></a></dt>
+<dd><p>Mean difference between <strong>calibrated</strong> magnitudes and reference
+catalogue magnitudes</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.psf_sources">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">psf_sources</span></span><a class="headerlink" href="#alala.Stack.psf_sources" title="Permalink to this definition"></a></dt>
+<dd><p>Table of sources detected by point-spread function (PSF)
+photometry</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.aperture_sources">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">aperture_sources</span></span><a class="headerlink" href="#alala.Stack.aperture_sources" title="Permalink to this definition"></a></dt>
+<dd><p>Table of sources detected by aperture photometry</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="alala.Stack.limmag_sources">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">limmag_sources</span></span><a class="headerlink" href="#alala.Stack.limmag_sources" title="Permalink to this definition"></a></dt>
+<dd><p>Table of “sources” for which we have a limiting magnitude</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.mask_bp">
+<span class="sig-name descname"><span class="pre">mask_bp</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.mask_bp" title="Permalink to this definition"></a></dt>
+<dd><p>Make a bad pixel mask of pixels = 0 or nan. The mask is an array of
+<strong>bools</strong>, contained in <a class="reference internal" href="#alala.Stack.bp_mask" title="alala.Stack.bp_mask"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack.bp_mask</span></code></a></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.mask_source">
+<span class="sig-name descname"><span class="pre">mask_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.mask_source" title="Permalink to this definition"></a></dt>
+<dd><p>Make a mask of pixels containing sources.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>sigma</strong> (<em>float, optional</em>) – Detection sigma to use in image segmentation (default 3.0)</p>
+</dd>
+</dl>
+<p>Use crude image segmentation to make a proto source mask, use the mask
+to get the background, and then perform proper image segmentation on
+the background-subtracted image data. The resulting segmentation image
+is a proper source mask, to be used in other steps in aperture
+photometry. The output source mask also flags bad pixels.</p>
+<p class="rubric">Notes</p>
+<p>The mask is an array of <strong>ints</strong>, where 1=masked, 0=non-masked. Will
+be contained in <a class="reference internal" href="#alala.Stack.source_mask" title="alala.Stack.source_mask"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack.source_mask</span></code></a>, Not to be confused with
+<a class="reference internal" href="#alala.Stack.bp_mask" title="alala.Stack.bp_mask"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack.bp_mask</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.bkg_compute">
+<span class="sig-name descname"><span class="pre">bkg_compute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.bkg_compute" title="Permalink to this definition"></a></dt>
+<dd><p>Compute the background of the image.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box_size</strong> (<em>int, optional</em>) – Size of box for background estimation (default 50 –&gt; 50x50 boxes)</p></li>
+<li><p><strong>filter_size</strong> (<em>int, optional</em>) – Size of the median filter applied during background estimation
+(default 5 –&gt; 5x5 filter)</p></li>
+<li><p><strong>thresh_sigma</strong> (<em>float, optional</em>) – Detection to use in image segmentation when producing a source
+mask (default 3.0; only relevant if a source mask does not already
+exist and needs to be computed)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Computes the background of the image, the error on the background (as
+the RMS deviation), and the background-subtracted image. Assigns these
+to the attributes <a class="reference internal" href="#alala.Stack.bkg" title="alala.Stack.bkg"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack.bkg</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Stack.bkg_rms</span></code>,
+<a class="reference internal" href="#alala.Stack.image_data_bkgsub" title="alala.Stack.image_data_bkgsub"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack.image_data_bkgsub</span></code></a>.</p>
+<p class="rubric">Notes</p>
+<p>A new source mask will be obtained only if <a class="reference internal" href="#alala.Stack.source_mask" title="alala.Stack.source_mask"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack.source_mask</span></code></a>
+does not exist.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.error_array">
+<span class="sig-name descname"><span class="pre">error_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.error_array" title="Permalink to this definition"></a></dt>
+<dd><p>Compute the error (uncertainty) on the background-only image.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box_size</strong> (<em>int, optional</em>) – Size of box for background estimation (default 50 –&gt; 50x50 boxes;
+only relevant if background not previously computed)</p></li>
+<li><p><strong>filter_size</strong> (<em>int, optional</em>) – Size of the median filter applied during background estimation
+(default 5 –&gt; 5x5 filter, only relevant if background not
+previously computed)</p></li>
+<li><p><strong>thresh_sigma</strong> (<em>float, optional</em>) – Detection to use in image segmentation when producing a source
+mask (default 3.0; only relevant if source mask not previously
+computed)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Computes the error on the background-only image as the RMS deviation
+of the background, and then computes the total image error including
+the contribution of the Poisson noise from detected sources. Necessary
+for error propagation in aperture photometry.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.make_image">
+<span class="sig-name descname"><span class="pre">make_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bkgsub</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">border</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sources</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ra</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.make_image" title="Permalink to this definition"></a></dt>
+<dd><p>Make a plot of the stacked image.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bkgsub</strong> (<em>bool, optional</em>) – Plot the <strong>background-subtracted</strong> data? (default False)</p></li>
+<li><p><strong>border</strong> (<em>bool, optional</em>) – Demarcate the region in which sources are valid for photometry?
+(default False)</p></li>
+<li><p><strong>sources</strong> (<em>bool, optional</em>) – Drop circles on detected sources? (default False)</p></li>
+<li><p><strong>ra, dec</strong> (<em>float, optional</em>) – Right Ascension (RA) and Declination at which to place a crosshair
+(default None)</p></li>
+<li><p><strong>scale</strong> (<em>{None, “log”, “asinh”}, optional</em>) – Scale to apply to the images (default None –&gt; linear scale)</p></li>
+<li><p><strong>title</strong> (<em>str, optional</em>) – Title to place above the plot (default None –&gt; no title)</p></li>
+<li><p><strong>output</strong> (<em>str, optional</em>) – Name for the output image file (default None –&gt; set automatically)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.astrometry">
+<span class="sig-name descname"><span class="pre">astrometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.astrometry" title="Permalink to this definition"></a></dt>
+<dd><p>Perform source extraction with astrometry.net and solve the field.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>verbose</strong> (<em>int, optional</em>) – Level of verbosity within astrometry.net (default 0)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>After running this function, can obtain a list of detected sources’
+(x, y) coordinates from attribute <code class="xref py py-class docutils literal notranslate"><span class="pre">self.xy_data</span></code> <strong>or</strong> by
+reading the fits file <a class="reference internal" href="#alala.Stack.xy_name" title="alala.Stack.xy_name"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack.xy_name</span></code></a></p></li>
+<li><p>Creates a new file appended with <cite>_updated.fits</cite> with the new
+astrometric solution</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.fit_PSF">
+<span class="sig-name descname"><span class="pre">fit_PSF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nstars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">40</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixelmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elongation_lim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">area_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cutout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">35</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_lim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_ePSF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ePSF_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_residuals</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resid_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.fit_PSF" title="Permalink to this definition"></a></dt>
+<dd><p>Fit for the effective Point-Spread Function (ePSF) of the image.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>nstars</strong> (<em>int, optional</em>) – <strong>Maximum</strong> number of stars to use in building the ePSF (default
+40; set to None to impose no limit)</p></li>
+<li><p><strong>thresh_sigma</strong> (<em>float, optional</em>) – Sigma threshold for source detection with image segmentation
+(default 5.0)</p></li>
+<li><p><strong>pixelmin</strong> (<em>int, optional</em>) – <strong>Minimum</strong> number of contiguous pixels for an isophote to be
+considered a source (default 20)</p></li>
+<li><p><strong>elongation_lim</strong> (<em>float, optional</em>) – <strong>Maximum</strong> elongation (ratio of semimajor axis / semiminor axis)
+for an isophote to be considered a source (default 1.4)</p></li>
+<li><p><strong>area_max</strong> (<em>float, optional</em>) – <strong>Maximum</strong> pixel area (in pix**2) for an isophote to be
+considered a source (default 500)</p></li>
+<li><p><strong>cutout</strong> (<em>int, optional</em>) – Size of the cutout around each star, in pix (default 35; must be
+<strong>odd</strong>, will be rounded down if eve)</p></li>
+<li><p><strong>source_lim</strong> (<em>int, optional</em>) – Limit on the number of sources to fit with the ePSF (default None)</p></li>
+<li><p><strong>write</strong> (<em>bool, optional</em>) – Write the ePSF to a .fits file as an image? (default False)</p></li>
+<li><p><strong>output</strong> (<em>str, optional</em>) – Name for the output .fits file (default None –&gt; set
+automatically; only relevant if <cite>write=True</cite>)</p></li>
+<li><p><strong>plot_ePSF</strong> (<em>bool, optional</em>) – Plot the ePSF? (default False)</p></li>
+<li><p><strong>ePSF_name</strong> (<em>str, optional</em>) – Name for the output plot of the ePSF? (default None –&gt; set
+automatically; only relevant if <cite>plot_ePSF=True</cite>)</p></li>
+<li><p><strong>plot_residuals</strong> (<em>bool, optional</em>) – Plot the residuals of the iterative PSF fitting? (default False)</p></li>
+<li><p><strong>resid_name</strong> (<em>str, optional</em>) – Name for the output plot of the residuals (default None –&gt; set
+automatically; only relevant if <cite>plot_residuals=True</cite>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Uses image segmentation to obtain a list of sources in the smoothed,
+background-subtracted image (provided by astrometry.net) with their
+x, y coordinates. Uses <cite>EPSFBuilder</cite> to empirically obtain the ePSF of
+these stars. Uses astrometry.net to find all sources in the image, and
+fits them with the empirically obtained ePSF. Builds a table
+containing the instrumental magnitudes and corresponding uncertainties
+to be used in obtaining the zero point for PSF calibration, in
+<a class="reference internal" href="#alala.Stack.psf_sources" title="alala.Stack.psf_sources"><code class="xref py py-class docutils literal notranslate"><span class="pre">Stack.psf_sources</span></code></a>.</p>
+<p class="rubric">Notes</p>
+<p>The ePSF obtained here should <strong>NOT</strong> be used in convolutions.
+Instead, it can serve as a tool for estimating the seeing of an image.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.zero_point">
+<span class="sig-name descname"><span class="pre">zero_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sep_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_corr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corr_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_source_offsets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_offs_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_field_offsets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field_offs_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_blur_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cat_num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.zero_point" title="Permalink to this definition"></a></dt>
+<dd><p>Obtain the zero point of the image.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sep_max</strong> (<em>float, optional</em>) – <strong>Maximum</strong> allowed separation when cross-matching sources, in pix
+(default 2.0; corresponds to ~ 0.6” for WIRCam and ~ 0.37” for
+MegaPrime)</p></li>
+<li><p><strong>plot_corr</strong> (<em>bool, optional</em>) – Plot the correlation plot with a linear fit (i.e., instrumental
+source magnitude in the image versus calibrated catalogue
+magnitude)? (default True)</p></li>
+<li><p><strong>corr_name</strong> (<em>str, optional</em>) – Name for the output correlation plot (default None –&gt; set
+automatically; only relevant if <cite>plot_corr=True</cite>)</p></li>
+<li><p><strong>plot_source_offsets</strong> (<em>bool, optional</em>) – Plot the offsets between the image and catalogue in Right
+Ascension (RA) and Declination (Dec) space, for all sources?
+(default True)</p></li>
+<li><p><strong>source_offs_name</strong> (<em>str, optional</em>) – Name for the output offsets plot (default None –&gt; set
+automatically; only relevant if <cite>plot_source_offsets=True</cite>)</p></li>
+<li><p><strong>plot_field_offsets</strong> (<em>bool, optional</em>) – Plot the offsets over the image itself, with some Gaussian blur
+for legibility? (default False)</p></li>
+<li><p><strong>field_offs_name</strong> (<em>str, optional</em>) – Name for the output field offsets plot (default None –&gt; set
+automatically; only relevant if <cite>plot_field_offsets=True</cite>)</p></li>
+<li><p><strong>gaussian_blur_sigma</strong> (<em>float, optional</em>) – Standard deviation (sigma) of the Gaussian blur to apply if
+plotting the field offsets (default 30.0; only relevant if
+<cite>plot_field_offsets=True</cite>)</p></li>
+<li><p><strong>cat_num</strong> (<em>str, optional</em>) – Vizier catalogue number for the catalogue to use in cross-matching
+(default None –&gt; set automatically according to the filter in use)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Uses astroquery and Vizier to query an online catalogue for sources
+which match those detected by astrometry. Computes the offset between
+the apparent and instrumental magnitudes of the queried sources for
+photometric calibration. Computes the mean, median and standard
+deviation.</p>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>For filters , “g”, “r”, “i”, “z”, “Y”, the default catalogue is
+Pan-STARRS 1</p></li>
+<li><p>For filter “u”, the default catalogue is SDSS DR12</p></li>
+<li><p>For filter “Ks” (“K”), the default catalogue is 2MASS</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.PSF_photometry">
+<span class="sig-name descname"><span class="pre">PSF_photometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nstars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">40</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixelmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elongation_lim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">area_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cutout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">35</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_lim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_blur_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cat_num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_ePSF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ePSF_data_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_ePSF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ePSF_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_resid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resid_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_corr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corr_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_source_offsets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_offs_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_field_offsets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field_offs_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.PSF_photometry" title="Permalink to this definition"></a></dt>
+<dd><p>Obtain the effective Point-Spread Function (ePSF) of the image,
+perform zero point calibration, and perform PSF photometry on all
+detected sources.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>nstars</strong> (<em>int, optional</em>) – <strong>Maximum</strong> number of stars to use in building the ePSF (default
+40; set to None to impose no limit)</p></li>
+<li><p><strong>thresh_sigma</strong> (<em>float, optional</em>) – Sigma threshold for source detection with image segmentation
+(default 5.0)</p></li>
+<li><p><strong>pixelmin</strong> (<em>int, optional</em>) – <strong>Minimum</strong> number of contiguous pixels for an isophote to be
+considered a source (default 20)</p></li>
+<li><p><strong>elongation_lim</strong> (<em>float, optional</em>) – <strong>Maximum</strong> elongation (ratio of semimajor axis / semiminor axis)
+for an isophote to be considered a source (default 1.4)</p></li>
+<li><p><strong>area_max</strong> (<em>float, optional</em>) – <strong>Maximum</strong> pixel area (in pix**2) for an isophote to be
+considered a source (default 500)</p></li>
+<li><p><strong>cutout</strong> (<em>int, optional</em>) – Size of the cutout around each star, in pix (default 35; must be
+<strong>odd</strong>, will be rounded down if eve)</p></li>
+<li><p><strong>source_lim</strong> (<em>int, optional</em>) – Limit on the number of sources to fit with the ePSF (default None)</p></li>
+<li><p><strong>gaussian_blur_sigma</strong> (<em>float, optional</em>) – Standard deviation (sigma) of the Gaussian blur to apply if
+plotting the field offsets (default 30.0; only relevant if
+<cite>plot_field_offsets=True</cite>)</p></li>
+<li><p><strong>cat_num</strong> (<em>str, optional</em>) – Vizier catalogue number for the catalogue to use in cross-matching
+(default None –&gt; set automatically according to the filter in use)</p></li>
+<li><p><strong>sep_max</strong> (<em>float, optional</em>) – <strong>Maximum</strong> allowed separation when cross-matching sources, in pix
+(default 2.0; corresponds to ~ 0.6” for WIRCam and ~ 0.37” for
+MegaPrime)</p></li>
+<li><p><strong>box_size</strong> (<em>int, optional</em>) – Size of box for background estimation (default 50 –&gt; 50x50 boxes;
+only relevant if background not previously computed)</p></li>
+<li><p><strong>filter_size</strong> (<em>int, optional</em>) – Size of the median filter applied during background estimation
+(default 5 –&gt; 5x5 filter, only relevant if background not
+previously computed)</p></li>
+<li><p><strong>write_ePSF</strong> (<em>bool, optional</em>) – Write the ePSF to a .fits file as an image? (default False)</p></li>
+<li><p><strong>ePSF_data_name</strong> (<em>str, optional</em>) – Name for the output .fits file (default None –&gt; set
+automatically; only relevant if <cite>write_ePSF=True</cite>)</p></li>
+<li><p><strong>plot_ePSF</strong> (<em>bool, optional</em>) – Plot the ePSF? (default False)</p></li>
+<li><p><strong>ePSF_name</strong> (<em>str, optional</em>) – Name for the output plot of the ePSF? (default None –&gt; set
+automatically; only relevant if <cite>plot_ePSF=True</cite>)</p></li>
+<li><p><strong>plot_residuals</strong> (<em>bool, optional</em>) – Plot the residuals of the iterative PSF fitting? (default False)</p></li>
+<li><p><strong>resid_name</strong> (<em>str, optional</em>) – Name for the output plot of the residuals (default None –&gt; set
+automatically; only relevant if <cite>plot_residuals=True</cite>)</p></li>
+<li><p><strong>plot_corr</strong> (<em>bool, optional</em>) – Plot the correlation plot with a linear fit (i.e., instrumental
+source magnitude in the image versus calibrated catalogue
+magnitude)? (default True)</p></li>
+<li><p><strong>corr_name</strong> (<em>str, optional</em>) – Name for the output correlation plot (default None –&gt; set
+automatically; only relevant if <cite>plot_corr=True</cite>)</p></li>
+<li><p><strong>plot_source_offsets</strong> (<em>bool, optional</em>) – Plot the offsets between the image and catalogue in Right
+Ascension (RA) and Declination (Dec) space, for all sources?
+(default True)</p></li>
+<li><p><strong>source_offs_name</strong> (<em>str, optional</em>) – Name for the output offsets plot (default None –&gt; set
+automatically; only relevant if <cite>plot_source_offsets=True</cite>)</p></li>
+<li><p><strong>plot_field_offsets</strong> (<em>bool, optional</em>) – Plot the offsets over the image itself, with some Gaussian blur
+for legibility? (default False)</p></li>
+<li><p><strong>field_offs_name</strong> (<em>str, optional</em>) – Name for the output field offsets plot (default None –&gt; set
+automatically; only relevant if <cite>plot_field_offsets=True</cite>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Using image segmentation, finds as many sources as possible in the
+image with an elongation below some elongation limit. Uses these
+sources to build an empirical effective PSF (ePSF). Using a list of
+sources found by astrometry.net, fits the ePSF to all of those sources.
+Computes the instrumental magnitude of all of these sources. Queries
+the correct online catalogue for the given filter to crossmatch sources
+in the image with those in the catalogue (e.g., Pan-STARRS 1). Finds
+the zero point which satisfies AB_mag = ZP + instrumental_mag and gets
+the calibrated AB mags for all PSF-fit sources.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.write_PSF_photometry">
+<span class="sig-name descname"><span class="pre">write_PSF_photometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nstars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">40</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixelmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elongation_lim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">area_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cutout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">35</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_lim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_blur_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cat_num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_ePSF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ePSF_data_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_ePSF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ePSF_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_resid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resid_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_corr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corr_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_source_offsets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_offs_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_field_offsets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field_offs_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.write_PSF_photometry" title="Permalink to this definition"></a></dt>
+<dd><p>Write the results of PSF photometry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>…</strong> – all of the inputs to <a class="reference internal" href="#alala.Stack.PSF_photometry" title="alala.Stack.PSF_photometry"><code class="xref py py-func docutils literal notranslate"><span class="pre">Stack.PSF_photometry()</span></code></a></p></li>
+<li><p><strong>output</strong> (<em>str, optional</em>) – Name of the output .fits file (default None –&gt; set automatically)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Performs PSF photometry if it has not already been performed, and then
+writes a table of the PSF-fit sources to a .fits table.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.aperture_photometry">
+<span class="sig-name descname"><span class="pre">aperture_photometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bkgsub_verify</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ap_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_annulus</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ann_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_aperture</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ap_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.aperture_photometry" title="Permalink to this definition"></a></dt>
+<dd><p>Do aperture photometry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra_list, dec_list</strong> (<em>list **or*</em> float*) – List or single float of the Right Ascension (RA), Declination
+around some source of interest</p></li>
+<li><p><strong>sigma</strong> (<em>float, optional</em>) – Limiting sigma below which a source is labeled as <strong>not</strong>
+detected, in which case the user should use
+<a class="reference internal" href="#alala.Stack.limiting_magnitude" title="alala.Stack.limiting_magnitude"><code class="xref py py-func docutils literal notranslate"><span class="pre">Stack.limiting_magnitude()</span></code></a></p></li>
+<li><p><strong>ap_radius</strong> (<em>float, optional</em>) – Radius of the aperture, in arcseconds (default 1.2)</p></li>
+<li><p><strong>r1, r2</strong> (<em>float, optional</em>) – Inner and outer radii of the annulus, <strong>in arcseconds</strong> (default
+2.0, 5.0)</p></li>
+<li><p><strong>box_size</strong> (<em>int, optional</em>) – Size of box for background estimation (default 50 –&gt; 50x50 boxes;
+only relevant if background not previously computed)</p></li>
+<li><p><strong>filter_size</strong> (<em>int, optional</em>) – Size of the median filter applied during background estimation
+(default 5 –&gt; 5x5 filter, only relevant if background not
+previously computed)</p></li>
+<li><p><strong>thresh_sigma</strong> (<em>float, optional</em>) – Detection to use in image segmentation when producing a source
+mask (default 3.0; only relevant if a source mask does not already
+exist and needs to be computed)</p></li>
+<li><p><strong>plot_annulus</strong> (<em>bool, optional</em>) – Plot the image data <strong>contained in the annulus</strong>, centered on the
+ra, dec of interest? (default False)</p></li>
+<li><p><strong>ann_name</strong> (<em>str, optional</em>) – Name for the plot of the annulus image data (default None –&gt; set
+automatically)</p></li>
+<li><p><strong>plot_aperture</strong> (<em>bool, optional</em>) – Plot the aperture and annulus as rings (default False)</p></li>
+<li><p><strong>ap_name</strong> (<em>str, optional</em>) – Name for the output aperture+annulus plot (default None –&gt; set
+automatically)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Computes the the total flux in a defined aperture around the given RA,
+Dec, computes the background in an annulus around this aperture, and
+computes the background-subtracted flux of the “source” defined by the
+aperture. Can be called multiple times if a list of RA/Dec is given.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.limiting_magnitude">
+<span class="sig-name descname"><span class="pre">limiting_magnitude</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_annulus</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ann_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_aperture</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ap_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.limiting_magnitude" title="Permalink to this definition"></a></dt>
+<dd><p>Obtain the limiting magnitude at some coordinates for some <cite>sigma</cite>
+significance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra_list, dec_list</strong> (<em>list **or*</em> float*) – List or single float of the Right Ascension (RA), Declination
+around some source of interest</p></li>
+<li><p><strong>sigma</strong> (<em>float, optional</em>) – Detection significance (default 5.0)</p></li>
+<li><p><strong>thresh_sigma</strong> (<em>float, optional</em>) – Detection to use in image segmentation when producing a source
+mask (default 3.0; only relevant if a source mask does not already
+exist and needs to be computed)</p></li>
+<li><p><strong>box_size</strong> (<em>int, optional</em>) – Size of box for background estimation (default 50 –&gt; 50x50 boxes;
+only relevant if background not previously computed)</p></li>
+<li><p><strong>filter_size</strong> (<em>int, optional</em>) – Size of the median filter applied during background estimation
+(default 5 –&gt; 5x5 filter, only relevant if background not
+previously computed)</p></li>
+<li><p><strong>plot_annulus</strong> (<em>bool, optional</em>) – Plot the image data <strong>contained in the annulus</strong>, centered on the
+ra, dec of interest? (default True)</p></li>
+<li><p><strong>ann_name</strong> (<em>str, optional</em>) – Name for the plot of the annulus image data (default None –&gt; set
+automatically)</p></li>
+<li><p><strong>plot_aperture</strong> (<em>bool, optional</em>) – Plot the aperture and annulus as rings (default False)</p></li>
+<li><p><strong>ap_name</strong> (<em>str, optional</em>) – Name for the output aperture+annulus plot (default None –&gt; set
+automatically)</p></li>
+<li><p><strong>write</strong> (<em>bool, optional</em>) – Write the results to a table? (default False)</p></li>
+<li><p><strong>output</strong> (<em>str, optional</em>) – Name for the output table (default None –&gt; set automatically; only
+relevant if <cite>write=True</cite>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Limiting magnitude</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>For a given RA, Dec, finds the limiting magnitude at its location. If
+a source was previously detected &lt;= 3” away from the given coords by
+astrometry.net, the limiting magnitude at the RA, Dec given will be
+invalid, and so the aperture will randomly jitter until a valid
+RA, Dec is found.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.write_aperture_photometry">
+<span class="sig-name descname"><span class="pre">write_aperture_photometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.write_aperture_photometry" title="Permalink to this definition"></a></dt>
+<dd><p>Write the sources detected by aperture photometry to a table.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.write_limiting_magnitude">
+<span class="sig-name descname"><span class="pre">write_limiting_magnitude</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.write_limiting_magnitude" title="Permalink to this definition"></a></dt>
+<dd><p>Write the “sources” with limiting magnitudes computed by aperture
+photometry to a table.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.compare_photometry">
+<span class="sig-name descname"><span class="pre">compare_photometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ap_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsamples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.compare_photometry" title="Permalink to this definition"></a></dt>
+<dd><p>Compare the calibrated magnitude obtained with aperture photometry
+(<a class="reference internal" href="#alala.Stack.aperture_photometry" title="alala.Stack.aperture_photometry"><code class="xref py py-func docutils literal notranslate"><span class="pre">Stack.aperture_photometry()</span></code></a>) to that obtained with PSF
+photometry (<a class="reference internal" href="#alala.Stack.PSF_photometry" title="alala.Stack.PSF_photometry"><code class="xref py py-func docutils literal notranslate"><span class="pre">Stack.PSF_photometry()</span></code></a>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ap_radius</strong> (<em>float, optional</em>) – Radius of the aperture, in arcseconds (default 1.2)</p></li>
+<li><p><strong>r1, r2</strong> (<em>float, optional</em>) – Inner and outer annuli radii, where the annulus is used for
+estimating the background (default 2.0, 5.0)</p></li>
+<li><p><strong>nsamples</strong> (<em>int, optional</em>) – Number of samples to take from PSF photometry</p></li>
+<li><p><strong>output</strong> (<em>str, optional</em>) – Name of the output figure comparing the two photometries (default
+None –&gt; set automatically)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.source_selection">
+<span class="sig-name descname"><span class="pre">source_selection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.source_selection" title="Permalink to this definition"></a></dt>
+<dd><p>Parse the table of sources provided by PSF photometry
+(<a class="reference internal" href="#alala.Stack.PSF_photometry" title="alala.Stack.PSF_photometry"><code class="xref py py-func docutils literal notranslate"><span class="pre">Stack.PSF_photometry()</span></code></a>) for sources within some distance of
+the given coordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra, dec</strong> (<em>float</em>) – Right Ascension (RA) and Declination for the source of interest</p></li>
+<li><p><strong>radius</strong> (<em>float</em>) – Radius to search in, in arcseconds (default 1.0)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Table of the source(s) satisfying the conditions</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>astropy.table.Table</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="alala.Stack.write_selection">
+<span class="sig-name descname"><span class="pre">write_selection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#alala.Stack.write_selection" title="Permalink to this definition"></a></dt>
+<dd><p>Write some selection of sources based on coordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>…</strong> – all of the inputs to <a class="reference internal" href="#alala.Stack.source_selection" title="alala.Stack.source_selection"><code class="xref py py-func docutils literal notranslate"><span class="pre">Stack.source_selection()</span></code></a></p></li>
+<li><p><strong>output</strong> (<em>str, optional</em>) – Name of the output .fits table (default None –&gt; set automatically)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="modules.html" class="btn btn-neutral float-left" title="alala" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="apphotom.html" class="btn btn-neutral float-right" title="apphotom module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Nicholas Vieira.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
