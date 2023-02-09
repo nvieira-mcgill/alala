@@ -77,183 +77,141 @@
              
   <section id="module-psfphotom">
 <span id="psfphotom-module"></span><h1>psfphotom module<a class="headerlink" href="#module-psfphotom" title="Permalink to this heading"></a></h1>
-<dl>
+<dl class="simple">
 <dt>CONTENTS:</dt><dd><ul class="simple">
-<li><dl class="simple">
-<dt>make_source_list:</dt><dd><p>make a list of sources with astrometry.net</p>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>PSF_photometry:</dt><dd><p>get the ePSF of an image, fit all (or as many as desired) stars in the
-image with the ePSF, get instrumental magnitudes, and then crossmatch
-with external catalogue to get CALIBRATED magnitudes</p>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>ePSF_FWHM:</dt><dd><p>get the FWHM of an input ePSF</p>
-</dd>
-</dl>
-</li>
-<li><p>copy the zero point headers from one image to another</p></li>
+<li><p><a class="reference internal" href="#psfphotom.PSF_photometry" title="psfphotom.PSF_photometry"><code class="xref py py-func docutils literal notranslate"><span class="pre">PSF_photometry()</span></code></a>: Get the effective Point Spread Function (ePSF) of
+an image, fit all (or as many as desired) stars in the image with the
+ePSF, get instrumental magnitudes, and then crossmatch with external
+catalogue to get <strong>calibrated</strong> magnitudes</p></li>
+<li><p><a class="reference internal" href="#psfphotom.ePSF_FWHM" title="psfphotom.ePSF_FWHM"><code class="xref py py-func docutils literal notranslate"><span class="pre">ePSF_FWHM()</span></code></a>: Get the full width at half-max (FWHM) of an ePSF</p></li>
+<li><p><a class="reference internal" href="#psfphotom.copy_zero_point" title="psfphotom.copy_zero_point"><code class="xref py py-func docutils literal notranslate"><span class="pre">copy_zero_point()</span></code></a>: Copy zero point headers from one image to
+another</p></li>
 </ul>
 </dd>
-<dt>DEPENDENCIES:</dt><dd><p>python:
-- astropy (everywhere)
-- photutils (everywhere)
-- astroquery (obtaining zero point using catalog cross-matching)
-external:
-- astrometry.net (finding sources to fit with ePSF, but only if image</p>
-<blockquote>
-<div><p>segmentation (which is the default) is not being used)</p>
-</div></blockquote>
+<dt>NON-STANDARD PYTHON DEPENDENCIES:</dt><dd><ul class="simple">
+<li><p><cite>astropy</cite></p></li>
+<li><p><cite>photutils</cite></p></li>
+<li><p><cite>astroquery</cite></p></li>
+</ul>
 </dd>
-</dl>
-<dl class="py function">
-<dt class="sig sig-object py" id="psfphotom.make_source_list">
-<span class="sig-prename descclassname"><span class="pre">psfphotom.</span></span><span class="sig-name descname"><span class="pre">make_source_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">astrom_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psf_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clean</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#psfphotom.make_source_list" title="Permalink to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>Input:</dt><dd><ul class="simple">
-<li><p>filename for <strong>background-subtracted</strong> image</p></li>
-<li><p>sigma threshold for astrometry.net source detection image (optional;
-default 5.0)</p></li>
-<li><p>sigma of the Gaussian PSF of the image (optional; default 5.0)</p></li>
-<li><p>maximum allowed source area in pix**2 for astrometry.net for
-deblending (optional; default 10000; only relevant if no source list
-file is provided)</p></li>
-<li><p>whether to remove files output by image2xy once finished with them
-(optional; default True)</p></li>
+<dt>NON-PYTHON DEPENDENCIES:</dt><dd><ul class="simple">
+<li><p><cite>astrometry.net</cite></p></li>
 </ul>
 </dd>
 </dl>
-<p>Uses astrometry.net to detect sources in the image and write them to a
-table for PSF photometry.</p>
-<p>Output: the source list</p>
-</dd></dl>
-
 <dl class="py function">
 <dt class="sig sig-object py" id="psfphotom.PSF_photometry">
-<span class="sig-prename descclassname"><span class="pre">psfphotom.</span></span><span class="sig-name descname"><span class="pre">PSF_photometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nstars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">40</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixelmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elongation_lim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">area_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cutout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">35</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">astrom_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psf_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clean</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_lim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_blur_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cat_num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_ePSF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ePSF_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_ePSF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ePSF_plotname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_residuals</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resid_plotname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_corr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corr_plotname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_source_offsets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_offs_plotname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_field_offsets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field_offs_plotname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#psfphotom.PSF_photometry" title="Permalink to this definition"></a></dt>
-<dd><dl>
-<dt>Input:</dt><dd><p>general:
-- filename for a <strong>BACKGROUND-SUBTRACTED</strong> image
-- filename for a bad pixel mask image (optional; default None)
-- maximum number of stars to use in ePSF building (optional; default</p>
-<blockquote>
-<div><p>40; set to None to impose no limit)</p>
-</div></blockquote>
-<p>source detection in ePSF building:
-- sigma threshold for source detection with image segmentation</p>
-<blockquote>
-<div><p>(optional; default 5.0)</p>
-</div></blockquote>
-<ul class="simple">
-<li><p><em>minimum</em> number of isophotal pixels (optional; default 20)</p></li>
-<li><p><em>maximum</em> allowed elongation for sources found by image segmentation
-(optional; default 1.4)</p></li>
-<li><p><em>maximum</em> allowed area for sources found by image segmentation
-(optional; default 500 pix**2)</p></li>
-<li><p>cutout size around each star in pix (optional; default 35 pix; must
-be ODD, rounded down if even)</p></li>
-</ul>
-<p>astrometry.net:
-- sigma threshold for astrometry.net source detection image (optional;</p>
-<blockquote>
-<div><p>default 5.0)</p>
-</div></blockquote>
-<ul class="simple">
-<li><p>sigma of the Gaussian PSF of the image (optional; default 5.0)</p></li>
-<li><p>maximum allowed source area in pix**2 for astrometry.net for
-deblending (optional; default 10000; only relevant if no source list
-file is provided)</p></li>
-<li><p>whether to remove files output by image2xy once finished with them
-(optional; default True)</p></li>
-</ul>
-<p>misc:
-- limit on number of sources to fit with ePSF (optional; default None</p>
-<blockquote>
-<div><p>which imposes no limit)</p>
-</div></blockquote>
-<ul class="simple">
-<li><p>sigma to use for Gaussian blur, if relevant (optional; default 30.0)</p></li>
-<li><p>Vizier catalog number to choose which catalog to cross-match
-(optional; defaults are PanStarrs 1, SDSS DR12, and 2MASS for
-relevant filters)</p></li>
-<li><p>maximum allowed separation between sources when cross-matching to
-external catalogue (optional; default 2.0 pix ~ 0.6” for WIRCam,
-0.37” for MegaPrime)</p></li>
-<li><p>be verbose (optional; default False)</p></li>
-</ul>
-<p>writing, plotting:
-- whether to write the derived ePSF to a fits file (optional; default</p>
-<blockquote>
-<div><p>False)</p>
-</div></blockquote>
-<ul class="simple">
-<li><p>name for output ePSF fits file (optional; default set below)</p></li>
-<li><p>whether to plot the derived ePSF (optional; default True)</p></li>
-<li><p>name for output ePSF plot (optional; default set below)</p></li>
-<li><p>whether to plot the residuals of the iterative PSF fitting (optional;
-default False)</p></li>
-<li><p>name for output residuals plot (optional; default set below)</p></li>
-<li><p>whether to plot instrumental magnitude versus catalogue magnitude
-correlation when obtaining the zero point (optional; default True)</p></li>
-<li><p>name for output correlation (optional; default set below)</p></li>
-<li><p>whether to plot the offsets between the image WCS and catalogue WCS
-(optional; default True)</p></li>
-<li><p>name for output source offsets plot (optional; default set below)</p></li>
-<li><p>whether to plot the offsets across the field with a Gaussian blur to
-visualize large-scale structure in the offsets if any is present
-(optional; default False)</p></li>
-<li><p>name for the output field offsets plot (optional; default set below)</p></li>
-<li><p>whether to write the table of calibrated sources (optional; default
+<span class="sig-prename descclassname"><span class="pre">psfphotom.</span></span><span class="sig-name descname"><span class="pre">PSF_photometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nstars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">40</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixelmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elongation_lim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">area_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cutout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">35</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">astrom_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psf_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_xy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsources</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cat_num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_ePSF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ePSF_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_ePSF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ePSF_plot_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_resids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resids_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_corr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corr_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_source_offs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_offs_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_field_offs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field_offs_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_blur_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#psfphotom.PSF_photometry" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image_file</strong> (<em>str</em>) – Filename for <strong>background-subtracted</strong> image</p></li>
+<li><p><strong>mask_file</strong> (<em>str, optional</em>) – Filename for a bad pixel mask (default None)</p></li>
+<li><p><strong>nstars</strong> (<em>int, optional</em>) – Maximum number of stars to use in <strong>constructing</strong> the ePSF (default
+40; set to None to impose no limit)</p></li>
+<li><p><strong>thresh_sigma</strong> (<em>float, optional</em>) – Detection sigma to use in image segmentation (default 5.0)</p></li>
+<li><p><strong>pixelmin</strong> (<em>int, optional</em>) – <em>Minimum</em> allowed number of pixels in isophotes to be used in
+building the ePSF (default 20)</p></li>
+<li><p><strong>elongation_lim</strong> (<em>float, optional</em>) – <em>Maximum</em> allowed elongation of isophotes to used be in building the
+ePSF (default 1.4)</p></li>
+<li><p><strong>area_max</strong> (<em>float, optional</em>) – <em>Maximum</em> alllowed area for sources to be used in building the ePSF,
+in square pixels (default 500)</p></li>
+<li><p><strong>cutout</strong> (<em>int, optional</em>) – Size of cutout around each star, in pixels (default 35; <strong>must be
+odd, will be rounded down if even</strong>)</p></li>
+<li><p><strong>astrom_sigma</strong> (<em>float, optional</em>) – Sigma threshold for astrometry.net source detection image (default 5.0)</p></li>
+<li><p><strong>psf_sigma</strong> (<em>float, optional</em>) – Sigma of the Gaussian PSF of the image to be used by
+astrometry.net (default 5.0)</p></li>
+<li><p><strong>alim</strong> (<em>int, optional</em>) – Maximum allowed source area, in pixels**2, beyond which sources will
+be deblended in astrometry.net (default 10000)</p></li>
+<li><p><strong>write_xy</strong> (<em>bool, optional</em>) – Keep the <cite>.xy.fits</cite> source list produced by astrometry.net? (default
 False)</p></li>
-<li><p>name for output fits table of sources (optional; default set in
-__zero_point())</p></li>
+<li><p><strong>nsources</strong> (<em>int, optional</em>) – Limit on number of sources to fit with ePSF for obtaining the zero
+point (default None –&gt; impose no limit)</p></li>
+<li><p><strong>cat_num</strong> (<em>str, optional</em>) – Vizier catalog number to determine which catalog to cross-match (
+default None –&gt; set to PanStarrs 1, SDSS DR12, or 2MASS depending on
+filter used during observations)</p></li>
+<li><p><strong>sep_max</strong> (<em>float, optional</em>) – <em>Maximum</em> allowed separation between sources when cross-matching to
+catalog, in pixels (default 2.0 ~ 0.6 arcseconds for WIRCam, 0.37
+arcseconds for MegaCam)</p></li>
+<li><p><strong>write_ePSF</strong> (<em>bool, optional</em>) – Write the derived ePSF to a .fits file? (default False)</p></li>
+<li><p><strong>output_ePSF</strong> (<em>str, optional</em>) – Filename for output ePSF fits file (default None –&gt; set by function)</p></li>
+<li><p><strong>plot_ePSF</strong> (<em>bool, optional</em>) – Plot the ePSF? (default True)</p></li>
+<li><p><strong>ePSF_plot_output</strong> (<em>str, optional</em>) – Filename for output ePSF plot (default None –&gt; set by function)</p></li>
+<li><p><strong>plot_resids</strong> (<em>bool, optional</em>) – Plot the residuals of the iterative ePSF fitting? (default False)</p></li>
+<li><p><strong>resids_output</strong> (<em>str, optional</em>) – Filename for output residuals plot (default None –&gt; set by function)</p></li>
+<li><p><strong>plot_corr</strong> (<em>bool, optional</em>) – Plot the instrumental magnitude versus castalogue magnitude
+correlation used to obtain the zero point (default False)</p></li>
+<li><p><strong>corr_output</strong> (<em>str, optional</em>) – Filename for output correlation plot (default None –&gt; set by function)</p></li>
+<li><p><strong>plot_source_offs</strong> (<em>bool, optional</em>) – Plot offsets between image WCS and catalog WCS (default False)</p></li>
+<li><p><strong>source_offs_output</strong> (<em>str, optional</em>) – Filename for output source offsets plot (default None –&gt; set by
+function)</p></li>
+<li><p><strong>plot_field_offs</strong> (<em>bool, optional</em>) – Plot offsets across the field, with a Gaussian blur to visualize
+large-scale structure in the offsets, if any</p></li>
+<li><p><strong>field_offs_output</strong> (<em>str, optional</em>) – Filename for output field offsets plot (default None –&gt; set by
+function)</p></li>
+<li><p><strong>gaussian_blur_sigma</strong> (<em>float, optional</em>) – Sigma of the Gaussian blur to use in the field offsets plot, if
+plotting (default 30.0)</p></li>
+<li><p><strong>write</strong> (<em>bool, optional</em>) – Write the table of calibrated sources with PSF photometry to a file?
+(default False)</p></li>
+<li><p><strong>output</strong> (<em>str, optional</em>) – Name for output fits table of sources (default None –&gt; set by
+function)</p></li>
 </ul>
 </dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Table of all PSF-fit sources, with their calibrated magnitudes</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>TYPE</p>
+</dd>
 </dl>
-<p>Using image segmentation, finds as many sources as possible in the image
-with an elongation below some elongation limit. Uses these sources to build
-an empirical effective PSF (ePSF). Using a list of sources found by
-astrometry.net, fits the ePSF to all of those sources. Computes the
-instrumental magnitude of all of these sources. Queries the correct online
-catalogue for the given filter to crossmatch sources in the image with
-those in the catalogue (e.g. Pan-STARRS 1). Finds the zero point which
-satisfies AB_mag = ZP + instrumental_mag and gets the calibrated AB mags
-for all PSF-fit sources.</p>
-<p>Output: a fits table of PSF-fit sources with calibrated magnitudes</p>
+<p class="rubric">Notes</p>
+<p>Using image segmentation, find as many sources as possible in the image
+with some constraints on number of pixels, elongation, and area. Use these
+sources to build an empirical effective PSF (ePSF). Use a list of sources
+found by astrometry.net to fit the ePSF to all of those sources. Compute
+the instrumental magnitude of all of these sources. Query the correct
+online catalogue for the given filter to crossmatch sources in the image
+with those in the catalogue (e.g., Pan-STARRS 1). Find the zero point
+which satisfies AB_mag = ZP + instrumental_mag and gets the calibrated
+AB mags for all PSF-fit sources.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psfphotom.ePSF_FWHM">
-<span class="sig-prename descclassname"><span class="pre">psfphotom.</span></span><span class="sig-name descname"><span class="pre">ePSF_FWHM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">epsf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#psfphotom.ePSF_FWHM" title="Permalink to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>Input:</dt><dd><ul class="simple">
-<li><p>fits file containing ePSF data OR the data array itself</p></li>
-<li><p>be verbose (optional; default False)</p></li>
-</ul>
+<span class="sig-prename descclassname"><span class="pre">psfphotom.</span></span><span class="sig-name descname"><span class="pre">ePSF_FWHM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">epsf_data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#psfphotom.ePSF_FWHM" title="Permalink to this definition"></a></dt>
+<dd><p>Obtain the full width at half-max (FWHM) of an ePSF.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>epsf_data</strong> (<em>str, np.ndarray</em>) – Fits file containing ePSF data <strong>or</strong> the data array itself</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>FWHM of the ePSF</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
 </dd>
 </dl>
-<p>Output: the FWHM of the input ePSF</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psfphotom.copy_zero_point">
 <span class="sig-prename descclassname"><span class="pre">psfphotom.</span></span><span class="sig-name descname"><span class="pre">copy_zero_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#psfphotom.copy_zero_point" title="Permalink to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>Input:</dt><dd><ul class="simple">
-<li><p>.fits file containing the ZP_MEAN, ZP_MED, ZP_STD headers</p></li>
-<li><p>.fits file to copy these headers to</p></li>
+<dd><p>Copy the zero point headers from <cite>source_file</cite> to <cite>target_file</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>zp_mean</strong> (<em>float</em>) – Zero points mean</p></li>
+<li><p><strong>zp_med</strong> (<em>float</em>) – Zero points median</p></li>
+<li><p><strong>zp_std</strong> (<em>float</em>) – Zero points standard deviation</p></li>
 </ul>
+</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
 <p>Copy the zero point obtained via PSF photometry from one fits header to
 another. Useful when one uses a background-subtracted image to do <em>PSF
 photometry</em>, obtains the zero point, and then wants to perform <em>aperture
 photometry</em> on the original, unsubtracted image.</p>
-<p>Output: ZP mean, median and standard deviation</p>
 </dd></dl>
 
 </section>

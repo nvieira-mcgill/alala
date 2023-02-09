@@ -88,14 +88,13 @@ Poissonian error in the image</p></li>
 <li><p><a class="reference internal" href="#apphotom.limiting_magnitude" title="apphotom.limiting_magnitude"><code class="xref py py-func docutils literal notranslate"><span class="pre">limiting_magnitude()</span></code></a>: Get the limiting magnitude of an image</p></li>
 </ul>
 </dd>
-<dt>PYTHON DEPENDENCIES:</dt><dd><ul class="simple">
+<dt>NON-STANDARD PYTHON DEPENDENCIES:</dt><dd><ul class="simple">
 <li><p><cite>astropy</cite></p></li>
 <li><p><cite>photutils</cite></p></li>
 </ul>
 </dd>
 <dt>NON-PYTHON DEPENDENCIES:</dt><dd><ul class="simple">
-<li><p><cite>astrometry.net</cite> (making a list of sources, only needed for computing
-limiting magnitudes)</p></li>
+<li><p><cite>astrometry.net</cite></p></li>
 </ul>
 </dd>
 </dl>
@@ -257,9 +256,10 @@ in which case a source mask is made)</p></li>
 in which case an error array is made)</p></li>
 <li><p><strong>sigma</strong> (<em>float, optional</em>) – Sigma to use when computing limiting magnitude (default 5.0)</p></li>
 <li><p><strong>astrom_sigma</strong> (<em>float, optional</em>) – Sigma threshold for astrometry.net source detection image (default 5.0)</p></li>
-<li><p><strong>psf_sigma</strong> (<em>float, optional</em>) – Sigma of the Gaussian PSF of the image (default 5.0)</p></li>
+<li><p><strong>psf_sigma</strong> (<em>float, optional</em>) – Sigma of the Gaussian PSF of the image to be used in
+astrometry.net(default 5.0)</p></li>
 <li><p><strong>alim</strong> (<em>int, optional</em>) – Maximum allowed source area, in pixels**2, beyond which sources will
-be deblended (default 10000)</p></li>
+be deblended in astrometry.net (default 10000)</p></li>
 <li><p><strong>ap_radius</strong> (<em>float, optional</em>) – Aperture radius, in arcseconds (default 1.2”)</p></li>
 <li><p><strong>r1, r2</strong> (<em>float, optional</em>) – Inner and outer radius of the annulus, in arcseconds (default 2.0”,
 10.0”)</p></li>

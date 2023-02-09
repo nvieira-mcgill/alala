@@ -14,19 +14,19 @@ CONTENTS:
     - :func:`aperture_photom`: Perform aperture photometry on an image 
     - :func:`limiting_magnitude`: Get the limiting magnitude of an image 
     
-PYTHON DEPENDENCIES:
+NON-STANDARD PYTHON DEPENDENCIES:
     - `astropy`
     - `photutils`
 
 NON-PYTHON DEPENDENCIES:
-    - `astrometry.net` (making a list of sources, only needed for computing 
-      limiting magnitudes)
+    - `astrometry.net`
 
 """
 
+import re
+from subprocess import run
 import numpy as np
 import matplotlib.pyplot as plt
-from subprocess import run
 
 from astropy.io import fits
 from astropy import wcs
@@ -45,6 +45,9 @@ from photutils.utils import calc_total_error
 import warnings
 from astropy.wcs import FITSFixedWarning
 warnings.simplefilter('ignore', category=FITSFixedWarning)
+
+
+
 
 def image2xy(image_file, astrom_sigma=5.0, psf_sigma=5.0, alim=10000,
              write=False, output=None):
@@ -96,12 +99,17 @@ def image2xy(image_file, astrom_sigma=5.0, psf_sigma=5.0, alim=10000,
     # remove files if desired
     if not(write):
         run(f"rm {output}", shell=True) 
+
+    # helpful print
+    print(f'\nFound {len(source_list)} stars at >{astrom_sigma}'+
+          f' sigma image {re.sub(".*/", "", image_file)}'+
+          ' with astrometry.net')
     
     return source_list
 
 
-def imsegm_make_source_mask(image_file, mask_file=None, sigma=3.0, write=False,
-                            output=None):
+def imsegm_make_source_mask(image_file, mask_file=None, sigma=3.0, 
+                            write=False, output=None):
     """Make a mask which contains sources in the image using image 
     segmentation. 
     
@@ -261,6 +269,10 @@ def error_array(image_file, source_mask=None, sigma=3.0, write=True,
             
     return err
 
+
+
+###############################################################################
+### PHOTOMETRY ################################################################
 
 def aperture_photom(image_file, 
                     ra, dec, 
@@ -486,6 +498,7 @@ def aperture_photom(image_file,
     return aperture_sources
 
 
+
 def limiting_magnitude(image_file, 
                        ra, dec, 
                        
@@ -530,10 +543,11 @@ def limiting_magnitude(image_file,
     astrom_sigma : float, optional
         Sigma threshold for astrometry.net source detection image (default 5.0)    
     psf_sigma : float, optional
-        Sigma of the Gaussian PSF of the image (default 5.0)
+        Sigma of the Gaussian PSF of the image to be used in 
+        astrometry.net(default 5.0)
     alim : int, optional
         Maximum allowed source area, in pixels**2, beyond which sources will 
-        be deblended (default 10000)
+        be deblended in astrometry.net (default 10000)
     ap_radius : float, optional
         Aperture radius, in arcseconds (default 1.2")
     r1, r2 : float, optional
@@ -694,6 +708,7 @@ def limiting_magnitude(image_file,
         lim_table.write(output, format="ascii", overwrite=True)
     
     return lim_table
+
 
 
 def ellipse_photom(image_file, 

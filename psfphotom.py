@@ -6,32 +6,29 @@
 .. @psfphotom.py
 
 CONTENTS:
-    - make_source_list: 
-        make a list of sources with astrometry.net
-    - PSF_photometry: 
-        get the ePSF of an image, fit all (or as many as desired) stars in the 
-        image with the ePSF, get instrumental magnitudes, and then crossmatch 
-        with external catalogue to get CALIBRATED magnitudes
-    - ePSF_FWHM: 
-        get the FWHM of an input ePSF 
-    - copy the zero point headers from one image to another 
+    - :func:`PSF_photometry`: Get the effective Point Spread Function (ePSF) of 
+      an image, fit all (or as many as desired) stars in the image with the 
+      ePSF, get instrumental magnitudes, and then crossmatch with external 
+      catalogue to get **calibrated** magnitudes
+    - :func:`ePSF_FWHM`: Get the full width at half-max (FWHM) of an ePSF 
+    - :func:`copy_zero_point`: Copy zero point headers from one image to 
+      another 
     
-DEPENDENCIES:
-    python:
-    - astropy (everywhere)
-    - photutils (everywhere)
-    - astroquery (obtaining zero point using catalog cross-matching)
-    external:
-    - astrometry.net (finding sources to fit with ePSF, but only if image 
-      segmentation (which is the default) is not being used)
+NON-STANDARD PYTHON DEPENDENCIES:
+    - `astropy`
+    - `photutils`
+    - `astroquery`
+
+NON-PYTHON DEPENDENCIES:
+    - `astrometry.net`
     
 """
 
 import re
+from subprocess import run
 import numpy as np
 import numpy.ma as ma
 import matplotlib.pyplot as plt
-from subprocess import run
 from timeit import default_timer as timer
 
 from astropy.io import fits
@@ -42,6 +39,7 @@ from astropy.table import Table, Column
 from astropy.nddata import NDData
 from astropy.stats import gaussian_sigma_to_fwhm, sigma_clipped_stats
 from astropy.modeling.fitting import LevMarLSQFitter
+
 from astroquery.vizier import Vizier
 
 from photutils.psf import (extract_stars, BasicPSFPhotometry, DAOGroup)
@@ -55,221 +53,191 @@ import warnings
 from astropy.wcs import FITSFixedWarning
 warnings.simplefilter('ignore', category=FITSFixedWarning)
 
-def make_source_list(image_file, astrom_sigma=5.0, psf_sigma=5.0, alim=10000,
-                     clean=True):
-    """
-    Input: 
-        - filename for **background-subtracted** image 
-        - sigma threshold for astrometry.net source detection image (optional; 
-          default 5.0)
-        - sigma of the Gaussian PSF of the image (optional; default 5.0)
-        - maximum allowed source area in pix**2 for astrometry.net for 
-          deblending (optional; default 10000; only relevant if no source list 
-          file is provided)
-        - whether to remove files output by image2xy once finished with them 
-          (optional; default True)
-        
-    Uses astrometry.net to detect sources in the image and write them to a 
-    table for PSF photometry.
-    
-    Output: the source list 
-    """
-        
-    # -b --> no background-subtraction
-    # -O --> overwrite
-    # -p <astrom_sigma> --> signficance
-    # -w <psf_sigma> --> estimated PSF sigma 
-    # -m <alim> --> max object size for deblending is <alim>      
-    options = f"-O -b -p {astrom_sigma} -w {psf_sigma}"
-    options += f" -m {alim}"
-    run(f"image2xy {options} {image_file}", shell=True) 
-    image_sources_file = image_file.replace(".fits", ".xy.fits")  
-    image_sources = fits.getdata(image_sources_file)
-    if clean:
-        run(f"rm {image_sources_file}", shell=True) # this file is not needed
-    print(f'\n{len(image_sources)} stars at >{astrom_sigma}'+
-          f' sigma found in image {re.sub(".*/", "", image_file)}'+
-          ' with astrometry.net')  
-        
-    return image_sources
 
 
 ###############################################################################
 
-def PSF_photometry(image_file, mask_file=None, nstars=40,                
-                   thresh_sigma=5.0, pixelmin=20, elongation_lim=1.4, 
-                   area_max=500, cutout=35, 
-                   astrom_sigma=5.0, psf_sigma=5.0, alim=10000, clean=True, 
-                   source_lim=None, gaussian_blur_sigma=30.0, cat_num=None, 
-                   sep_max=2.0, verbose=False,                   
+def PSF_photometry(image_file, mask_file=None, 
+                   
+                   nstars=40,
+                   
+                   thresh_sigma=5.0, 
+                   pixelmin=20, 
+                   elongation_lim=1.4,
+                   area_max=500, 
+                   
+                   cutout=35, 
+                   
+                   astrom_sigma=5.0, 
+                   psf_sigma=5.0, 
+                   alim=10000,                    
+                   write_xy=False,
+                   
+                   nsources=None, 
+                   cat_num=None, 
+                   sep_max=2.0, 
+                   
                    write_ePSF=False, ePSF_output=None, 
-                   plot_ePSF=True, ePSF_plotname=None, 
-                   plot_residuals=False, resid_plotname=None,
-                   plot_corr=True, corr_plotname=None,
-                   plot_source_offsets=True, source_offs_plotname=None, 
-                   plot_field_offsets=False, field_offs_plotname=None,
+                   plot_ePSF=True, ePSF_plot_output=None, 
+                   plot_resids=False, resids_output=None,
+                   plot_corr=False, corr_output=None,
+                   plot_source_offs=False, source_offs_output=None, 
+                   plot_field_offs=False, field_offs_output=None,
+                   gaussian_blur_sigma=30.0, 
+                   
                    write=False, output=None):
-    """    
-    Input: 
-        general:
-        - filename for a **BACKGROUND-SUBTRACTED** image
-        - filename for a bad pixel mask image (optional; default None)
-        - maximum number of stars to use in ePSF building (optional; default 
-          40; set to None to impose no limit)
-        
-        source detection in ePSF building:
-        - sigma threshold for source detection with image segmentation 
-          (optional; default 5.0)
-        - *minimum* number of isophotal pixels (optional; default 20)
-        - *maximum* allowed elongation for sources found by image segmentation 
-          (optional; default 1.4)
-        - *maximum* allowed area for sources found by image segmentation 
-          (optional; default 500 pix**2)
-        - cutout size around each star in pix (optional; default 35 pix; must 
-          be ODD, rounded down if even)
-          
-        astrometry.net:
-        - sigma threshold for astrometry.net source detection image (optional; 
-          default 5.0)
-        - sigma of the Gaussian PSF of the image (optional; default 5.0)
-        - maximum allowed source area in pix**2 for astrometry.net for 
-          deblending (optional; default 10000; only relevant if no source list 
-          file is provided)
-        - whether to remove files output by image2xy once finished with them 
-          (optional; default True)
-                  
-        misc:
-        - limit on number of sources to fit with ePSF (optional; default None 
-          which imposes no limit)
-        - sigma to use for Gaussian blur, if relevant (optional; default 30.0)
-        - Vizier catalog number to choose which catalog to cross-match 
-          (optional; defaults are PanStarrs 1, SDSS DR12, and 2MASS for 
-          relevant filters)
-        - maximum allowed separation between sources when cross-matching to 
-          external catalogue (optional; default 2.0 pix ~ 0.6" for WIRCam, 
-          0.37" for MegaPrime)
-        - be verbose (optional; default False)
-          
-        writing, plotting:
-        - whether to write the derived ePSF to a fits file (optional; default 
-          False)
-        - name for output ePSF fits file (optional; default set below)
-        - whether to plot the derived ePSF (optional; default True)
-        - name for output ePSF plot (optional; default set below)
-        - whether to plot the residuals of the iterative PSF fitting (optional;
-          default False)
-        - name for output residuals plot (optional; default set below)
-        - whether to plot instrumental magnitude versus catalogue magnitude 
-          correlation when obtaining the zero point (optional; default True)
-        - name for output correlation (optional; default set below)
-        - whether to plot the offsets between the image WCS and catalogue WCS 
-          (optional; default True)
-        - name for output source offsets plot (optional; default set below)
-        - whether to plot the offsets across the field with a Gaussian blur to 
-          visualize large-scale structure in the offsets if any is present 
-          (optional; default False)
-        - name for the output field offsets plot (optional; default set below)
-        - whether to write the table of calibrated sources (optional; default 
-          False)
-        - name for output fits table of sources (optional; default set in 
-          __zero_point())
-    
-    Using image segmentation, finds as many sources as possible in the image 
-    with an elongation below some elongation limit. Uses these sources to build
-    an empirical effective PSF (ePSF). Using a list of sources found by 
-    astrometry.net, fits the ePSF to all of those sources. Computes the 
-    instrumental magnitude of all of these sources. Queries the correct online
-    catalogue for the given filter to crossmatch sources in the image with 
-    those in the catalogue (e.g. Pan-STARRS 1). Finds the zero point which 
-    satisfies AB_mag = ZP + instrumental_mag and gets the calibrated AB mags 
-    for all PSF-fit sources. 
-    
-    Output: a fits table of PSF-fit sources with calibrated magnitudes 
     """
     
-    psf_sources = __fit_PSF(image_file, mask_file, nstars, thresh_sigma, 
-                            pixelmin, elongation_lim, area_max, cutout, 
-                            astrom_sigma, psf_sigma, alim, clean, 
-                            source_lim, write_ePSF, ePSF_output, plot_ePSF, 
-                            ePSF_plotname, plot_residuals, resid_plotname,
-                            verbose)
+    Arguments
+    ---------
+    image_file : str
+        Filename for **background-subtracted** image
+    mask_file : str, optional
+        Filename for a bad pixel mask (default None)
+    nstars : int, optional
+        Maximum number of stars to use in **constructing** the ePSF (default 
+        40; set to None to impose no limit)
+    thresh_sigma : float, optional
+        Detection sigma to use in image segmentation (default 5.0)
+    pixelmin : int, optional
+        *Minimum* allowed number of pixels in isophotes to be used in 
+        building the ePSF (default 20)
+    elongation_lim : float, optional
+        *Maximum* allowed elongation of isophotes to used be in building the 
+        ePSF (default 1.4)
+    area_max : float, optional
+        *Maximum* alllowed area for sources to be used in building the ePSF, 
+        in square pixels (default 500)
+    cutout : int, optional
+        Size of cutout around each star, in pixels (default 35; **must be 
+        odd, will be rounded down if even**)
+    astrom_sigma : float, optional
+        Sigma threshold for astrometry.net source detection image (default 5.0)    
+    psf_sigma : float, optional
+        Sigma of the Gaussian PSF of the image to be used by 
+        astrometry.net (default 5.0)
+    alim : int, optional
+        Maximum allowed source area, in pixels**2, beyond which sources will 
+        be deblended in astrometry.net (default 10000)
+    write_xy : bool, optional
+        Keep the `.xy.fits` source list produced by astrometry.net? (default 
+        False)
+    nsources : int, optional
+        Limit on number of sources to fit with ePSF for obtaining the zero 
+        point (default None --> impose no limit)
+    cat_num : str, optional
+        Vizier catalog number to determine which catalog to cross-match (
+        default None --> set to PanStarrs 1, SDSS DR12, or 2MASS depending on 
+        filter used during observations)
+    sep_max : float, optional
+        *Maximum* allowed separation between sources when cross-matching to 
+        catalog, in pixels (default 2.0 ~ 0.6 arcseconds for WIRCam, 0.37 
+        arcseconds for MegaCam)
+    write_ePSF: bool, optional
+        Write the derived ePSF to a .fits file? (default False)
+    output_ePSF : str, optional
+        Filename for output ePSF fits file (default None --> set by function)
+    plot_ePSF : bool, optional
+        Plot the ePSF? (default True)
+    ePSF_plot_output : str, optional
+        Filename for output ePSF plot (default None --> set by function)
+    plot_resids : bool, optional
+        Plot the residuals of the iterative ePSF fitting? (default False)
+    resids_output : str, optional
+        Filename for output residuals plot (default None --> set by function)
+    plot_corr : bool, optional
+        Plot the instrumental magnitude versus castalogue magnitude 
+        correlation used to obtain the zero point (default False)
+    corr_output : str, optional
+        Filename for output correlation plot (default None --> set by function)
+    plot_source_offs : bool, optional
+        Plot offsets between image WCS and catalog WCS (default False)
+    source_offs_output : str, optional
+        Filename for output source offsets plot (default None --> set by 
+        function)
+    plot_field_offs : bool, optional
+        Plot offsets across the field, with a Gaussian blur to visualize 
+        large-scale structure in the offsets, if any
+    field_offs_output : str, optional
+        Filename for output field offsets plot (default None --> set by 
+        function)
+    gaussian_blur_sigma : float, optional
+        Sigma of the Gaussian blur to use in the field offsets plot, if 
+        plotting (default 30.0)
+    write : bool, optional
+        Write the table of calibrated sources with PSF photometry to a file? 
+        (default False)
+    output : str, optional
+        Name for output fits table of sources (default None --> set by 
+        function)
     
-    if not(psf_sources == None): # if the PSF Was properly fit 
-        psf_sources = __zero_point(image_file, psf_sources, sep_max,
-                                   plot_corr, corr_plotname, 
-                                   plot_source_offsets, source_offs_plotname, 
-                                   plot_field_offsets, field_offs_plotname, 
-                                   gaussian_blur_sigma, cat_num, write, output)
-    else:
-        return 
-        
+    Returns
+    -------
+    TYPE
+        Table of all PSF-fit sources, with their calibrated magnitudes
+    
+    Notes
+    -----
+    Using image segmentation, find as many sources as possible in the image 
+    with some constraints on number of pixels, elongation, and area. Use these 
+    sources to build an empirical effective PSF (ePSF). Use a list of sources 
+    found by astrometry.net to fit the ePSF to all of those sources. Compute 
+    the instrumental magnitude of all of these sources. Query the correct 
+    online catalogue for the given filter to crossmatch sources in the image 
+    with those in the catalogue (e.g., Pan-STARRS 1). Find the zero point 
+    which satisfies AB_mag = ZP + instrumental_mag and gets the calibrated 
+    AB mags for all PSF-fit sources. 
+
+    """
+    
+    psf_sources = __fit_PSF(image_file, mask_file, 
+                            nstars, 
+                            thresh_sigma, 
+                            pixelmin, elongation_lim, area_max, cutout,
+                            
+                            astrom_sigma, psf_sigma, alim, write_xy, 
+                            
+                            nsources, 
+                            
+                            write_ePSF, ePSF_output, 
+                            
+                            plot_ePSF, ePSF_plot_output, 
+                            plot_resids, resids_output)
+    
+    psf_sources = __zero_point(image_file, psf_sources, sep_max,
+                               
+                               plot_corr, corr_output, 
+                               plot_source_offs, source_offs_output, 
+                               plot_field_offs, field_offs_output, 
+                               gaussian_blur_sigma, 
+                               cat_num, 
+                               write, output)
+
     return psf_sources
 
 
 def __fit_PSF(image_file, mask_file=None, nstars=40,                
               thresh_sigma=5.0, pixelmin=20, elongation_lim=1.4, area_max=500,             
               cutout=35, 
-              astrom_sigma=5.0, psf_sigma=5.0, alim=10000, clean=True, 
-              source_lim=None, 
+              astrom_sigma=5.0, psf_sigma=5.0, alim=10000, write_xy=False, 
+              nsources=None, 
               write_ePSF=False, ePSF_output=None, 
-              plot_ePSF=True, ePSF_plotname=None, 
-              plot_residuals=False, resid_plotname=None,
-              verbose=False):
-    """    
-    Input: 
-        general:
-        - filename for a **BACKGROUND-SUBTRACTED** image
-        - filename for a mask image (optional; default None)
-        - maximum number of stars to use (optional; default 40; set to None
-          to impose no limit)
-          
-        source detection:
-        - sigma threshold for source detection with image segmentation 
-          (optional; default 5.0)
-        - *minimum* number of isophotal pixels (optional; default 20)
-        - *maximum* allowed elongation for sources found by image segmentation 
-          (optional; default 1.4)
-        - *maximum* allowed area for sources found by image segmentation 
-          (optional; default 500 pix**2)
-        - cutout size around each star in pix (optional; default 35 pix; must 
-          be ODD, rounded down if even)
-        
-        astrometry.net:
-        - sigma threshold for astrometry.net source detection image (optional; 
-          default 5.0)
-        - sigma of the Gaussian PSF of the image (optional; default 5.0)
-        - maximum allowed source area in pix**2 for astrometry.net for 
-          deblending (optional; default 10000; only relevant if no source list 
-          file is provided)
-        - whether to remove files output by image2xy once finished with them 
-          (optional; default True)
-
-        misc:
-        - limit on number of sources to fit with ePSF (optional; default None 
-          which imposes no limit)        
-                
-        writing, plotting, verbosity:
-        - whether to write the derived ePSF to a fits file (optional; default 
-          False)
-        - name for output ePSF fits file (optional; default set below)
-        - whether to plot the derived ePSF (optional; default True)
-        - name for output ePSF plot (optional; default set below)
-        - whether to plot the residuals of the iterative PSF fitting (optional;
-          default False)
-        - name for output residuals plot (optional; default set below)
-        - be verbose (optional; default False)
+              plot_ePSF=True, ePSF_plot_output=None, 
+              plot_resids=False, resids_output=None):
+    """Fit several sources in an image to obtain the Point Spread Function 
+    (PSF).
     
-    Uses image segmentation to obtain a list of sources in the image with their 
-    x, y coordinates. Uses EPSFBuilder to empirically obtain the ePSF of these 
-    stars. Optionally writes and/or plots the obtaind ePSF. Finally, uses 
-    astrometry.net to find all sources in the image, and fits them with the 
+    Notes
+    -----
+    Use image segmentation to obtain a list of sources in the image with their 
+    x, y coordinates. Use `EPSFBuilder` to empirically obtain the ePSF of 
+    these stars. Optionally write and/or plot the obtaind ePSF. Finally, use
+    astrometry.net to find all sources in the image, and fit them with the 
     empirically obtained ePSF.
     
-    The ePSF obtained here should NOT be used in convolutions. Instead, it can 
-    serve as a tool for estimating the seeing of an image. 
-    
-    Output: table containing the coordinates and instrumental magnitudes of the 
-    detected, ePSF-fit sources
+    **The ePSF obtained here should NOT be used in convolutions. Instead, it 
+    can serve as a tool for estimating the seeing of an image.**
+
     """
 
     # load in data 
@@ -313,11 +281,7 @@ def __fit_PSF(image_file, mask_file=None, nstars=40,
                         mask=mask) # photutils >=1.1
 
     ## get the catalog and coordinates for sources
-    try:
-        tbl = cat.to_table()
-    except ValueError:
-        print("SourceCatalog contains no sources. Exiting.")
-        return
+    tbl = cat.to_table()
     
     # restrict elongation and area to obtain only unsaturated stars 
     tbl = tbl[(tbl["elongation"] <= elongation_lim)]
@@ -367,12 +331,10 @@ def __fit_PSF(image_file, mask_file=None, nstars=40,
     nstars_epsf = len(stars.all_stars) # no. of stars used in ePSF building
     
     if nstars_epsf == 0:
-        print("\nNo valid sources were found to build the ePSF with the given"+
-              " conditions. Exiting.")
-        return
+        raise ValueError("Found no valid sources to build the ePSF with "+
+                         "the given conditions")
     
-    if verbose:
-        print(f"\n{nstars_epsf} stars used in building the ePSF")
+    print(f"\n{nstars_epsf} stars used in building the ePSF", flush=True)
         
     start = timer()
     epsf_builder = EPSFBuilder(oversampling=1, maxiters=7, # build it
@@ -384,9 +346,8 @@ def __fit_PSF(image_file, mask_file=None, nstars=40,
     time_elaps = end-start
     
     # print ePSF FWHM, if desired
-    print(f"Time required for ePSF building {time_elaps:.2f} s\n")
-    if verbose: 
-        ePSF_FWHM(epsf_data, True)
+    print(f"Finished building ePSF in {time_elaps:.2f} s\n")
+    _ = ePSF_FWHM(epsf_data)
 
     epsf_hdu = fits.PrimaryHDU(data=epsf_data)
     if write_ePSF: # write, if desired
@@ -410,12 +371,12 @@ def __fit_PSF(image_file, mask_file=None, nstars=40,
     run(f"image2xy {options} {image_file}", shell=True)
     image_sources_file = image_file.replace(".fits", ".xy.fits")
     image_sources = fits.getdata(image_sources_file)
-    if clean:
+    if not write_xy:
         run(f"rm {image_sources_file}", shell=True) # this file is not needed
 
     print(f'\n{len(image_sources)} stars at >{astrom_sigma}'+
           f' sigma found in image {re.sub(".*/", "", image_file)}'+
-          ' with astrometry.net')   
+          ' with astrometry.net', flush=True)   
 
     astrom_sources = Table() # build a table 
     astrom_sources['x_mean'] = image_sources['X'] # for BasicPSFPhotometry
@@ -440,10 +401,10 @@ def __fit_PSF(image_file, mask_file=None, nstars=40,
     fitter_tool = LevMarLSQFitter()
     
     # if we have a limit on the number of sources to fit
-    if source_lim:
+    if not(type(nsources) == type(None)):
         try: 
             import random # pick a given no. of random sources 
-            source_rows = random.choices(astrom_sources, k=source_lim)
+            source_rows = random.choices(astrom_sources, k=nsources)
             astrom_sources = Table(names=['x_mean', 'y_mean', 'flux'], 
                                    rows=source_rows)
             pos = Table(names=['x_0', 'y_0','flux_0'], 
@@ -454,7 +415,8 @@ def __fit_PSF(image_file, mask_file=None, nstars=40,
             
         except IndexError:
             print("The input source limit exceeds the number of sources"+
-                  " detected by astrometry, so no limit is imposed.\n")
+                  " detected by astrometry, so no limit is imposed.\n", 
+                  flush=True)
     
     photometry = BasicPSFPhotometry(group_maker=daogroup,
                             bkg_estimator=None, # bg subtract already done
@@ -471,7 +433,8 @@ def __fit_PSF(image_file, mask_file=None, nstars=40,
     
     end = timer() # timing 
     time_elaps = end - start
-    print(f"Time required fit ePSF to all sources {time_elaps:.2f} s\n")
+    print(f"Finished fitting ePSF to all sources in {time_elaps:.2f} s\n", 
+          flush=True)
     
     # include WCS coordinates
     pos["ra"], pos["dec"] = w.all_pix2world(pos["x_0"], pos["y_0"], 1)
@@ -509,12 +472,12 @@ def __fit_PSF(image_file, mask_file=None, nstars=40,
         plt.rc("xtick",labelsize=16) # not working?
         plt.rc("ytick",labelsize=16)
         
-        if not(ePSF_plotname):
-            ePSF_plotname = image_file.replace(".fits", "_ePSF.png")
-        plt.savefig(ePSF_plotname, bbox_inches="tight")
+        if not(type(ePSF_plot_output) == type(None)):
+            ePSF_plot_output = image_file.replace(".fits", "_ePSF.png")
+        plt.savefig(ePSF_plot_output, bbox_inches="tight")
         plt.close()
     
-    if plot_residuals: # if we wish to see a plot of the residuals
+    if plot_resids: # if we wish to see a plot of the residuals
         if "WIRCam" in instrument:
             plt.figure(figsize=(10,9))
         else:
@@ -530,55 +493,33 @@ def __fit_PSF(image_file, mask_file=None, nstars=40,
         ax.coords["ra"].set_ticklabel(size=15)
         ax.coords["dec"].set_ticklabel(size=15)
         
-        if not(resid_plotname):
-            resid_plotname = image_file.replace(".fits", "_ePSFresiduals.png")
-        plt.savefig(resid_plotname, bbox_inches="tight")
+        if not(type(resids_output) == type(None)):
+            resids_output = image_file.replace(".fits", "_ePSFresiduals.png")
+        plt.savefig(resids_output, bbox_inches="tight")
         plt.close()
     
     return psf_sources     
     
     
 def __zero_point(image_file, psf_sources, sep_max=2.0,
-                 plot_corr=True, corr_plotname=None,
-                 plot_source_offsets=True, source_offs_plotname=None,
-                 plot_field_offsets=False, field_offs_plotname=None, 
-                 gaussian_blur_sigma=30.0, cat_num=None, write=False, 
-                 output=None):
+                 
+                 plot_corr=False, corr_plotname=None,
+                 plot_source_offs=False, source_offs_plotname=None,
+                 plot_field_offs=False, field_offs_plotname=None, 
+                 gaussian_blur_sigma=30.0, 
+                 cat_num=None, 
+                 write=False, output=None):
     
-    """
-    Input: 
-        - filename for **background-subtracted** image
-        - an astropy table of sources, ideally fit for their PSF, with at least
-          the following columns: "x_0", "y_0", ra", "dec", "mag_fit", 
-          "mag_unc", where "mag_fit" is the instrumental magnitude in the 
-          photometric system of <image_file> and "mag_unc" is the associated 
-          uncertainty
-        - maximum allowed separation when cross-matching sources (optional;
-          default 2.0 pix ~ 0.6" for WIRCam and ~ 0.37" pix for MegaPrime)
-          
-        - whether or not to plot the correlation with linear fit (optional; 
-          default True)
-        - name for the output correlation plot (optional; default set below)
-        - whether to plot the offsets in RA and Dec of each catalog-matched 
-          source (optional; default True)
-        - name for the output offsets plot (optional; default set below)
-        - whether to show the overall offsets as an image with a Gaussian blur 
-          to visualize large-scale structure (optional; default False)
-        - name for the output field offsets plot (optional; default set below)
-        - sigma to apply to the Gaussian filter (optional; default 30.0)
-        - Vizier catalog number to choose which catalog to cross-match 
-          (optional; defaults are PanStarrs 1, SDSS DR12, and 2MASS for 
-          relevant filters)
-        - whether to write the table of calibrated sources (optional; default 
-          False)
-        - name for the output fits table (optional; default set below)
+    """Compute the zero point of an image, for photometric calibration.
     
-    Uses astroquery and Vizier to query an online catalog for sources which 
-    match those previously detected and fit for their ePSF. Computes the offset 
-    between the apparent and instrumental magnitudes of the queried sources for 
-    photometric calibration. Computes the mean, median and standard deviation.
+    Notes
+    -----
+    Use `astroquery` to query an online catalog through Vizier. Find sources 
+    which match those previously detected and fit for their ePSF. Compute the 
+    difference between the apparent and instrumental magnitudes of the queried 
+    sources for photometric calibration. Compute the mean, median and 
+    standard deviation of this difference.
     
-    Output: ePSF-fit sources 
     """   
 
     # load in data 
@@ -631,7 +572,7 @@ def __zero_point(image_file, psf_sources, sep_max=2.0,
     # actual querying (internet connection needed)
     print(f"\nQuerying Vizier {ref_cat} ({ref_cat_name}) "+
           f"around RA {ra_centre:.4f}, Dec {dec_centre:.4f} "+
-          f"with a radius of {radius:.4f} arcmin")
+          f"with a radius of {radius:.4f} arcmin", flush=True)
     
     v = Vizier(columns=["*"], column_filters={
             zp_filter+"mag":str(minmag)+".."+str(maxmag),
@@ -642,10 +583,9 @@ def __zero_point(image_file, psf_sources, sep_max=2.0,
                         catalog=ref_cat, cache=False)
 
     if len(Q) == 0: # if no matches
-        print("\nNo matches were found in the "+ref_cat_name+
-              " catalog. The requested region may be in an unobserved"+
-              " region of this catalog. Exiting.")
-        return 
+        raise ValueError(f"\nFound no matches in {ref_cat_name}; requested "+
+                         "region may be outside footprint of catalogue or "+
+                         "inputs are too strict")
         
     
     # pixel coords of found sources
@@ -682,15 +622,15 @@ def __zero_point(image_file, psf_sources, sep_max=2.0,
             source_coords, sep_max*pixscale*u.arcsec)
 
     if len(idx_image) <= 3:
-        print(f"\nFound {len(idx_image)} matches between image and "+
-              f"{ref_cat_name} and >3 matches are required. Exiting.")
+        raise ValueError(f"Found {len(idx_image)} matches between image but "+
+                         f"{ref_cat_name} and >3 matches are required")
         return
    
     nmatches = len(idx_image) # store number of matches 
     sep_mean = np.mean(d2d.value*3600.0) # store mean separation in "
     print(f'\nFound {nmatches:d} sources in {ref_cat_name} within '+
           f'{sep_max} pix of sources detected by astrometry, with average '+
-          f'separation {sep_mean:.3f}" ')
+          f'separation {sep_mean:.3f}" ', flush=True)
     
     # get coords for sources which were matched
     source_matches = source_coords[idx_image]
@@ -743,7 +683,7 @@ def __zero_point(image_file, psf_sources, sep_max=2.0,
         plt.close()        
     
     # plot the RA, Dec offset for each matched source 
-    if plot_source_offsets:             
+    if plot_source_offs:             
         # plot
         plt.figure(figsize=(10,10))
         plt.plot(ra_offsets, dec_offsets, marker=".", linestyle="", 
@@ -766,7 +706,7 @@ def __zero_point(image_file, psf_sources, sep_max=2.0,
         plt.close()
     
     # plot the overall offset across the field 
-    if plot_field_offsets:
+    if plot_field_offs:
         from scipy.ndimage import gaussian_filter
         # add offsets to a 2d array
         offsets_image = np.zeros(image_data.shape)
@@ -858,7 +798,7 @@ def __zero_point(image_file, psf_sources, sep_max=2.0,
     cat_mags = good_cat_sources[idx_cat][zp_filter+"mag"]
     mag_diff_mean = np.mean(sources_mags - cat_mags)
     print("\nMean difference between calibrated magnitudes and "+
-          f"{ref_cat_name} magnitudes = {mag_diff_mean}")
+          f"{ref_cat_name} magnitudes = {mag_diff_mean}", flush=True)
     
     if write: # write the table of sources w calibrated mags, if desired
         if not(output):
@@ -867,16 +807,26 @@ def __zero_point(image_file, psf_sources, sep_max=2.0,
         
     return psf_sources
 
-###############################################################################
 
-def ePSF_FWHM(epsf_data, verbose=False):
-    """
-    Input: 
-        - fits file containing ePSF data OR the data array itself
-        - be verbose (optional; default False)
+
+###############################################################################
+### UTILITIES #################################################################
+
+def ePSF_FWHM(epsf_data):
+    """Obtain the full width at half-max (FWHM) of an ePSF.
     
-    Output: the FWHM of the input ePSF
+    Arguments
+    ---------
+    epsf_data : str, np.ndarray
+        Fits file containing ePSF data **or** the data array itself
+        
+    Returns
+    -------
+    float
+        FWHM of the ePSF
+        
     """
+    
     from scipy.ndimage import zoom
     
     if (type(epsf_data) == str): # if a filename, open it 
@@ -907,36 +857,39 @@ def ePSF_FWHM(epsf_data, verbose=False):
             epsf_radius = i # radius in pixels 
             break
 
-    if verbose:
-        print(f"ePSF FWHM = {epsf_radius*2.0/10.0} pix\n")
+    print(f"ePSF FWHM = {epsf_radius*2.0/10.0} pix\n", flush=True)
+        
     return epsf_radius*2.0/10.0
 
-###############################################################################
+
     
 def copy_zero_point(source_file, target_file):
-    """
-    Input:
-        - .fits file containing the ZP_MEAN, ZP_MED, ZP_STD headers
-        - .fits file to copy these headers to
+    """Copy the zero point headers from `source_file` to `target_file`
+    
+    Returns
+    -------
+    zp_mean : float
+        Zero points mean
+    zp_med : float
+        Zero points median
+    zp_std : float
+        Zero points standard deviation
 
+    Notes
+    -----
     Copy the zero point obtained via PSF photometry from one fits header to 
     another. Useful when one uses a background-subtracted image to do *PSF 
     photometry*, obtains the zero point, and then wants to perform *aperture
     photometry* on the original, unsubtracted image. 
-    
-    Output: ZP mean, median and standard deviation
+
     """
     
     source_hdr = fits.getheader(source_file)
     target = fits.open(target_file, mode="update")
-    try:
-        target[0].header["ZP_MEAN"] = source_hdr["ZP_MEAN"]
-        target[0].header["ZP_MED"] = source_hdr["ZP_MED"]    
-        target[0].header["ZP_STD"] = source_hdr["ZP_STD"]
-        target.close()
-    except KeyError:
-        target.close()
-        print("\nZP headers not found. Exiting.")
-        return
+
+    target[0].header["ZP_MEAN"] = source_hdr["ZP_MEAN"]
+    target[0].header["ZP_MED"] = source_hdr["ZP_MED"]    
+    target[0].header["ZP_STD"] = source_hdr["ZP_STD"]
+    target.close()
     
     return source_hdr["ZP_MEAN"], source_hdr["ZP_MED"], source_hdr["ZP_STD"]
