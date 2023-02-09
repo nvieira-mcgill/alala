@@ -6,23 +6,20 @@
 .. @apphotom.py
 
 CONTENTS:
-    - image2xy: 
-        make a list of sources with astrometry.net
-    - imsegm_make_source_mask:
-        make a proper mask of sources using image segmentation
-    - error_array:
-        compute the combination of the Gaussian + Poissonian error in the image
-    - aperture_photom:
-        perform aperture photometry on an image 
-    - limiting_magnitude:
-        get the limiting magnitude of an image 
+    - :func:`image2xy`: Make a list of sources with `astrometry.net`
+    - :func:`imsegm_make_source_mask`: Make a mask of sources using image 
+      segmentation
+    - :func:`error_array`: Compute the combination of the Gaussian + 
+      Poissonian error in the image
+    - :func:`aperture_photom`: Perform aperture photometry on an image 
+    - :func:`limiting_magnitude`: Get the limiting magnitude of an image 
     
-DEPENDENCIES:
-    python:
-    - astropy (everywhere)
-    - photutils (everywhere)
-    external:
-    - astrometry.net (making a list of sources, only needed for computing 
+PYTHON DEPENDENCIES:
+    - `astropy`
+    - `photutils`
+
+NON-PYTHON DEPENDENCIES:
+    - `astrometry.net` (making a list of sources, only needed for computing 
       limiting magnitudes)
 
 """
@@ -51,22 +48,34 @@ warnings.simplefilter('ignore', category=FITSFixedWarning)
 
 def image2xy(image_file, astrom_sigma=5.0, psf_sigma=5.0, alim=10000,
              write=False, output=None):
-    """    
-    Input: 
-        - filename for **NOT background-subtracted** image 
-        - sigma threshold for astrometry.net source detection image (optional; 
-          default 5.0)
-        - sigma of the Gaussian PSF of the image (optional; default 5.0)
-        - maximum allowed source area in pix**2 for astrometry.net for 
-          deblending (optional; default 10000)
-        - whether to write the list of sources (optional; default False)
-        - name for the output source list (optional; default set below)
-        
-    Uses astrometry.net's image2xy to detect sources in the image and write 
-    them to a list of sources and/or a file to be used as a source mask in 
-    aperture photometry.
+    """Use astrometry.net's `image2xy` to detect sources in an image.
     
-    Output: source list (as a fits bintable)
+    Arguments
+    ---------
+    image_file : str
+        Filename for **NOT background-subtracted** image
+    astrom_sigma : float, optional
+        Sigma threshold for astrometry.net source detection image (default 5.0)
+    psf_sigma : float, optional
+        Sigma of the Gaussian PSF of the image (default 5.0)
+    alim : int, optional
+        Maximum allowed source area, in pixels**2, beyond which sources will 
+        be deblended (default 10000)
+    write : bool, optional
+        Write the output list of sources? (default False)
+    output : str, optional
+        Name for output source list file (default set by function)
+        
+    Returns
+    -------
+    astropy.io.fits.fitsrec.FITS_rec
+        List of sources
+        
+    Notes
+    -----
+    Can write sources to a list of sources and/or a file to be used as a 
+    source mask in aperture photometry.
+
     """
 
     if not(output):
@@ -93,21 +102,35 @@ def image2xy(image_file, astrom_sigma=5.0, psf_sigma=5.0, alim=10000,
 
 def imsegm_make_source_mask(image_file, mask_file=None, sigma=3.0, write=False,
                             output=None):
-    """
-    Input: 
-        - filename for **NOT background-subtracted** image 
-        - filename for a bad pixel mask (optional; default None)
-        - detection sigma to use in image segmentation (optional; default 3.0)
-        - whether to write the source mask to a file (optional; default False)
-        - name for the output file (optional; default set below)
+    """Make a mask which contains sources in the image using image 
+    segmentation. 
+    
+    Arguments
+    ---------
+    image_file : str
+        Filename for **NOT background-subtracted** image
+    mask_file : str, optional
+        Filename for a bad pixel mask (default None)
+    sigma : float, optional
+        Detection sigma to use in image segmentation (default 3.0)
+    write : bool, optional
+        Write the source mask to a file? (default False)
+    output : str, optional
+        Name for output file (default set by function)
+        
+    Returns
+    -------
+    np.ndarray
+        Source mask where 0 = background, 1 = source
 
+    Notes
+    -----
     Use crude image segmentation to make a proto source mask, use the mask to
     get the background, and then perform proper image segmentation on the 
     background-subtracted image data. The resulting segmentation image is a 
-    proper source mask, to be used in other steps in aperture photometry. The 
+    source mask, to be used in other steps in aperture photometry. The 
     output source mask also flags bad pixels.
-        
-    Output: the source mask, where 0=background, 1=source
+
     """    
     data = fits.getdata(image_file)
     hdr = fits.getheader(image_file)
@@ -163,23 +186,36 @@ def imsegm_make_source_mask(image_file, mask_file=None, sigma=3.0, write=False,
 
 def error_array(image_file, source_mask=None, sigma=3.0, write=True, 
                 output=None):
-    """
-    Input: 
-        - filename for **NOT background-subtracted** image 
-        - filename for SOURCE mask OR the mask data itself (optional; default 
-          None, in which case a source mask is made)
-        - the detection sigma to use in image segmentation if a source mask is
-          to be made (optional; default 3.0, only relevant if a source mask 
-          file is not provided)
-        - whether to write the error array to a file (optional; default True)
-        - name for the output file (optional; default set below)
-        
+    """Make an array of the error in an image, including root-mean-squared 
+    deviation on the background and Poisson noise for detected sources.
+
+    Arguments
+    ---------
+    image_file : str
+        Filename for **NOT background-subtracted** image
+    source_mask : np.ndarray, str, optional
+        Filename for a source mask or the mask data itself (default None; in 
+        which case a source mask is made)
+    sigma : float, optional
+        Detection sigma to use in image segmentation, *if* a source mask is to 
+        be made (default 3.0; only relevant if `source_mask = None`)
+    write : bool, optional
+        Write the error array to a file? (default False)
+    output : str, optional
+        Name for output file (default set by function)
+    
+    Returns
+    -------
+    np.ndarray
+        Image error array
+    
+    Notes
+    -----
     Computes the error on the background-only image as the RMS deviation 
     of the background, and then computes the total image error including 
     the contribution of the Poisson noise for detected sources. Necessary 
     for error propagation in aperture photometry. 
-    
-    Output: the image error array
+
     """
 
     
@@ -202,7 +238,7 @@ def error_array(image_file, source_mask=None, sigma=3.0, write=True,
         source_mask = source_mask.astype(bool)
     else: 
         print("\nSince no mask was provided, a source mask will be obtained "+
-              "now...")
+              "now...", flush=True)
         source_mask = imsegm_make_source_mask(image_file, sigma=sigma)
         source_mask = source_mask.astype(bool)
     
@@ -226,56 +262,85 @@ def error_array(image_file, source_mask=None, sigma=3.0, write=True,
     return err
 
 
-def aperture_photom(image_file, ra_list, dec_list, mask=None, error=None, 
+def aperture_photom(image_file, 
+                    ra, dec, 
+                    mask=None, error=None, 
                     sigma=None, bkgsub_verify=True,
-                    ap_radius=1.2, r1=2.0, r2=5.0, 
+                    
+                    ap_radius=1.2, r1=2.0, r2=5.0,
+                    
                     thresh_sigma=3.0, 
-                    plot_annulus=True, plot_aperture=True, 
-                    ann_output=None, ap_output=None, 
-                    write=False, output=None, cmap="bone"):
-    """
-    Inputs:         
-        general:
-        - filename for **NOT background-subtracted** image 
-        - list OR single float/int of ra, dec of interest
-        - filename for source mask OR the mask data itself (optional; default 
-          None, in which case a source mask is made)
-        - filename for the image error array OR the image error data itself 
-          (optional; default None, in which case an error array is made)
-        - sigma below which to reject a source (optional; default None, in
-          which case a source is not rejected as long as sigma>0)
-        - whether to verify that the background-subtracted flux is non-negative 
-          (optional; default True)
-
-        aperture/anulus parameters:
-        - aperture radius (in arcsec; optional; default 1.2") 
-        - inner and outer radii for the annulus (in arcsec; optional; default 
-          2.0" and 5.0") 
-        
-        image segmentation (only relevant if mask and/or error are not given):
-        - sigma to use as the threshold for image segmentation (optional; 
-          default 3.0)
-                
-        writing, plotting:
-        - whether to plot the annulus (optional; default True)
-        - whether to plot the aperture (optional; default True), 
-        - name for the output annulus plot (optional; defaults set below) 
-        - name for the output aperture plot (optional; defaults set below)
-        - whether to write the resultant table (optional; default False)
-        - name for output table file (optional; default set below; only 
-          relevant if write=True)
-        - colourmap for plotting (optional; default "bone")
+                    
+                    plot_annulus=True, 
+                    plot_aperture=True, 
+                    ann_output=None, 
+                    ap_output=None, 
+                    write=False, 
+                    output=None, 
+                    cmap="bone"):
+    """Perform aperture photometry on some image.
     
+    Arguments
+    ---------
+    image_file : str
+        Filename for **NOT background-subtracted** image
+    ra, dec : float, list
+        Floats **or** lists of RA, Dec of interest
+    mask : np.ndarray, str, optional
+        Filename for a source mask **or** the mask data itself (default None; 
+        in which case a source mask is made)
+    error : np.ndarray, str, optional
+        Filename for image error **or** the image error itself (default None; 
+        in which case an error array is made)
+    sigma : float, optional
+        Sigma below which to reject a source (default None --> do not reject 
+        any sources)
+    bkgsub_verify : bool, optional
+        Verify that the background-subtracted flux is non-negative? (default 
+        True)
+    ap_radius : float, optional
+        Aperture radius, in arcseconds (default 1.2")
+    r1, r2 : float, optional
+        Inner and outer radius of the annulus, in arcseconds (default 2.0", 
+        5.0")
+    thresh_sigma : float, optional
+        Detection sigma to use in image segmentation (default 3.0; only 
+        relevant if mask and/or error are not given)
+    plot_annulus : bool, optional
+        Plot the annulus? (default True)
+    plot_aperture : bool, optional
+        Plot the aperture? (default True)
+    ann_output : str, optional
+        Name for output annulus plot (default None; set by function if 
+        `plot_annulus = True`)
+    ap_output : str, optional
+        Name for output aperture plot (default None; set by function if 
+        `plot_aperture = True`)
+    write : bool, optional
+        Write the resultant table? (default False)
+    output : str, optional
+        Name for the output table file (default None; set by function if 
+        `write = True`)
+    cmap : str, matplotlib.colors.ListedColormap, optional
+        Colormap for plots (default "bone")
+        
+    Returns
+    -------
+    TYPE
+        Table containing the results of aperture photometry
+    
+    Notes
+    -----
     Finds the total flux in a defined aperture, computes the background in an 
     annulus around this aperture, and computes the background-subtracted flux 
-    of the "source" defined by the aperture. Can be called multiple times if a 
-    list of RA/Decs is given. 
+    of the "source" defined by the aperture. Will compute aperture photometry 
+    for multiple sources if a list of RA/Decs is given. 
     
     If the background-subtracted flux at some location is negative, make sure 
     that no sources remain in the annulus of the data, or consider getting a 
-    limiting magnitude at the ra, dec of interest instead. 
-    
-    Output: table containing the results of aperture photometry 
+    **limiting magnitude** at the RA, Dec of interest instead with 
+    :func:`limiting_magnitude`
+
     """        
     
     ## load in data 
@@ -287,7 +352,8 @@ def aperture_photom(image_file, ra_list, dec_list, mask=None, error=None,
         zp_std = image_header["ZP_STD"]
     except KeyError:
         print("\nZP has not yet been obtained for the input image, so"+
-              " calibrated magnitudes cannot be obtained. Exiting.")
+              " calibrated magnitudes cannot be obtained. Exiting.", 
+              flush=True)
         return    
     try: filt = image_header["FILTER"][0] 
     except KeyError: filt = image_header["HIERARCH FPA.FILTER"][0] # for PS1
@@ -302,7 +368,7 @@ def aperture_photom(image_file, ra_list, dec_list, mask=None, error=None,
         source_mask = mask.astype(bool)
     else: 
         print("\nSince no mask was provided, a source mask will be obtained "+
-              "now...")
+              "now...", flush=True)
         source_mask = imsegm_make_source_mask(image_file, sigma=thresh_sigma,
                                               write=False)
         source_mask = source_mask.astype(bool)           
@@ -314,7 +380,7 @@ def aperture_photom(image_file, ra_list, dec_list, mask=None, error=None,
         image_error = error.astype(bool)
     else:
         print("\nSince no image error array was provided, an image error "+
-              "array will be obained now...")
+              "array will be obained now...", flush=True)
         image_error = error_array(image_file, source_mask, thresh_sigma, 
                                   write=False)
     image_error = np.abs(image_error) # take abs val
@@ -332,21 +398,21 @@ def aperture_photom(image_file, ra_list, dec_list, mask=None, error=None,
     aperture_sources.add_column(mjd_col)
             
     # convert to lists if needed 
-    if (type(ra_list) in [float, int]):
-        ra_list = [ra_list]
-    if (type(dec_list) in [float, int]):
-        dec_list = [dec_list]
+    if (type(ra) in [float, int]):
+        ra = [ra]
+    if (type(dec) in [float, int]):
+        dec = [dec]
     
     # compute background-subtracted flux for the input aperture(s) 
     # add these to the list of sources found by aperture photometry 
-    print("\nAttempting to perform aperture photometry...")
-    for i in range(0, len(ra_list)):
+    print("\nAttempting to perform aperture photometry...", flush=True)
+    for i in range(0, len(ra)):
 
         phot_table = __drop_aperture(image_data=image_data, 
                                      image_error=image_error, 
                                      image_header=image_header,
                                      mask=source_mask, 
-                                     ra=ra_list[i], dec=dec_list[i],
+                                     ra=ra[i], dec=dec[i],
                                      ap_radius=ap_radius, r1=r1, r2=r2, 
                                      plot_annulus=plot_annulus,
                                      ann_output=ann_output,
@@ -394,9 +460,9 @@ def aperture_photom(image_file, ra_list, dec_list, mask=None, error=None,
                 aperture_sources.add_row(phot_table[0])
                 
             elif sigma and (phot_table["sigma"] < sigma):
-                print(f"\nA source was detected, but below the requested "+
+                print("\nA source was detected, but below the requested "+
                       f"{sigma} sigma level. The source is therefore "+
-                      "rejected.")
+                      "rejected.", flush=True)
                 return
             else:
                 aperture_sources.add_row(phot_table[0])
@@ -405,7 +471,7 @@ def aperture_photom(image_file, ra_list, dec_list, mask=None, error=None,
                 a = phot_table[0]
                 s = f'\n{a["filter"]} = {a["mag_calib"]:.2f} +/- '
                 s += f'{a["mag_calib_unc"]:.2f}, {a["sigma"]:.1f} sigma\n'
-                print(s)
+                print(s, flush=True)
             except KeyError: # if ZP was not present before
                 pass
         
@@ -420,61 +486,93 @@ def aperture_photom(image_file, ra_list, dec_list, mask=None, error=None,
     return aperture_sources
 
 
-def limiting_magnitude(image_file, ra, dec, sigma=5.0,
-                       source_list=None, mask=None, error=None, 
-                       astrom_sigma=5.0, psf_sigma=5.0, alim=10000, 
-                       thresh_sigma=3.0, 
-                       ap_radius=1.2, r1=2.0, r2=10.0, 
-                       plot_annulus=True, plot_aperture=True, 
-                       ann_output=None, ap_output=None, 
-                       write=False, output=None,
+def limiting_magnitude(image_file, 
+                       ra, dec, 
+                       
+                       source_list=None, 
+                       mask=None, error=None,
+                       sigma=5.0,
+                       
+                       astrom_sigma=5.0, psf_sigma=5.0, 
+                       
+                       alim=10000, 
+                       
+                       ap_radius=1.2, r1=2.0, r2=10.0,
+                       
+                       thresh_sigma=3.0,
+                       
+                       plot_annulus=True, 
+                       plot_aperture=True, 
+                       ann_output=None, 
+                       ap_output=None, 
+                       write=False, 
+                       output=None,
                        cmap="bone"):
-    """    
-    Input:        
-        general:
-        - filename for **NOT background-subtracted** image
-        - ra, dec of interest
-        - the sigma to use when computing the limiting magnitude (optional; 
-          default 5.0)
-        - filename for source list OR the source list fits bintable itself 
-          (optional; default None, in which case a list is made)
-        - filename for source mask OR the mask data itself (optional; default 
-          None, in which case a source mask is made)
-        - filename for image error array OR the error data itself (optional; 
-          default None; in which case an error array is computed)
-        
-        astrometry.net (only relevant if a source list is not given):
-        - sigma threshold for astrometry.net source detection image (optional; 
-          default 5.0)
-        - sigma of the Gaussian PSF of the image (optional; default 5.0)
-        - maximum allowed source area in pix**2 for astrometry.net for 
-          deblending (optional; default 10000)
-
-        image segmentation (only relevant if mask and/or error are not given):
-        - sigma threshold for image segmentation (optional; default 3.0)
-
-        aperture/anulus parameters:
-        - aperture radius (in arcsec; optional; default 1.2") 
-        - inner and outer radii for the annulus (in arcsec; optional; default 
-          2.0" and 10.0") 
-        
-        writing, plotting:
-        - whether to plot the annulus (optional; default True)
-        - whether to plot the aperture (optional; default True), 
-        - name for the output annulus plot (optional; defaults set below) 
-        - name for the output aperture plot (optional; defaults set below)
-        - whether to write the resultant table (optional; default False)
-        - name for output table file (optional; default set below; only 
-          relevant if write=True)
-        - colourmap for plots (optional; default "bone")
+    """Obtain the limiting magnitude of some image.
     
+    Arguments
+    ---------
+    image_file : str
+        Filename for **NOT background-subtracted** image
+    ra, dec : float, list
+        Floats **or** lists of RA, Dec of interest
+    source_list : str, astropy.io.fits.fitsrec.FITS_rec, optional
+        Filename for source list **or** the source list fits bintable itself 
+        (default None --> make a list)
+    mask : np.ndarray, str, optional
+        Filename for a source mask **or** the mask data itself (default None; 
+        in which case a source mask is made)
+    error : np.ndarray, str, optional
+        Filename for image error **or** the image error itself (default None; 
+        in which case an error array is made)
+    sigma : float, optional
+        Sigma to use when computing limiting magnitude (default 5.0)
+    astrom_sigma : float, optional
+        Sigma threshold for astrometry.net source detection image (default 5.0)    
+    psf_sigma : float, optional
+        Sigma of the Gaussian PSF of the image (default 5.0)
+    alim : int, optional
+        Maximum allowed source area, in pixels**2, beyond which sources will 
+        be deblended (default 10000)
+    ap_radius : float, optional
+        Aperture radius, in arcseconds (default 1.2")
+    r1, r2 : float, optional
+        Inner and outer radius of the annulus, in arcseconds (default 2.0", 
+        10.0")
+    thresh_sigma : float, optional
+        Detection sigma to use in image segmentation (default 3.0; only 
+        relevant if mask and/or error are not given)
+    plot_annulus : bool, optional
+        Plot the annulus? (default True)
+    plot_aperture : bool, optional
+        Plot the aperture? (default True)
+    ann_output : str, optional
+        Name for output annulus plot (default None; set by function if 
+        `plot_annulus = True`)
+    ap_output : str, optional
+        Name for output aperture plot (default None; set by function if 
+        `plot_aperture = True`)
+    write : bool, optional
+        Write the resultant table? (default False)
+    output : str, optional
+        Name for the output table file (default None; set by function if 
+        `write = True`)
+    cmap : str, matplotlib.colors.ListedColormap, optional
+        Colormap for plots (default "bone")    
+
+    Returns
+    -------
+    TYPE
+        Table containing RA, Dec, calibrated magnitude, filter used, and 
+        MJD for the limiting magnitude
+        
+    Notes
+    -----
     For a given RA, Dec, finds the limiting magnitude at its location. If 
     a source was previously detected <= 3" away from the given coords by 
     astrometry.net, the aperture will randomly move about until a valid
     RA, Dec is found. 
-    
-    Output: table containing the ra, dec, calibrated magnitude, filter used, 
-    and MJD for the limiting magnitude 
+
     """
  
     ## load in data 
@@ -485,7 +583,8 @@ def limiting_magnitude(image_file, ra, dec, sigma=5.0,
         zp_mean = image_header["ZP_MEAN"]
     except KeyError:
         print("\nZP has not yet been obtained for the input image, so"+
-              " calibrated magnitudes cannot be obtained. Exiting.")
+              " calibrated magnitudes cannot be obtained. Exiting.", 
+              flush=True)
         return    
     try: filt = image_header["FILTER"][0] 
     except KeyError: filt = image_header["HIERARCH FPA.FILTER"][0] # for PS1
@@ -497,7 +596,7 @@ def limiting_magnitude(image_file, ra, dec, sigma=5.0,
         source_list = fits.getdata(source_list)        
     if not(source_list):
         print("\nSince no list of sources was provided, a source list will be"+
-              " obtained now...")
+              " obtained now...", flush=True)
         source_list = image2xy(image_file, astrom_sigma, psf_sigma, alim, 
                                write=False)   
         
@@ -509,7 +608,7 @@ def limiting_magnitude(image_file, ra, dec, sigma=5.0,
         source_mask = mask.astype(bool)
     else: 
         print("\nSince no mask was provided, a source mask will be obtained "+
-              "now...")
+              "now...", flush=True)
         source_mask = imsegm_make_source_mask(image_file, sigma=sigma, 
                                               write=False)
         source_mask = source_mask.astype(bool)          
@@ -521,7 +620,7 @@ def limiting_magnitude(image_file, ra, dec, sigma=5.0,
         image_error = error.astype(bool)
     else:
         print("\nSince no image error array was provided, an image error "+
-              "array will be obained now...")
+              "array will be obained now...", flush=True)
         image_error = error_array(image_file, source_mask, thresh_sigma, 
                                   write=False)
     image_error = np.abs(image_error) # take abs val
@@ -537,7 +636,8 @@ def limiting_magnitude(image_file, ra, dec, sigma=5.0,
     while smallest_sep < 3.0: # while closest star is less than 3" away
         print('\nastrometry.net previously found a source < 3.0" away '+
               'from the target. The target aperture will be randomly '+
-              'moved until it does not sit on top of a source...')
+              'moved until it does not sit on top of a source...', 
+              flush=True)
   
         # randomly move           
         new_ra = target.ra - u.arcsec*np.random.randint(-5, 5)
@@ -556,8 +656,8 @@ def limiting_magnitude(image_file, ra, dec, sigma=5.0,
         
     ra, dec = target.ra.value, target.dec.value
 
-    print(f"\nFinding the limiting magnitude at (RA, Dec) = "+
-          f"({ra:.4f}, {dec:.4f})")   
+    print("\nFinding the limiting magnitude at (RA, Dec) = "+
+          f"({ra:.4f}, {dec:.4f})", flush=True)   
     
     # do aperture photometry on region of interest with large annulus
     phot_table = __drop_aperture(image_data=image_data, 
@@ -580,7 +680,8 @@ def limiting_magnitude(image_file, ra, dec, sigma=5.0,
     # compute limit below which we can't make a detection
     limit = sigma*phot_table["aper_sum_bkgsub_err"][0]    
     limiting_mag = -2.5*np.log10(limit) + zp_mean
-    print(f"\n{filt} > {limiting_mag:.1f} ({int(sigma):d} sigma)\n")
+    print(f"\n{filt} > {limiting_mag:.1f} ({int(sigma):d} sigma)\n", 
+          flush=True)
     
     lim_table = Table(data=[[ra], [dec], [limiting_mag], [filt], [t_MJD]],
                       names=["ra","dec","mag_calib","filter","MJD"])
@@ -595,56 +696,78 @@ def limiting_magnitude(image_file, ra, dec, sigma=5.0,
     return lim_table
 
 
-def ellipse_photom(image_file, ra, dec, mask=None, #error=None, 
+def ellipse_photom(image_file, 
+                   ra, dec, 
+                   
+                   mask=None, #error=None, 
+                   
                    guess_sma=0.9, guess_eps=0.3, guess_pa=60.0,
                    sma_min=0.2, sma_max=2.5,
+                   
                    r1=4.0, r2=12.0, 
+                   
                    thresh_sigma=3.0,
+                   
                    flux_sub=0,
-                   plot_annulus=True, plot_ellipses=True, 
-                   ann_output=None, ell_output=None, 
-                   write=False, output=None, cmap="bone"):
-    """
-    Inputs:
-        general:
-        - filename for **NOT background-subtracted** image 
-        - ra, dec of interest
-        - filename for source mask OR the mask data itself (optional; default 
-          None, in which case a source mask is made)
-        - #filename for the image error array OR the image error data itself 
-          #(optional; default None, in which case an error array is made)
-          
-        ellipse parameters:
-        - guess_sma: guess for initial semi-major axis length (in arcsec;
-          optional; default 1.0")
-        - guess_eps: guess for initial ellipticity (optional; default 0.3)
-        - guess_pa: guess for initial position angle (in degrees; optional; 
-          default 60.0)
-        - minimum semi-major axis length (in arcsec; optional; default 0.2")
-        - maximum semi-major axis length (in arcsec; optional; default 2.5")
+                   
+                   plot_annulus=True, 
+                   plot_ellipses=True, 
+                   ann_output=None, 
+                   ell_output=None, 
+                   write=False, 
+                   output=None, 
+                   cmap="bone"):
+    """Like :func:`aperture_photom`, but use an elliptical aperture.
+    
+    Arguments
+    ---------
+    image_file : str
+        Filename for **NOT background-subtracted** image
+    ra, dec : float, list
+        Floats **or** lists of RA, Dec of interest
+    mask : np.ndarray, str, optional
+        Filename for a source mask **or** the mask data itself (default None; 
+        in which case a source mask is made)
+    guess_sma : float, optional
+        Initial guess for semi-major of ellipse, in arcseconds (default 1.0)
+    guess_eps : float, optional
+        Initial guess for ellipticity (default 0.3)
+    guess_pa : float, optional
+        Initial guess for position angle of ellipse, in degrees (default 60.0)
+    sma_min, sma_max : float, optional
+        Minimum/maximum allowed semi-major axis of ellipse, in arcseconds 
+        (default 0.2)
+    r1, r2 : float, optional
+        Inner and outer radius of the annulus, in arcseconds (default 4.0", 
+        12.0")
+    thresh_sigma : float, optional
+        Detection sigma to use in image segmentation (default 3.0)
+    flux_sub : float, optional
+        Additional flux to subtract, if, e.g., want to subtract the flux of 
+        some galaxy (default 0)
+    plot_annulus : bool, optional
+        Plot the annulus? (default True)
+    plot_ellipses : bool, optional
+        Plot the elliptical isotophotes? (default True)
+    ann_output : str, optional
+        Name for output annulus plot (default None; set by function if 
+        `plot_annulus = True`)
+    ell_output : str, optional
+        Name for output ellipses plot (default None; set by function if 
+        `plot_ellipses = True`)
+    write : bool, optional
+        Write the resultant table? (default False)
+    output : str, optional
+        Name for the output table file (default None; set by function if 
+        `write = True`)
+    cmap : str, matplotlib.colors.ListedColormap, optional
+        Colormap for plots (default "bone")
 
-        anulus parameters:
-        - inner and outer radii for the annulus (in arcsec; optional; default 
-          4.0" and 10.0") 
+    Returns
+    -------
+    TYPE
+        Table containing the results of "ellipse" photometry
         
-        image segmentation (only relevant if mask and/or error are not given):
-        - sigma to use as the threshold for image segmentation (optional; 
-          default 3.0)
-        
-        other:
-        - additional flux to subtract, e.g. if you're getting the flux of some
-          galaxy and want to subtract off some flux from a transient source
-          in the galaxy (optional; default 0)
-                
-        writing, plotting:
-        - whether to plot the annulus (optional; default True) 
-        - whether to plot elliptical isophotes (optional; default True)
-        - name for the output annulus plot (optional; defaults set below) 
-        - name for the output ellipses plot (optional; defaults set below)
-        - whether to write the resultant table (optional; default False)
-        - name for output table file (optional; default set below; only 
-          relevant if write=True)
-        - colourmap for plotting (optional; default "bone")
     """
     
     
@@ -660,7 +783,8 @@ def ellipse_photom(image_file, ra, dec, mask=None, #error=None,
         zp_std = image_header["ZP_STD"]
     except KeyError:
         print("\nZP has not yet been obtained for the input image, so"+
-              " calibrated magnitudes cannot be obtained. Exiting.")
+              " calibrated magnitudes cannot be obtained. Exiting.", 
+              flush=True)
         return    
     # other useful headers
     try: filt = image_header["FILTER"][0] 
@@ -677,7 +801,7 @@ def ellipse_photom(image_file, ra, dec, mask=None, #error=None,
         source_mask = mask.astype(bool)
     else: 
         print("\nSince no mask was provided, a source mask will be obtained "+
-              "now...")
+              "now...", flush=True)
         source_mask = imsegm_make_source_mask(image_file, sigma=thresh_sigma,
                                               write=False)
         source_mask = source_mask.astype(bool)           
@@ -689,15 +813,15 @@ def ellipse_photom(image_file, ra, dec, mask=None, #error=None,
 #        image_error = error.astype(bool)
 #    else:
 #        print("\nSince no image error array was provided, an image error "+
-#              "array will be obained now...")
+#              "array will be obained now...", flush=True)
 #        image_error = error_array(image_file, source_mask, thresh_sigma, 
 #                                  write=False)
 #    image_error = np.abs(image_error) # take abs val
        
     ## initial guesses for ellipse parameters
     x0, y0 = w.all_world2pix(ra, dec, 1) # centers of isophote [pixels]
-    print(f"\n ra = {ra}, dec = {dec}")
-    print(f"x0 = {x0:.3f}, y0 = {y0:.3f}")
+    print(f"\n ra = {ra}, dec = {dec}", flush=True)
+    print(f"x0 = {x0:.3f}, y0 = {y0:.3f}", flush=True)
     sma = guess_sma/pixscale # semimajor axis length [pixels]
     eps = 0.3 # ellipticity 
     pa = guess_pa*np.pi/180.0 # position angle [radians]
@@ -713,7 +837,7 @@ def ellipse_photom(image_file, ra, dec, mask=None, #error=None,
     tbl = isolist.to_table() # convert to table
     
     if len(tbl) == 0:
-        print("\nNo ellipse could be fit. Exiting.\n")
+        print("\nNo ellipse could be fit. Exiting.\n", flush=True)
         return 
     tbl["tflux_circle"] = isolist.tflux_c # extra col: total flux in circle
     tbl["tflux_ellipse"] = isolist.tflux_e # extra col: total flux in ellipse
@@ -748,7 +872,7 @@ def ellipse_photom(image_file, ra, dec, mask=None, #error=None,
         print("\nThere is no annulus data at this aperture. Either the "+
               "input target is out of bounds or the entire annulus is "+
               "filled with sources. Consider using a different radius "+
-              "for the aperture/annuli. Exiting.")
+              "for the aperture/annuli. Exiting.", flush=True)
         return      
     annulus_data = np.ma.masked_where(mask, annulus_data)
     
@@ -797,7 +921,7 @@ def ellipse_photom(image_file, ra, dec, mask=None, #error=None,
     a = phot_table[0]
     s = f'\n{a["filter"]} = {a["mag_calib"]:.2f} +/- '
     s += f'{a["mag_calib_unc"]:.2f}\n'
-    print(s)
+    print(s, flush=True)
 
     ## plotting 
     if plot_annulus:
@@ -816,37 +940,23 @@ def ellipse_photom(image_file, ra, dec, mask=None, #error=None,
     
     return phot_table
 
-    
+
+
+###############################################################################
+
 def __drop_aperture(image_data, image_error, image_header, mask, 
                     ra, dec, ap_radius, r1, r2, 
                     plot_annulus, ann_output,
                     plot_aperture, ap_output, bkgsub_verify,
                     cmap):
-    """    
-    Input: 
-        - image data
-        - RMS deviation error array of the image
-        - image header
-        - combination bad pixel and sources mask 
-        - ra, dec of a source of interest
-        - aperture radius (in arcsec)
-        - inner and outer radii for the annulus (in arcsec)
-        - whether to plot the annulus
-        - name for the output annulus plot
-        - whether to plot the aperture
-        - name for the output aperture plot
-        - whether to verify that the background-subtracted flux is non-negative 
-        - colourmap for plots
+    """Find the total flux in a defined aperture, compute the background in an 
+    annulus around this aperture, and compute the background-subtracted flux 
+    of the "source" defined by the aperture.
     
-    This method finds the total flux in a defined aperture, computes the 
-    background in an annulus around this aperture, and computes the 
-    background-subtracted flux of the "source" defined by the aperture.
-    
-    Output: table containing the pix coords, ra, dec, aperture flux, aperture 
-    radius, annulus inner and outer radii, median background, total background 
-    in aperture, standard deviation in this background, and background-
-    subtracted aperture flux 
-    """
+    Returns a table containing the pixel coords, RA, Dec aperture flux, 
+    aperture radius, annulus inner and outer radii, median background, total 
+    background in aperture, standard deviation in this background, and 
+    background-subtracted aperture flux"""
             
     # wcs object
     w = wcs.WCS(image_header)
@@ -888,7 +998,7 @@ def __drop_aperture(image_data, image_error, image_header, mask,
         print("\nThere is no annulus data at this aperture. Either the "+
               "input target is out of bounds or the entire annulus is "+
               "filled with sources. Consider using a different radius "+
-              "for the aperture/annuli. Exiting.")
+              "for the aperture/annuli. Exiting.", flush=True)
         return      
     annulus_data = np.ma.masked_where(mask, annulus_data)
     
@@ -917,7 +1027,7 @@ def __drop_aperture(image_data, image_error, image_header, mask,
               "Consider using a different radius for the aperture/annuli "+
               "and make sure that no sources remain in the annulus. "+
               "Alternatively, get a limiting magnitude at these coordinates "+
-              "instead. Exiting.")
+              "instead. Exiting.", flush=True)
         return         
     
     if plot_annulus:
@@ -931,20 +1041,9 @@ def __drop_aperture(image_data, image_error, image_header, mask,
 
 def __plot_annulus(image_header, annulus_data, ra, dec, r1, r2, ann_output,
                    cmap="bone"):
-    """        
-    Input: 
-        - image header
-        - annulus data
-        - ra, dec of the source of interest
-        - inner and outer radii for the annuli (in pixels)
-        - name for the output plot
-        - colourmap to use (optional; default "bone")
+    """Plot an image of the pixels in the annulus drawn around a source of 
+    interest for aperture photometry"""   
     
-    Plots an image of the pixels in the annulus drawn around a source of 
-    interest for aperture photometry.
-    
-    Output: None
-    """   
     pixscale = image_header["PIXSCAL1"]
     
     # plotting
@@ -974,22 +1073,8 @@ def __plot_annulus(image_header, annulus_data, ra, dec, r1, r2, ann_output,
         
 def __plot_aperture(image_data, image_header, annulus_pix, ra, dec, ap_pix, r1, 
                     r2, ap_output, cmap="bone"):
-    """
-    Input: 
-        - image data
-        - image header
-        - annulus data
-        - ra, dec of the source of interest
-        - aperture object (in pixels)
-        - inner and outer radii for the annuli (in arcsec)
-        - name for the output plot
-        - colourmap to use (optional; default "bone")
-        
-    Plots an image of the aperture and annuli drawn around a source of 
-    interest for aperture photometry.
-    
-    Output: None
-    """
+    """Plot an image of the aperture and annuli drawn around a source of 
+    interest for aperture photometry"""
     
     pixscale = image_header["PIXSCAL1"]
     # wcs object
@@ -1039,22 +1124,8 @@ def __plot_aperture(image_data, image_header, annulus_pix, ra, dec, ap_pix, r1,
 
 def __plot_ellipses(image_data, image_header, annulus_pix, ra, dec, 
                     isolist, r1, r2, ell_output, cmap="bone"):
-    """
-    Input: 
-        - image data
-        - image header
-        - annulus data
-        - ra, dec of the source of interest
-        - list of elliptical isophotes
-        - inner and outer radii for the annuli (in arcsec)
-        - name for the output plot
-        - colourmap to use (optional; default "bone")
-        
-    Plots an image of the elliptical isophotes and annuli drawn around a source 
-    of interest for elliptical aperture photometry.
-    
-    Output: None
-    """
+    """Plot an image of the elliptical isophotes and annuli drawn around a 
+    source of interest for elliptical aperture photometry"""
     
     pixscale = image_header["PIXSCAL1"]
     # wcs object
