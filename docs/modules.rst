@@ -8,4 +8,3 @@ alala
    apphotom
    lightcurve
    psfphotom
-   stack

@@ -45,7 +45,6 @@
 <li class="toctree-l2"><a class="reference internal" href="apphotom.html">apphotom module</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">lightcurve module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="psfphotom.html">psfphotom module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="stack.html">stack module</a></li>
 </ul>
 </li>
 </ul>
@@ -77,50 +76,132 @@
              
   <section id="module-lightcurve">
 <span id="lightcurve-module"></span><h1>lightcurve module<a class="headerlink" href="#module-lightcurve" title="Permalink to this heading"></a></h1>
-<p>Combine aperture and/or PSF photometry (from <cite>apphotom</cite> and <cite>psfphotom</cite>) to
-generate light curves.</p>
+<p>Combine aperture and/or PSF photometry generated with <a class="reference internal" href="apphotom.html#module-apphotom" title="apphotom"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apphotom</span></code></a> and/or
+<a class="reference internal" href="psfphotom.html#module-psfphotom" title="psfphotom"><code class="xref py py-obj docutils literal notranslate"><span class="pre">psfphotom</span></code></a> modules, to generate light curves.</p>
+<p>Light curves can include 3 kinds of data points:</p>
+<ol class="arabic simple">
+<li><p>Magnitudes: Measured magnitudes, including error bars</p></li>
+<li><p>Limiting magnitudes: Limiting magnitudes, which do not have error bars</p></li>
+<li><p>Reference magnitudes: Reference magnitudes obtained from some other work /
+analysis, with (optional) error barts</p></li>
+</ol>
 <dl class="py function">
-<dt class="sig sig-object py" id="lightcurve.display_off">
-<span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">display_off</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.display_off" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="lightcurve.plotting_to_agg">
+<span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">plotting_to_agg</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.plotting_to_agg" title="Permalink to this definition"></a></dt>
+<dd><p>Switch matplotlib backend to ‘agg’</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="lightcurve.plotting_to_Qt4Agg">
+<span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">plotting_to_Qt4Agg</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.plotting_to_Qt4Agg" title="Permalink to this definition"></a></dt>
+<dd><p>Switch matplotlib backend to ‘Qt4Agg’</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="lightcurve.VALID_PHOT_FILTS">
+<span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">VALID_PHOT_FILTS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['u',</span> <span class="pre">'g',</span> <span class="pre">'r',</span> <span class="pre">'i',</span> <span class="pre">'z',</span> <span class="pre">'Y',</span> <span class="pre">'J',</span> <span class="pre">'H',</span> <span class="pre">'K']</span></em><a class="headerlink" href="#lightcurve.VALID_PHOT_FILTS" title="Permalink to this definition"></a></dt>
+<dd><p>Valid photometric filters.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="lightcurve.DEFAULT_PLOT_INSTRUCTIONS">
+<span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_PLOT_INSTRUCTIONS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'H':</span> <span class="pre">['#fac205',</span> <span class="pre">'s'],</span> <span class="pre">'J':</span> <span class="pre">['#029386',</span> <span class="pre">'s'],</span> <span class="pre">'K':</span> <span class="pre">['#c04e01',</span> <span class="pre">'s'],</span> <span class="pre">'Y':</span> <span class="pre">['#8e82fe',</span> <span class="pre">'s'],</span> <span class="pre">'g':</span> <span class="pre">['#0165fc',</span> <span class="pre">'o'],</span> <span class="pre">'i':</span> <span class="pre">['#ff9408',</span> <span class="pre">'o'],</span> <span class="pre">'r':</span> <span class="pre">['#00ffff',</span> <span class="pre">'o'],</span> <span class="pre">'u':</span> <span class="pre">['#be03fd',</span> <span class="pre">'o'],</span> <span class="pre">'z':</span> <span class="pre">['#ff474c',</span> <span class="pre">'o']}</span></em><a class="headerlink" href="#lightcurve.DEFAULT_PLOT_INSTRUCTIONS" title="Permalink to this definition"></a></dt>
+<dd><p>Default instructions for plotting magnitudes.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="lightcurve.DEFAULT_PLOT_INSTRUCTIONS_LIM_MAGS">
+<span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_PLOT_INSTRUCTIONS_LIM_MAGS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'H':</span> <span class="pre">['#fac205',</span> <span class="pre">'v'],</span> <span class="pre">'J':</span> <span class="pre">['#ff028d',</span> <span class="pre">'v'],</span> <span class="pre">'K':</span> <span class="pre">['#c04e01',</span> <span class="pre">'v'],</span> <span class="pre">'Y':</span> <span class="pre">['#c65102',</span> <span class="pre">'v'],</span> <span class="pre">'g':</span> <span class="pre">['#0165fc',</span> <span class="pre">'v'],</span> <span class="pre">'i':</span> <span class="pre">['#ff9408',</span> <span class="pre">'v'],</span> <span class="pre">'r':</span> <span class="pre">['#00ffff',</span> <span class="pre">'v'],</span> <span class="pre">'u':</span> <span class="pre">['#be03fd',</span> <span class="pre">'v'],</span> <span class="pre">'z':</span> <span class="pre">['#ff474c',</span> <span class="pre">'v']}</span></em><a class="headerlink" href="#lightcurve.DEFAULT_PLOT_INSTRUCTIONS_LIM_MAGS" title="Permalink to this definition"></a></dt>
+<dd><p>Default instructions for plotting <strong>limiting</strong> magnitudes.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="lightcurve.DEFAULT_PLOT_INSTRUCTIONS_REF_MAGS">
+<span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_PLOT_INSTRUCTIONS_REF_MAGS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'H':</span> <span class="pre">'#fac205',</span> <span class="pre">'J':</span> <span class="pre">'#ff028d',</span> <span class="pre">'K':</span> <span class="pre">'#c04e01',</span> <span class="pre">'Y':</span> <span class="pre">'#c65102',</span> <span class="pre">'g':</span> <span class="pre">'#0165fc',</span> <span class="pre">'i':</span> <span class="pre">'#ff9408',</span> <span class="pre">'r':</span> <span class="pre">'#00ffff',</span> <span class="pre">'u':</span> <span class="pre">'#be03fd',</span> <span class="pre">'z':</span> <span class="pre">'#ff474c'}</span></em><a class="headerlink" href="#lightcurve.DEFAULT_PLOT_INSTRUCTIONS_REF_MAGS" title="Permalink to this definition"></a></dt>
+<dd><p>Default instructions for plotting <strong>reference</strong> magnitudes.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="lightcurve.PLOT_INSTRUCTIONS_VIEIRA20">
+<span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">PLOT_INSTRUCTIONS_VIEIRA20</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'g':</span> <span class="pre">['#76cd26',</span> <span class="pre">'s'],</span> <span class="pre">'i':</span> <span class="pre">['#0165fc',</span> <span class="pre">'o'],</span> <span class="pre">'z':</span> <span class="pre">['#ff474c',</span> <span class="pre">'D']}</span></em><a class="headerlink" href="#lightcurve.PLOT_INSTRUCTIONS_VIEIRA20" title="Permalink to this definition"></a></dt>
+<dd><p>Plotting instructions used in Vieira et al. (2020).</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="lightcurve.PLOT_INSTRUCTIONS_LIM_MAGS_VIEIRA20">
+<span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">PLOT_INSTRUCTIONS_LIM_MAGS_VIEIRA20</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'g':</span> <span class="pre">['#76cd26',</span> <span class="pre">'v'],</span> <span class="pre">'i':</span> <span class="pre">['#0165fc',</span> <span class="pre">'v'],</span> <span class="pre">'z':</span> <span class="pre">['#ff474c',</span> <span class="pre">'v']}</span></em><a class="headerlink" href="#lightcurve.PLOT_INSTRUCTIONS_LIM_MAGS_VIEIRA20" title="Permalink to this definition"></a></dt>
+<dd><p>Plotting instructions for <strong>limiting magnitudes</strong> used in Vieira et al.
+(2020).</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="lightcurve.PLOT_INSTRUCTIONS_REF_MAGS_VIEIRA20">
+<span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">PLOT_INSTRUCTIONS_REF_MAGS_VIEIRA20</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'g':</span> <span class="pre">'#76cd26',</span> <span class="pre">'i':</span> <span class="pre">'#0165fc',</span> <span class="pre">'z':</span> <span class="pre">'#ff474c'}</span></em><a class="headerlink" href="#lightcurve.PLOT_INSTRUCTIONS_REF_MAGS_VIEIRA20" title="Permalink to this definition"></a></dt>
+<dd><p>Plotting instructions for <strong>reference magnitudes</strong> used in Vieira et al.
+(2020).</p>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="lightcurve.fromfile">
 <span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">fromfile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">readfile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.fromfile" title="Permalink to this definition"></a></dt>
-<dd><p>Input: a single .fits table file containing either magnitudes or limiting
+<dd><p>Read a single .fits table file containing either magnitudes or limiting
 magnitudes</p>
-<p>NOTE: Does not work for reference magnitudes. Will assume magnitude is just
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>New <a class="reference internal" href="#lightcurve.LightCurve" title="lightcurve.LightCurve"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LightCurve</span></code></a> object</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#lightcurve.LightCurve" title="lightcurve.LightCurve">LightCurve</a></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Does not work for reference magnitudes. Will assume magnitude is just
 a regular magnitude. Reference magnitudes must be added one file at a time
-(see add_ref_files() and add_ref_tables() below.)</p>
-<p>Output: a new LightCurve object</p>
+(see <code class="xref py py-func docutils literal notranslate"><span class="pre">add_ref_files()</span></code> and <code class="xref py py-func docutils literal notranslate"><span class="pre">add_ref_tables()</span></code>).</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="lightcurve.fromdirectory">
 <span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">fromdirectory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">directory</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.fromdirectory" title="Permalink to this definition"></a></dt>
-<dd><p>Input: a single directory to look for .fits files and use all of them to
-build a LightCurve object</p>
-<p>NOTE: Assumes that all files in the directory are magnitudes or limiting
+<dd><p>Search a directory for .fits files and read in magnitudes or limiting
+magnitudes</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>New <a class="reference internal" href="#lightcurve.LightCurve" title="lightcurve.LightCurve"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LightCurve</span></code></a> object</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#lightcurve.LightCurve" title="lightcurve.LightCurve">LightCurve</a></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Assumes that all files in the directory contain magnitudes or limiting
 magnitudes. Reference magnitudes must be added one file at a time (see
-add_ref_files() and add_ref_tables() below.)</p>
-<p>Output: a new LightCurve object</p>
+<code class="xref py py-func docutils literal notranslate"><span class="pre">add_ref_files()</span></code> and <code class="xref py py-func docutils literal notranslate"><span class="pre">add_ref_tables()</span></code>).</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="lightcurve.frompoint">
 <span class="sig-prename descclassname"><span class="pre">lightcurve.</span></span><span class="sig-name descname"><span class="pre">frompoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mag_err</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mjd</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.frompoint" title="Permalink to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>Input:</dt><dd><ul class="simple">
-<li><p>RA and Dec</p></li>
-<li><p>magnitude and its error</p></li>
-<li><p>filter used</p></li>
-<li><p>time of observation in MJD</p></li>
+<dd><p>Generate a new light curve from a single specified data point</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra, dec</strong> (<em>float</em>) – RA and Dec of the source of interest</p></li>
+<li><p><strong>mag</strong> (<em>float</em>) – Magnitude</p></li>
+<li><p><strong>mag_err</strong> (<em>float</em>) – Error on the magnitude</p></li>
+<li><p><strong>filt</strong> (<em>str</em>) – Photometric filter used during observation</p></li>
+<li><p><strong>mjd</strong> (<em>float</em>) – MJD at time of observation</p></li>
 </ul>
 </dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>New <a class="reference internal" href="#lightcurve.LightCurve" title="lightcurve.LightCurve"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LightCurve</span></code></a> object</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#lightcurve.LightCurve" title="lightcurve.LightCurve">LightCurve</a></p>
+</dd>
 </dl>
-<p>Initialize a LightCurve from a single magnitude data point. This cannot be
-done using a limiting or reference magnitude.</p>
-<p>Output: a new LightCurve object</p>
+<p class="rubric">Notes</p>
+<p>Should not be used for a limiting or reference magnitude.</p>
 </dd></dl>
 
 <dl class="py class">
@@ -130,167 +211,181 @@ done using a limiting or reference magnitude.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="lightcurve.LightCurve.copy">
 <span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.LightCurve.copy" title="Permalink to this definition"></a></dt>
-<dd><p>Input: None
-Produces a (deep) copy of the object.
-Output: the copy</p>
+<dd><p>Return a (deep) copy of the object</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightcurve.LightCurve.add_tables">
 <span class="sig-name descname"><span class="pre">add_tables</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">tables</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.LightCurve.add_tables" title="Permalink to this definition"></a></dt>
-<dd><p>Input: one or more tables to append to the end of the LightCurve’s mag
-table and/or limiting mag table</p>
-<p>Adds one or more new tables to the existing LightCurve’s mag table
-and/or limiting mag table. Changes the LightCurve in place.
-Always assumes that the tables are either pure magnitudes or limiting
-magnitudes. For adding in reference magnitudes, see add_ref_tables()</p>
-<p>Output: None</p>
+<dd><p>Add one or more new tables to the existing LightCurve’s magnitude
+table and/or limiting magnitude table</p>
+<p class="rubric">Notes</p>
+<p>Changes the <cite>LightCurve</cite> in place. Assumes that the tables contain
+either magnitudes or limiting magnitudes. For adding in reference
+magnitudes, see <a class="reference internal" href="#lightcurve.LightCurve.add_ref_tables" title="lightcurve.LightCurve.add_ref_tables"><code class="xref py py-func docutils literal notranslate"><span class="pre">add_ref_tables()</span></code></a>.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightcurve.LightCurve.add_files">
 <span class="sig-name descname"><span class="pre">add_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">files</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.LightCurve.add_files" title="Permalink to this definition"></a></dt>
-<dd><p>Input: one or more files from which to read tables and then append to
-the end of the LightCurve’s mag table and/or limiting mag table</p>
-<p>Reads in and then adds one or more new tables to the existing
-LightCurve’s mag table and/or limiting mag table. Changes the
-LightCurve in place.
-Always assumes that the tables are either pure magnitudes or limiting
-magnitudes. For adding in reference magnitudes, see add_ref_files()</p>
-<p>Output: None</p>
+<dd><p>Read in from files and then append any new tables to the existing
+LightCurve’s magnitude table and/or limiting magnitude table</p>
+<p class="rubric">Notes</p>
+<p>Changes the <cite>LightCurve</cite> in place. Assumes that the files contain
+tables with either magnitudes or limiting magnitudes. For adding in
+reference magnitudes, see <a class="reference internal" href="#lightcurve.LightCurve.add_ref_files" title="lightcurve.LightCurve.add_ref_files"><code class="xref py py-func docutils literal notranslate"><span class="pre">add_ref_files()</span></code></a>.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightcurve.LightCurve.add_ref_tables">
 <span class="sig-name descname"><span class="pre">add_ref_tables</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">tables</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.LightCurve.add_ref_tables" title="Permalink to this definition"></a></dt>
-<dd><p>Input: one or more tables to append to the end of the LightCurve’s
-REFERENCE mag table</p>
-<p>Adds one or more new tables to the existing LightCurve’s REFERENCE mag
-table. Changes the LightCurve in place.</p>
-<p>Output: None</p>
+<dd><p>Same as <a class="reference internal" href="#lightcurve.LightCurve.add_tables" title="lightcurve.LightCurve.add_tables"><code class="xref py py-func docutils literal notranslate"><span class="pre">add_tables()</span></code></a>, but for <strong>reference</strong> magnitudes</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightcurve.LightCurve.add_ref_files">
 <span class="sig-name descname"><span class="pre">add_ref_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">files</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.LightCurve.add_ref_files" title="Permalink to this definition"></a></dt>
-<dd><p>Input: one or more files from which to read tables and then append to
-the end of the LightCurve’s mag table and/or limiting mag table</p>
-<p>Reads in and then adds one or more new tables to the existing
-LightCurve’s REFERENCE mag table. Changes the LightCurve in place.</p>
-<p>Output: None</p>
+<dd><p>Same as <a class="reference internal" href="#lightcurve.LightCurve.add_files" title="lightcurve.LightCurve.add_files"><code class="xref py py-func docutils literal notranslate"><span class="pre">add_files()</span></code></a>, but for <strong>reference</strong> magnitudes</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightcurve.LightCurve.add_mag">
 <span class="sig-name descname"><span class="pre">add_mag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mag_err</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mjd</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.LightCurve.add_mag" title="Permalink to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>Input:</dt><dd><ul class="simple">
-<li><p>RA and Dec</p></li>
-<li><p>magnitude and its error</p></li>
-<li><p>filter used</p></li>
-<li><p>time of observation in MJD</p></li>
+<dd><p>Manually add a single point to the light curve’s magnitude table</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra, dec</strong> (<em>float</em>) – RA and Dec of the source of interest</p></li>
+<li><p><strong>mag</strong> (<em>float</em>) – Magnitude</p></li>
+<li><p><strong>mag_err</strong> (<em>float</em>) – Error on the magnitude</p></li>
+<li><p><strong>filt</strong> (<em>str</em>) – Photometric filter used during observation</p></li>
+<li><p><strong>mjd</strong> (<em>float</em>) – MJD at time of observation</p></li>
 </ul>
 </dd>
 </dl>
-<p>Manually adds a single point to the LightCurve’s mag table.</p>
-<p>Output: None</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightcurve.LightCurve.add_limmag">
 <span class="sig-name descname"><span class="pre">add_limmag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mjd</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.LightCurve.add_limmag" title="Permalink to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>Input:</dt><dd><ul class="simple">
-<li><p>RA and Dec</p></li>
-<li><p>limiting magnitude</p></li>
-<li><p>filter used</p></li>
-<li><p>time of observation in MJD</p></li>
+<dd><p>Manually add a single point to the light curve’s <strong>limiting</strong>
+magnitude table</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra, dec</strong> (<em>float</em>) – RA and Dec of the source of interest</p></li>
+<li><p><strong>mag</strong> (<em>float</em>) – <strong>Limiting</strong> magnitude</p></li>
+<li><p><strong>filt</strong> (<em>str</em>) – Photometric filter used during observation</p></li>
+<li><p><strong>mjd</strong> (<em>float</em>) – MJD at time of observation</p></li>
 </ul>
 </dd>
 </dl>
-<p>Manually adds a single point to the LightCurve’s LIMITING mag table.</p>
-<p>Output: None</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightcurve.LightCurve.add_refmag">
 <span class="sig-name descname"><span class="pre">add_refmag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mjd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mag_err</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.LightCurve.add_refmag" title="Permalink to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>Input:</dt><dd><ul class="simple">
-<li><p>RA and Dec</p></li>
-<li><p>reference magnitude</p></li>
-<li><p>filter used</p></li>
-<li><p>time of observation in MJD</p></li>
-<li><p>error on magnitude (optional; default None)</p></li>
+<dd><p>Manually add a single point to the light curve’s <strong>reference</strong>
+magnitude table</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra, dec</strong> (<em>float</em>) – RA and Dec of the source of interest</p></li>
+<li><p><strong>mag</strong> (<em>float</em>) – <strong>Reference</strong> magnitude</p></li>
+<li><p><strong>filt</strong> (<em>str</em>) – Photometric filter used during observation</p></li>
+<li><p><strong>mjd</strong> (<em>float</em>) – MJD at time of observation</p></li>
+<li><p><strong>mag_err</strong> (<em>float, optional</em>) – Error on the magnitude, if any (default None)</p></li>
 </ul>
 </dd>
 </dl>
-<p>Manually adds a single point to the LightCurve’s REFERENCE mag table.</p>
-<p>Output: None</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightcurve.LightCurve.coords_select">
 <span class="sig-name descname"><span class="pre">coords_select</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ra</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.LightCurve.coords_select" title="Permalink to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>Input:</dt><dd><ul class="simple">
-<li><p>ra, dec of interest</p></li>
-<li><p>separation from the ra, dec to probe (in arcsec; optional;
-default 1.0”)</p></li>
+<dd><p>Given some light curve, select only data points for measurements
+taken within <cite>sep</cite> arcseconds of RA <cite>ra</cite> and Dec <cite>dec</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ra, dec</strong> (<em>float</em>) – RA, Dec of the source of interest</p></li>
+<li><p><strong>sep</strong> (<em>float, optional</em>) – Maximum allowed separation from the RA, Dec, in arcseconds
+(default 1.0)</p></li>
 </ul>
 </dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>New <a class="reference internal" href="#lightcurve.LightCurve" title="lightcurve.LightCurve"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LightCurve</span></code></a> object containing only sources satisfying
+the condition</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#lightcurve.LightCurve" title="lightcurve.LightCurve">LightCurve</a></p>
+</dd>
 </dl>
-<p>Output: a new LightCurve object containing only sources within &lt;sep&gt;
-arcsec of the input ra, dec</p>
+<p class="rubric">Notes</p>
+<p>Does <strong>NOT</strong> change the object in-place. Returns a new object.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightcurve.LightCurve.set_plot_instructions">
 <span class="sig-name descname"><span class="pre">set_plot_instructions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.LightCurve.set_plot_instructions" title="Permalink to this definition"></a></dt>
-<dd><dl>
-<dt>Input: filename for a .csv which contains columns (WITHOUT headers) of</dt><dd><p>the form</p>
-<p>u    red    o
-g    #00ffff s
-…</p>
-<p>indicating the filter, marker colour, and marker style to use.
-Will NOT change the marker style of limiting magnitudes, which
-is fixed at “v”(downwards caret).</p>
+<dd><p>Set the plotting instructions</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>filename</strong> (<em>str</em>) – Name of .csv file containing plotting instructions</p>
 </dd>
 </dl>
-<p>Output: None</p>
+<p class="rubric">Notes</p>
+<p>The .csv should have no header, and should contain separate rows of
+the form</p>
+<blockquote>
+<div><p>“u”,”red”,”o”</p>
+<p>“g”,”#00ffff”,”s”</p>
+<p>…</p>
+</div></blockquote>
+<p>Indicating the photometric filter, line/marker colour, and marker
+style to use.</p>
+<p>Will <strong>not</strong> change the marker style for limiting magnitudes, which
+are fixed at “v” (downwards caret).</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightcurve.LightCurve.plot">
 <span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">filters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'lightcurve.png'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmerger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_legend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">connect</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mag_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mag_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limmag_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limmag_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refmag_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refmag_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lightcurve.LightCurve.plot" title="Permalink to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>Input:</dt><dd><ul class="simple">
-<li><p>filter/filters of choice to plot the lightcurve for only these
-filters (optional; default is to plot for all filters; options
-are “u”, “g”, “r”, “i”, “z”, “Y”, “J”, “H”, “K”)</p></li>
-<li><p>name for the file to be saved (optional; default lightcurve.png;
-can be set to None to not save anything)</p></li>
-<li><p>title for the plot (optional; default no title)</p></li>
-<li><p>value in MJD for the time of merger (or some general reference
-time which should be considered t=0) to plot time elapsed since
-t=0 (optional; default None, which just plots MJD)</p></li>
-<li><p>whether to show the legend (optional; default True)</p></li>
-<li><p>whether to connect points of the same filter (optional;
-default True)</p></li>
-<li><p>text to place in a textbox (optional; default None; must be a
-tuple or list of the form (x, y, ‘text you want printed’))</p></li>
-<li><p>lower, upper limits on the magnitudes in the light curve
-(optional; default None)</p></li>
-<li><p>lower, upper limits on the limiting magnitudes in the light
-curve (optional; default None)</p></li>
-<li><p>lower, upper limits on the reference magnitudes in the light
-curve (optional; default None)</p></li>
+<dd><p>Plot your light curve!</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>*filters</strong> (<em>str, optional</em>) – Filter(s) of choice, if we wish to plot only the points for these
+filters (default None; valid options in <code class="xref py py-obj docutils literal notranslate"><span class="pre">VALID_PHOT_FILTERS</span></code>)</p></li>
+<li><p><strong>output</strong> (<em>str, optional</em>) – Filename for output figure (default “lightcurve.png”; set to None
+to save no figure)</p></li>
+<li><p><strong>title</strong> (<em>str, optional</em>) – Title for the plot (default None)</p></li>
+<li><p><strong>tmerger</strong> (<em>float, optional</em>) – Time of the merger, in MJD, to plot in time elapsed since merger
+(default None –&gt; just plot MJD)</p></li>
+<li><p><strong>show_legend</strong> (<em>bool, optional</em>) – Include a legend? (default True)</p></li>
+<li><p><strong>connect</strong> (<em>bool, optional</em>) – Connect points of the same photometric filter with a line, for
+legibility? (default True)</p></li>
+<li><p><strong>text</strong> (<em>tuple, optional</em>) – Text to place in a text box, in the form (x, y, ‘text you want
+printed’) (default None)</p></li>
+<li><p><strong>mag_min, mag_max</strong> (<em>float, optional</em>) – Lower, upper limits on the magnitudes in the light curve; omit
+datapoints outside bounds (default None)</p></li>
+<li><p><strong>limmag_min, limmag_max</strong> (<em>float, optional</em>) – Lower, upper limits on the <strong>limiting</strong> magnitudes in the light
+curve; omit datapoints outside bounds (default None)</p></li>
+<li><p><strong>refmag_min, refmag_max</strong> (<em>float, optional</em>) – Lower, upper limits on the <strong>reference</strong> magnitudes in the light
+curve; omit datapoints outside bounds (default None)</p></li>
 </ul>
 </dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Figure object, after all plotting</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
 </dl>
-<p>NOTE: “lower” and “upper” limits understood in terms of the magnitude
-system. i.e., m=26 is a lower limit, m=21 is an upper limit.</p>
-<p>Output: None</p>
+<p class="rubric">Notes</p>
+<p>“lower” and “upper” limits on the data points are understood in terms
+of the magnitude system. I.e., m=26 is a lower limit, m=21 is an upper
+limit.</p>
 </dd></dl>
 
 </dd></dl>

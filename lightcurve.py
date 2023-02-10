@@ -5,8 +5,15 @@
 .. @author: Nicholas Vieira
 .. @lightcurve.py
 
-Combine aperture and/or PSF photometry (from `apphotom` and `psfphotom`) to 
-generate light curves.
+Combine aperture and/or PSF photometry generated with :obj:`apphotom` and/or
+:obj:`psfphotom` modules, to generate light curves.
+
+Light curves can include 3 kinds of data points:
+    
+1. Magnitudes: Measured magnitudes, including error bars
+2. Limiting magnitudes: Limiting magnitudes, which do not have error bars
+3. Reference magnitudes: Reference magnitudes obtained from some other work / 
+   analysis, with (optional) error barts
 
 """
 
@@ -22,33 +29,111 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 
 import matplotlib.pyplot as plt
-D_OFF = False
 import matplotlib.patches as ptc
 
 # currently hard-coding this 
 #plt.switch_backend("agg")
 
-###############################################################################
-### TURN THE DISPLAY OFF (e.g. when on a remote sever) ########################
 
-def display_off():
-    global D_OFF
-    D_OFF = True
-    #plt.switch_backend("agg")
+###############################################################################
+### CHANGING PLOTTING BACKEND (needs to be "agg" on remote servers) ###########
+
+def plotting_to_agg():
+    """Switch matplotlib backend to 'agg'"""
+    plt.switch_backend("agg")
+    
+def plotting_to_Qt4Agg():
+    """Switch matplotlib backend to 'Qt4Agg'"""
+    plt.switch_backend('Qt4Agg')
+
+
+
+###############################################################################
+### CONSTANTS #################################################################
+
+VALID_PHOT_FILTS = ["u", "g", "r", "i", "z", "Y", "J", "H", "K"]
+"""Valid photometric filters."""
+
+
+DEFAULT_PLOT_INSTRUCTIONS = {"u":["#be03fd","o"], 
+                             "g":["#0165fc","o"],
+                             "r":["#00ffff","o"],
+                             "i":["#ff9408","o"],
+                             "z":["#ff474c","o"],
+                               
+                             "Y":["#8e82fe","s"],
+                             "J":["#029386","s"],
+                             "H":["#fac205","s"],
+                             "K":["#c04e01","s"]}
+"""Default instructions for plotting magnitudes."""
+
+
+DEFAULT_PLOT_INSTRUCTIONS_LIM_MAGS = {"u":["#be03fd","v"], 
+                                      "g":["#0165fc","v"],
+                                      "r":["#00ffff","v"],
+                                      "i":["#ff9408","v"],
+                                      "z":["#ff474c","v"],
+                                        
+                                      "Y":["#c65102","v"],
+                                      "J":["#ff028d","v"],
+                                      "H":["#fac205","v"],
+                                      "K":["#c04e01","v"]}
+"""Default instructions for plotting **limiting** magnitudes."""
+
+
+DEFAULT_PLOT_INSTRUCTIONS_REF_MAGS = {"u":"#be03fd", 
+                                      "g":"#0165fc",
+                                      "r":"#00ffff",
+                                      "i":"#ff9408",
+                                      "z":"#ff474c",
+                                   
+                                      "Y":"#c65102",
+                                      "J":"#ff028d",
+                                      "H":"#fac205",
+                                      "K":"#c04e01"}
+"""Default instructions for plotting **reference** magnitudes."""
+
+
+
+PLOT_INSTRUCTIONS_VIEIRA20 = {"g":["#76cd26","s"],
+                              "i":["#0165fc","o"],
+                              "z":["#ff474c","D"]}
+"""Plotting instructions used in Vieira et al. (2020)."""
+
+
+PLOT_INSTRUCTIONS_LIM_MAGS_VIEIRA20 = {"g":["#76cd26","v"],
+                                       "i":["#0165fc","v"],
+                                       "z":["#ff474c","v"]}
+"""Plotting instructions for **limiting magnitudes** used in Vieira et al. 
+(2020)."""                                 
+
+
+PLOT_INSTRUCTIONS_REF_MAGS_VIEIRA20 = {"g":"#76cd26",
+                                       "i":"#0165fc",
+                                       "z":"#ff474c"} 
+"""Plotting instructions for **reference magnitudes** used in Vieira et al. 
+(2020)."""
+
+
 
 ###############################################################################
 ### BUILDING LIGHTCURVES FROM FILES, DIRECTORIES, OR POINTS ###################
 
 def fromfile(readfile):
-    """
-    Input: a single .fits table file containing either magnitudes or limiting 
+    """Read a single .fits table file containing either magnitudes or limiting 
     magnitudes 
     
-    NOTE: Does not work for reference magnitudes. Will assume magnitude is just
-    a regular magnitude. Reference magnitudes must be added one file at a time
-    (see add_ref_files() and add_ref_tables() below.)
+    Returns
+    -------
+    LightCurve
+        New :obj:`LightCurve` object
     
-    Output: a new LightCurve object
+    Notes
+    -----
+    Does not work for reference magnitudes. Will assume magnitude is just
+    a regular magnitude. Reference magnitudes must be added one file at a time
+    (see :func:`add_ref_files` and :func:`add_ref_tables`).
+
     """
     
     tab = Table.read(readfile, format="ascii")
@@ -57,16 +142,22 @@ def fromfile(readfile):
     else: # a limiting magnitude
         return LightCurve(lim_mag_tab=tab)
 
+
 def fromdirectory(directory):
-    """
-    Input: a single directory to look for .fits files and use all of them to
-    build a LightCurve object
+    """Search a directory for .fits files and read in magnitudes or limiting 
+    magnitudes
+
+    Returns
+    -------
+    LightCurve
+        New :obj:`LightCurve` object
     
-    NOTE: Assumes that all files in the directory are magnitudes or limiting 
+    Notes
+    -----
+    Assumes that all files in the directory contain magnitudes or limiting 
     magnitudes. Reference magnitudes must be added one file at a time (see 
-    add_ref_files() and add_ref_tables() below.)
-    
-    Output: a new LightCurve object
+    :func:`add_ref_files` and :func:`add_ref_tables`).
+
     """
     files = glob.glob(f"{directory}/*.fits")
     ret = LightCurve()
@@ -75,21 +166,37 @@ def fromdirectory(directory):
 
 
 def frompoint(ra, dec, mag, mag_err, filt, mjd):
-    """
-    Input: 
-        - RA and Dec
-        - magnitude and its error
-        - filter used
-        - time of observation in MJD 
+    """Generate a new light curve from a single specified data point
+    
+    Arguments
+    ---------
+    ra, dec : float
+        RA and Dec of the source of interest
+    mag : float
+        Magnitude
+    mag_err : float
+        Error on the magnitude
+    filt : str
+        Photometric filter used during observation
+    mjd : float
+        MJD at time of observation
         
-    Initialize a LightCurve from a single magnitude data point. This cannot be 
-    done using a limiting or reference magnitude. 
-        
-    Output: a new LightCurve object
+    Returns
+    -------
+    LightCurve
+        New :obj:`LightCurve` object
+    
+    Notes
+    -----
+    Should not be used for a limiting or reference magnitude. 
+
     """
+    
     tab = Table(names=["ra","dec","mag_calib","mag_calib_unc","filter","MJD"], 
                 data=[[ra],[dec],[mag],[mag_err],[filt],[mjd]])
     return LightCurve(tab)
+
+
 
 ###############################################################################
 ### LIGHTCURVE CLASS ##########################################################
@@ -128,135 +235,70 @@ class LightCurve:
         
         # a dictionary containing instructions on how to plot the lightcurve 
         # based on the filter being used (marker color, marker style) 
-
-        ## UPDATED
-        self.plot_instructions = {"u":["#be03fd","o"], 
-                                  "g":["#0165fc","o"],
-                                  "r":["#00ffff","o"],
-                                  "i":["#ff9408","o"],
-                                  "z":["#ff474c","o"],
-                                       
-                                  "Y":["#8e82fe","s"],
-                                  "J":["#029386","s"],
-                                  "H":["#fac205","s"],
-                                  "K":["#c04e01","s"]}
+        self.plot_instructions = DEFAULT_PLOT_INSTRUCTIONS.copy()
                                         
         # instructions for LIMITING magnitudes
-        self.plot_instructions_lim_mags = {"u":["#be03fd","v"], 
-                                           "g":["#0165fc","v"],
-                                           "r":["#00ffff","v"],
-                                           "i":["#ff9408","v"],
-                                           "z":["#ff474c","v"],
-                                                
-                                           "Y":["#c65102","v"],
-                                           "J":["#ff028d","v"],
-                                           "H":["#fac205","v"],
-                                           "K":["#c04e01","v"]}                                   
+        self.plot_instructions_lim_mags = DEFAULT_PLOT_INSTRUCTIONS_LIM_MAGS.copy()                             
 
         # instructions for REFERENCE magnitudes
-        self.plot_instructions_ref_mags = {"u":"#be03fd", 
-                                           "g":"#0165fc",
-                                           "r":"#00ffff",
-                                           "i":"#ff9408",
-                                           "z":"#ff474c",
-                                           
-                                           "Y":"#c65102",
-                                           "J":"#ff028d",
-                                           "H":"#fac205",
-                                           "K":"#c04e01"} 
-        
-#        ## AT TIME OF GW190814 PAPER: ####
-#        self.plot_instructions = {"g":["#76cd26","s"],
-#                                  "i":["#0165fc","o"],
-#                                  "z":["#ff474c","D"]}
-#                                        
-#        # instructions for LIMITING magnitudes
-#        self.plot_instructions_lim_mags = {"g":["#76cd26","v"],
-#                                           "i":["#0165fc","v"],
-#                                           "z":["#ff474c","v"]}                                   
-#
-#        # instructions for REFERENCE magnitudes
-#        self.plot_instructions_ref_mags = {"g":"#76cd26",
-#                                           "i":"#0165fc",
-#                                           "z":"#ff474c"} 
+        self.plot_instructions_ref_mags = DEFAULT_PLOT_INSTRUCTIONS_REF_MAGS.copy()
                                            
         # useful lists 
         self.mag_colnames = ["ra", "dec", "mag_calib", "mag_calib_unc", 
                              "filter", "MJD"]
         self.limmag_colnames = ["ra", "dec", "mag_calib", "filter", "MJD"]
 
+
     def __str__(self):
-        """
-        Input: None
-        Printing function.
-        Output: None
-        """
-        
         if len(self.mags) > 0: 
-            print("\n\nMAGS\n")
+            print("\n\nMAGS\n", flush=True)
             self.mags.pprint()
         if len(self.lim_mags) > 0: 
-            print("\nLIMITING MAGS\n")
+            print("\nLIMITING MAGS\n", flush=True)
             self.lim_mags.pprint()
         if len(self.ref_mags) > 0: 
-            print("\nREFERENCE MAGS\n")
+            print("\nREFERENCE MAGS\n", flush=True)
             self.ref_mags.pprint()            
         return ""
 
 
+    def copy(self):
+        """Return a (deep) copy of the object"""
+        return deepcopy(self)
+
+
     ## adding magnitude data points from tables/files ##            
     def __mag_table_append(self, table_new):
-        """
-        Input: table to append to the object's existing MAG table 
-
-        Output: None 
-        """        
+        """Append to the object's existing magnitude table"""
         for r in table_new[self.mag_colnames]:
             self.mags.add_row(r)
         self.mags.sort(['ra','dec','MJD'])
 
 
     def __mag_file_append(self, file):
-        """
-        Input: file to read a table from to then append to the object's 
-        existing MAG table             
-        
-        Output: None
-        """
+        """Read in file and append to the object's existing magnitude table"""
         t = Table.read(file, format="ascii")
         LightCurve.__mag_table_append(self, t)
             
 
     ## adding LIMITING magnitude data points from tables/files ##
     def __limmag_table_append(self, table_new):
-        """        
-        Input: table to append to the object's existing LIMITING mag table 
-
-        Output: None 
-        """        
+        """Append to the object's existing **limiting** magnitude table"""       
         for r in table_new[self.limmag_colnames]:
             self.lim_mags.add_row(r)
         self.lim_mags.sort(['ra','dec','MJD'])
 
 
     def __limmag_file_append(self, file):
-        """        
-        Input: file to read a table from to then append to the object's 
-        existing LIMITING mag table             
-        
-        Output: None
-        """
+        """Read in file and append to the object's existing **limiting** 
+        magnitude table"""
         t = Table.read(file, format="ascii")
         LightCurve.__limmag_table_append(self, t)
 
 
     ## adding REFERENCE magnitude data points from tables/files ##
     def __refmag_table_append(self, table_new):
-        """        
-        Input: table to append to the object's existing REFERENCE mag table 
-
-        Output: None 
-        """    
+        """Append to the object's existing **reference** magnitude table"""  
         if not "mag_calib_unc" in table_new.colnames:
             table_new["mag_calib_unc"] = [None for i in range(len(table_new))]
         
@@ -266,14 +308,11 @@ class LightCurve:
 
 
     def __refmag_file_append(self, file):
-        """        
-        Input: file to read a table from to then append to the object's 
-        existing REFERENCE mag table             
-        
-        Output: None
-        """
+        """Read in file and append to the object's existing **reference** 
+        magnitude table"""
         t = Table.read(file, format="ascii")
         LightCurve.__refmag_table_append(self, t)
+
 
 
     ### READING, WRITING, COPYING #############################################
@@ -337,29 +376,22 @@ class LightCurve:
 #                             fits.BinTableHDU(self.mags),
 #                             fits.BinTableHDU(self.lim_mags)])    
 #        hdul.writeto(LC_file) # write it
+    
 
-
-    def copy(self):
-        """
-        Input: None        
-        Produces a (deep) copy of the object.        
-        Output: the copy 
-        """
-        return deepcopy(self)
-
-    ### ADDING TABLES/ADDING TABLES FROM FILES ################################    
-    ### FOR NORMAL/LIMITING MAGNITUDES       
+    ### ADDING TABLES/ADDING TABLES FROM FILES ################################
+    
+    ### MAGNITUDES / LIMITING MAGNITUDES
+    
     def add_tables(self, *tables):
-        """
-        Input: one or more tables to append to the end of the LightCurve's mag 
-        table and/or limiting mag table
+        """Add one or more new tables to the existing LightCurve's magnitude 
+        table and/or limiting magnitude table
         
-        Adds one or more new tables to the existing LightCurve's mag table 
-        and/or limiting mag table. Changes the LightCurve in place.
-        Always assumes that the tables are either pure magnitudes or limiting 
-        magnitudes. For adding in reference magnitudes, see add_ref_tables()
+        Notes
+        -----
+        Changes the `LightCurve` in place. Assumes that the tables contain 
+        either magnitudes or limiting magnitudes. For adding in reference 
+        magnitudes, see :func:`add_ref_tables`.
 
-        Output: None
         """
         
         for t in tables:
@@ -372,17 +404,15 @@ class LightCurve:
 
 
     def add_files(self, *files):
-        """
-        Input: one or more files from which to read tables and then append to 
-        the end of the LightCurve's mag table and/or limiting mag table
+        """Read in from files and then append any new tables to the existing 
+        LightCurve's magnitude table and/or limiting magnitude table
 
-        Reads in and then adds one or more new tables to the existing 
-        LightCurve's mag table and/or limiting mag table. Changes the 
-        LightCurve in place.
-        Always assumes that the tables are either pure magnitudes or limiting 
-        magnitudes. For adding in reference magnitudes, see add_ref_files()
-              
-        Output: None
+        Notes
+        -----
+        Changes the `LightCurve` in place. Assumes that the files contain 
+        tables with either magnitudes or limiting magnitudes. For adding in 
+        reference magnitudes, see :func:`add_ref_files`.
+        
         """
         for f in files:
             # if file contains actual aperture magnitudes
@@ -392,46 +422,40 @@ class LightCurve:
             else:              
                 LightCurve.__limmag_file_append(self, f)           
 
-    ### REFERENCE MAGNITUDES       
-    def add_ref_tables(self, *tables):
-        """
-        Input: one or more tables to append to the end of the LightCurve's 
-        REFERENCE mag table
-        
-        Adds one or more new tables to the existing LightCurve's REFERENCE mag 
-        table. Changes the LightCurve in place.
 
-        Output: None
-        """        
+    ### REFERENCE MAGNITUDES
+       
+    def add_ref_tables(self, *tables):
+        """Same as :func:`add_tables`, but for **reference** magnitudes"""
         for t in tables: LightCurve.__refmag_table_append(self, t.copy())
 
 
     def add_ref_files(self, *files):
-        """
-        Input: one or more files from which to read tables and then append to 
-        the end of the LightCurve's mag table and/or limiting mag table
-
-        Reads in and then adds one or more new tables to the existing 
-        LightCurve's REFERENCE mag table. Changes the LightCurve in place.
-              
-        Output: None
-        """
+        """Same as :func:`add_files`, but for **reference** magnitudes"""
         for f in files: LightCurve.__refmag_file_append(self, f)     
 
 
-    ### ADDING DISCRETE NORMAL/LIMTIING/REFERENCE MAGNITUDES ##################
+
+    ### ADDING DISCRETE MEASURED/LIMTIING/REFERENCE MAGNITUDES ################
+    
     def add_mag(self, ra, dec, mag, mag_err, filt, mjd):
-        """
-        Input: 
-            - RA and Dec
-            - magnitude and its error
-            - filter used
-            - time of observation in MJD 
-            
-        Manually adds a single point to the LightCurve's mag table. 
+        """Manually add a single point to the light curve's magnitude table
         
-        Output: None
+        Arguments
+        ---------
+        ra, dec : float
+            RA and Dec of the source of interest
+        mag : float
+            Magnitude
+        mag_err : float
+            Error on the magnitude
+        filt : str
+            Photometric filter used during observation
+        mjd : float
+            MJD at time of observation
+
         """
+        
         pt = Table(names=self.mag_colnames, 
                    data=[[ra],[dec],[mag],[mag_err],[filt],[mjd]])
         
@@ -439,17 +463,22 @@ class LightCurve:
      
         
     def add_limmag(self, ra, dec, mag, filt, mjd):
-        """
-        Input: 
-            - RA and Dec
-            - limiting magnitude
-            - filter used
-            - time of observation in MJD 
-            
-        Manually adds a single point to the LightCurve's LIMITING mag table. 
+        """Manually add a single point to the light curve's **limiting** 
+        magnitude table
         
-        Output: None
+        Arguments
+        ---------
+        ra, dec : float
+            RA and Dec of the source of interest
+        mag : float
+            **Limiting** magnitude
+        filt : str
+            Photometric filter used during observation
+        mjd : float
+            MJD at time of observation
+        
         """
+        
         lm = Table(names=self.limmag_colnames, 
                    data=[[ra],[dec],[mag],[filt],[mjd]])        
 
@@ -457,17 +486,22 @@ class LightCurve:
         
     
     def add_refmag(self, ra, dec, mag, filt, mjd, mag_err=None):
-        """
-        Input: 
-            - RA and Dec
-            - reference magnitude
-            - filter used
-            - time of observation in MJD 
-            - error on magnitude (optional; default None)
-            
-        Manually adds a single point to the LightCurve's REFERENCE mag table. 
+        """Manually add a single point to the light curve's **reference** 
+        magnitude table
         
-        Output: None
+        Arguments
+        ---------
+        ra, dec : float
+            RA and Dec of the source of interest
+        mag : float
+            **Reference** magnitude
+        filt : str
+            Photometric filter used during observation
+        mjd : float
+            MJD at time of observation
+        mag_err : float, optional
+            Error on the magnitude, if any (default None)
+
         """
 
         rm = Table(names=self.mag_colnames, 
@@ -475,16 +509,32 @@ class LightCurve:
             
         self.ref_mags.add_row(rm[0])
 
+
+
     ### RETURN A NEW LIGHTCURVE OBJECT FOR ONLY ONE COORDINATE ################
+
     def coords_select(self, ra, dec, sep=1.0):
-        """
-        Input:
-            - ra, dec of interest
-            - separation from the ra, dec to probe (in arcsec; optional; 
-              default 1.0")
+        """Given some light curve, select only data points for measurements 
+        taken within `sep` arcseconds of RA `ra` and Dec `dec`
+        
+        Arguments
+        ---------
+        ra, dec : float
+            RA, Dec of the source of interest
+        sep : float, optional
+            Maximum allowed separation from the RA, Dec, in arcseconds 
+            (default 1.0)
             
-        Output: a new LightCurve object containing only sources within <sep> 
-        arcsec of the input ra, dec
+        Returns
+        -------
+        LightCurve
+            New :obj:`LightCurve` object containing only sources satisfying 
+            the condition
+        
+        Notes
+        -----
+        Does **NOT** change the object in-place. Returns a new object.
+
         """
         # target of interest
         toi = SkyCoord(ra, dec, frame='icrs', unit='degree') 
@@ -516,28 +566,37 @@ class LightCurve:
 
     ### SETTING THE PLOTTING INSTRUCTIONS #####################################   
     def set_plot_instructions(self, filename):
-        """
-        Input: filename for a .csv which contains columns (WITHOUT headers) of 
-               the form 
+        """Set the plotting instructions
         
-               u    red    o
-               g    #00ffff s
-               ...
+        Arguments
+        ---------
+        filename : str
+            Name of .csv file containing plotting instructions
+            
+        Notes
+        -----
+        The .csv should have no header, and should contain separate rows of 
+        the form 
         
-               indicating the filter, marker colour, and marker style to use. 
-               Will NOT change the marker style of limiting magnitudes, which 
-               is fixed at "v"(downwards caret).
-               
+            "u","red","o"
+            
+            "g","#00ffff","s"
+            
+            ...
         
-        Output: None
+        Indicating the photometric filter, line/marker colour, and marker 
+        style to use. 
+        
+        Will **not** change the marker style for limiting magnitudes, which 
+        are fixed at "v" (downwards caret).
+        
         """
         import pandas as pd
         df = pd.read_csv(filename, header=None) # read in csv
         
         if df.isnull().values.any(): # if any nans in any columns, reject
-            print("\nFound a nan/empty cell in the table. Please fill this "+
-                  "cell and try again. Exiting.")
-            return
+            raise ValueError("Found a nan/empty cell in the table; fill this "+
+                             "cell and try again")
         
         # build dictionaries for mags, limiting mags, and reference mags
         magdict = dict(zip(df[0].values,
@@ -559,40 +618,56 @@ class LightCurve:
              mag_min=None, mag_max=None, 
              limmag_min=None, limmag_max=None, 
              refmag_min=None, refmag_max=None):
+        """Plot your light curve!
+        
+        Arguments
+        ---------
+        *filters : str, optional
+            Filter(s) of choice, if we wish to plot only the points for these 
+            filters (default None; valid options in :obj:`VALID_PHOT_FILTERS`)
+        output : str, optional
+            Filename for output figure (default "lightcurve.png"; set to None 
+            to save no figure)
+        title : str, optional
+            Title for the plot (default None)
+        tmerger : float, optional
+            Time of the merger, in MJD, to plot in time elapsed since merger 
+            (default None --> just plot MJD)
+        show_legend : bool, optional
+            Include a legend? (default True)
+        connect : bool, optional
+            Connect points of the same photometric filter with a line, for 
+            legibility? (default True)
+        text : tuple, optional
+            Text to place in a text box, in the form (x, y, 'text you want 
+            printed') (default None)
+            
+        mag_min, mag_max : float, optional
+            Lower, upper limits on the magnitudes in the light curve; omit 
+            datapoints outside bounds (default None)
+        limmag_min, limmag_max : float, optional
+            Lower, upper limits on the **limiting** magnitudes in the light 
+            curve; omit datapoints outside bounds (default None)
+        refmag_min, refmag_max : float, optional
+            Lower, upper limits on the **reference** magnitudes in the light 
+            curve; omit datapoints outside bounds (default None)
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Figure object, after all plotting
+
+        Notes
+        -----
+        "lower" and "upper" limits on the data points are understood in terms 
+        of the magnitude system. I.e., m=26 is a lower limit, m=21 is an upper 
+        limit.
+
         """
-        Input: 
-            - filter/filters of choice to plot the lightcurve for only these 
-              filters (optional; default is to plot for all filters; options 
-              are "u", "g", "r", "i", "z", "Y", "J", "H", "K")
-            - name for the file to be saved (optional; default lightcurve.png;
-              can be set to None to not save anything)
-            - title for the plot (optional; default no title)
-            - value in MJD for the time of merger (or some general reference 
-              time which should be considered t=0) to plot time elapsed since 
-              t=0 (optional; default None, which just plots MJD)
-            - whether to show the legend (optional; default True)
-            - whether to connect points of the same filter (optional;
-              default True)
-            - text to place in a textbox (optional; default None; must be a 
-              tuple or list of the form (x, y, 'text you want printed'))
-            - lower, upper limits on the magnitudes in the light curve 
-              (optional; default None)
-            - lower, upper limits on the limiting magnitudes in the light 
-              curve (optional; default None)
-            - lower, upper limits on the reference magnitudes in the light 
-              curve (optional; default None)
-              
-        NOTE: "lower" and "upper" limits understood in terms of the magnitude 
-        system. i.e., m=26 is a lower limit, m=21 is an upper limit.
-              
-        Output: None
-        """
-        if D_OFF: plt.switch_backend('agg')
         
         if (len(self.mags) == 0)  and (len(self.lim_mags) == 0):
-            print("\nLightCurve object has no magnitude or limiting magnitude"+
-                  " data points. Cannot plot. Exiting.")
-            return
+            raise ValueError("LightCurve object has no magnitude or limiting "+
+                             "magnitude data points; cannot plot")
         
         plotted_filts = [] # keep track of filters which have been plot already
         
@@ -660,11 +735,8 @@ class LightCurve:
 
             # if limits on limiting magnitudes 
             if limmag_min:
-                print(lims["mag_calib"] < limmag_min)
                 lims = lims[lims["mag_calib"] < limmag_min]
-                print(lims)
             if limmag_max:
-                print(lims["mag_calib"] > limmag_max)
                 lims = lims[lims["mag_calib"] > limmag_max] 
 
             if tmerger: # if a t=0 is given
@@ -739,7 +811,7 @@ class LightCurve:
             handles, labels = plt.gca().get_legend_handles_labels()
             temp_dict = dict(zip(labels, handles))
             # reorder labels from shortest wavelength to longest 
-            valid_filts = ["u","g","r","i","z","Y","J","H","K"]
+            valid_filts = VALID_PHOT_FILTS.copy()
             new_labels = []; new_handles = []
             while len(valid_filts) > 0:
                 if valid_filts[0] in labels:
@@ -782,29 +854,4 @@ class LightCurve:
         if output:
             plt.savefig(output, bbox_inches="tight")
         
-        #if D_OFF: plt.close()
-        #else: plt.show() 
-        plt.close()
-        
-        return fig
-   
-##### testing
-#a = fromdirectory("1_tmp/")
-#a.add_refmag(14.070877361773102, -26.5402713165586, 21.11611255086921, "u", 
-#             58713.546265)
-#a.add_limmag(14.070877361773102, -26.5402713165586, 23.51611255086921, "u", 
-#             58713.546265)
-#a.add_refmag(14.070877361773102, -26.5402713165586, 21.11611255086921, "u", 
-#             58713.546265, 0.69)
-#a.add_limmag(14.070877361773102, -26.5402713165586, 19.11611255086921, "J", 
-#             58719.546265)
-#a.add_refmag(14.070877361773102, -26.5402713165586, 23.51611255086921, "g", 
-#             58713.546265, 0.75)
-#a.add_mag(14.070877361773102, -26.5402713165586, 17.51611255086921, 0.35, "Ks", 
-#          58716.546265)
-#a.add_mag(14.070877361773102, -26.5402713165586, 17.51611255086921, 0.35, "g", 
-#          58715.546265)
-#a.add_refmag(14.070877361773102, -26.5402713165586, 21.51611255086921, "r", 
-#             58713.546265, 0.11)
-#a.add_ref_files(*glob.glob("1_tmp/*.fits"))
-#a.plot(tmerger=58709.88239578551)        
+        return fig      
