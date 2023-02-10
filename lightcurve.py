@@ -205,21 +205,21 @@ class LightCurve:
     def __init__(self, mag_tab=None, lim_mag_tab=None, ref_mag_tab=None):
 
         # useful lists 
-        self.mag_colnames = ["ra", "dec", "mag_calib", "mag_calib_unc", 
+        self.__mag_colnames = ["ra", "dec", "mag_calib", "mag_calib_unc", 
                              "filter", "MJD"]
-        self.limmag_colnames = ["ra", "dec", "mag_calib", "filter", "MJD"]
+        self.__limmag_colnames = ["ra", "dec", "mag_calib", "filter", "MJD"]
         
         # magnitudes, limiting magnitudes, reference magnitudes 
         
-        self.mags = Table(names=self.mag_colnames,
+        self.__mags = Table(names=self.__mag_colnames,
                           dtype=[np.dtype(float), np.dtype(float), 
                                  np.dtype(float), np.dtype(float), 
                                  np.dtype(str), np.dtype(float)])
-        self.lim_mags = Table(names=self.limmag_colnames,
+        self.__lim_mags = Table(names=self.__limmag_colnames,
                               dtype=[np.dtype(float), np.dtype(float),
                                      np.dtype(float), np.dtype(str),
                                      np.dtype(float)])
-        self.ref_mags = Table(names=self.mag_colnames,
+        self.__ref_mags = Table(names=self.__mag_colnames,
                               dtype=[np.dtype(float), np.dtype(float), 
                                      np.dtype(float), np.dtype(float), 
                                      np.dtype(str), np.dtype(float)])
@@ -235,30 +235,30 @@ class LightCurve:
         
         # a dictionary containing instructions on how to plot the lightcurve 
         # based on the filter being used (marker color, marker style) 
-        self.plot_instructions = DEFAULT_PLOT_INSTRUCTIONS.copy()
+        self.__plot_instructions = DEFAULT_PLOT_INSTRUCTIONS.copy()
                                         
         # instructions for LIMITING magnitudes
-        self.plot_instructions_lim_mags = DEFAULT_PLOT_INSTRUCTIONS_LIM_MAGS.copy()                             
+        self.__plot_instructions_lim_mags = DEFAULT_PLOT_INSTRUCTIONS_LIM_MAGS.copy()                             
 
         # instructions for REFERENCE magnitudes
-        self.plot_instructions_ref_mags = DEFAULT_PLOT_INSTRUCTIONS_REF_MAGS.copy()
+        self.__plot_instructions_ref_mags = DEFAULT_PLOT_INSTRUCTIONS_REF_MAGS.copy()
                                            
         # useful lists 
-        self.mag_colnames = ["ra", "dec", "mag_calib", "mag_calib_unc", 
+        self.__mag_colnames = ["ra", "dec", "mag_calib", "mag_calib_unc", 
                              "filter", "MJD"]
-        self.limmag_colnames = ["ra", "dec", "mag_calib", "filter", "MJD"]
+        self.__limmag_colnames = ["ra", "dec", "mag_calib", "filter", "MJD"]
 
 
     def __str__(self):
-        if len(self.mags) > 0: 
+        if len(self.__mags) > 0: 
             print("\n\nMAGS\n", flush=True)
-            self.mags.pprint()
-        if len(self.lim_mags) > 0: 
+            self.__mags.pprint()
+        if len(self.__lim_mags) > 0: 
             print("\nLIMITING MAGS\n", flush=True)
-            self.lim_mags.pprint()
-        if len(self.ref_mags) > 0: 
+            self.__lim_mags.pprint()
+        if len(self.__ref_mags) > 0: 
             print("\nREFERENCE MAGS\n", flush=True)
-            self.ref_mags.pprint()            
+            self.__ref_mags.pprint()            
         return ""
 
 
@@ -267,12 +267,58 @@ class LightCurve:
         return deepcopy(self)
 
 
+    ### GETTERS ###############################################################
+    
+    @property
+    def mags(self):
+        """Table of magnitudes"""
+        return self.__mags
+    
+    @property
+    def limmags(self):
+        """Table of **limiting** magnitudes"""
+        return self.__lim_mags
+    
+    @property
+    def refmags(self):
+        """Table of **reference** magnitudes"""
+        return self.__ref_mags
+    
+    @property
+    def plot_instructions(self):
+        """Instructions for plotting magnitudes"""
+        return self.__plot_instructions
+        
+    @property
+    def plot_instructions_lim_mags(self):
+        """Instructions for plotting **limiting** magnitudes"""
+        return self.__plot_instructions_lim_mags
+
+    @property
+    def plot_instructions_ref_mags(self):
+        """Instructions for plotting **reference** magnitudes"""
+        return self.__plot_instructions_ref_mags
+    
+    @property
+    def mag_colnames(self):
+        """Columns to use as keys when searching for magnitudes in input 
+        files/tables"""
+        return self.__mag_colnames
+
+    @property
+    def limmag_colnames(self):
+        """Columns to use as keys when searching for **limiting** magnitudes 
+        in input files/tables"""
+        return self.__limmag_colnames
+    
+
+    ### UTILITIES #############################################################
     ## adding magnitude data points from tables/files ##            
     def __mag_table_append(self, table_new):
         """Append to the object's existing magnitude table"""
-        for r in table_new[self.mag_colnames]:
-            self.mags.add_row(r)
-        self.mags.sort(['ra','dec','MJD'])
+        for r in table_new[self.__mag_colnames]:
+            self.__mags.add_row(r)
+        self.__mags.sort(['ra','dec','MJD'])
 
 
     def __mag_file_append(self, file):
@@ -284,9 +330,9 @@ class LightCurve:
     ## adding LIMITING magnitude data points from tables/files ##
     def __limmag_table_append(self, table_new):
         """Append to the object's existing **limiting** magnitude table"""       
-        for r in table_new[self.limmag_colnames]:
-            self.lim_mags.add_row(r)
-        self.lim_mags.sort(['ra','dec','MJD'])
+        for r in table_new[self.__limmag_colnames]:
+            self.__lim_mags.add_row(r)
+        self.__lim_mags.sort(['ra','dec','MJD'])
 
 
     def __limmag_file_append(self, file):
@@ -302,9 +348,9 @@ class LightCurve:
         if not "mag_calib_unc" in table_new.colnames:
             table_new["mag_calib_unc"] = [None for i in range(len(table_new))]
         
-        for r in table_new[self.mag_colnames]:
-            self.ref_mags.add_row(r)
-        self.ref_mags.sort(['ra','dec','MJD'])
+        for r in table_new[self.__mag_colnames]:
+            self.__ref_mags.add_row(r)
+        self.__ref_mags.sort(['ra','dec','MJD'])
 
 
     def __refmag_file_append(self, file):
@@ -333,9 +379,9 @@ class LightCurve:
 #        try:
 #            hdul = fits.open(LC_file)
 #            mags, lim_mags = Table(hdul[1].data), Table(hdul[2].data)
-#            self.mags, self.lim_mags = mags, lim_mags           
-#            self.mags.sort(['ra','dec','MJD'])
-#            self.lim_mags.sort(['ra','dec','MJD'])
+#            self.__mags, self.__lim_mags = mags, lim_mags           
+#            self.__mags.sort(['ra','dec','MJD'])
+#            self.__lim_mags.sort(['ra','dec','MJD'])
 #        except:
 #            e = sys.exc_info()
 #            print("\n"+str(e[0])+"\n"+str(e[1])+"\nExiting.")            
@@ -373,8 +419,8 @@ class LightCurve:
 #        # build HDUList out of informational primary HDU and the magnitude and 
 #        # limiting magnitude tables, each as BinTableHDU
 #        hdul = fits.HDUList([primhdu, 
-#                             fits.BinTableHDU(self.mags),
-#                             fits.BinTableHDU(self.lim_mags)])    
+#                             fits.BinTableHDU(self.__mags),
+#                             fits.BinTableHDU(self.__lim_mags)])    
 #        hdul.writeto(LC_file) # write it
     
 
@@ -456,7 +502,7 @@ class LightCurve:
 
         """
         
-        pt = Table(names=self.mag_colnames, 
+        pt = Table(names=self.__mag_colnames, 
                    data=[[ra],[dec],[mag],[mag_err],[filt],[mjd]])
         
         LightCurve.add_tables(self, pt)
@@ -479,10 +525,10 @@ class LightCurve:
         
         """
         
-        lm = Table(names=self.limmag_colnames, 
+        lm = Table(names=self.__limmag_colnames, 
                    data=[[ra],[dec],[mag],[filt],[mjd]])        
 
-        self.lim_mags.add_row(lm[0])
+        self.__lim_mags.add_row(lm[0])
         
     
     def add_refmag(self, ra, dec, mag, filt, mjd, mag_err=None):
@@ -504,10 +550,10 @@ class LightCurve:
 
         """
 
-        rm = Table(names=self.mag_colnames, 
+        rm = Table(names=self.__mag_colnames, 
                    data=[[ra],[dec],[mag],[mag_err],[filt],[mjd]])    
             
-        self.ref_mags.add_row(rm[0])
+        self.__ref_mags.add_row(rm[0])
 
 
 
@@ -540,21 +586,21 @@ class LightCurve:
         toi = SkyCoord(ra, dec, frame='icrs', unit='degree') 
         
         # coords of magnitude/limiting magnitude table
-        LC_mag_coords = SkyCoord(ra=self.mags['ra'], dec=self.mags["dec"], 
+        LC_mag_coords = SkyCoord(ra=self.__mags['ra'], dec=self.__mags["dec"], 
                                  frame='icrs', unit='degree')
-        LC_limmag_coords = SkyCoord(ra=self.lim_mags['ra'], 
-                                    dec=self.lim_mags["dec"], 
+        LC_limmag_coords = SkyCoord(ra=self.__lim_mags['ra'], 
+                                    dec=self.__lim_mags["dec"], 
                                     frame='icrs', unit='degree')
-        LC_refmag_coords = SkyCoord(ra=self.ref_mags['ra'], 
-                                    dec=self.ref_mags["dec"], 
+        LC_refmag_coords = SkyCoord(ra=self.__ref_mags['ra'], 
+                                    dec=self.__ref_mags["dec"], 
                                     frame='icrs', unit='degree')
         
         mask = (toi.separation(LC_mag_coords) <= sep*u.arcsec)
-        mags_match = self.mags[mask]
+        mags_match = self.__mags[mask]
         mask = (toi.separation(LC_limmag_coords) <= sep*u.arcsec) 
-        limmags_match = self.lim_mags[mask]
+        limmags_match = self.__lim_mags[mask]
         mask = (toi.separation(LC_refmag_coords) <= sep*u.arcsec) 
-        refmags_match = self.ref_mags[mask]
+        refmags_match = self.__ref_mags[mask]
         
         mags_match.pprint()
         limmags_match.pprint()
@@ -607,9 +653,9 @@ class LightCurve:
         refdict = dict(zip(df[0].values, df[1].values))
         
         # update the object
-        self.plot_instructions = magdict
-        self.plot_instructions_lim_mags = limdict
-        self.plot_instructions_ref_mags = refdict
+        self.__plot_instructions = magdict
+        self.__plot_instructions_lim_mags = limdict
+        self.__plot_instructions_ref_mags = refdict
 
     
     ### PLOTTING ##############################################################
@@ -665,19 +711,19 @@ class LightCurve:
 
         """
         
-        if (len(self.mags) == 0)  and (len(self.lim_mags) == 0):
+        if (len(self.__mags) == 0)  and (len(self.__lim_mags) == 0):
             raise ValueError("LightCurve object has no magnitude or limiting "+
                              "magnitude data points; cannot plot")
         
         plotted_filts = [] # keep track of filters which have been plot already
         
-        self.mags.sort("MJD")
-        self.lim_mags.sort("MJD")
-        self.ref_mags.sort("MJD")
+        self.__mags.sort("MJD")
+        self.__lim_mags.sort("MJD")
+        self.__ref_mags.sort("MJD")
         
         ## plot magnitudes and their errors
-        if len(self.mags) > 0:
-            sources = self.mags  
+        if len(self.__mags) > 0:
+            sources = self.__mags  
             
             if filters: # if a filters argument is given
                 mask = (sources["filter"] == filters[0])
@@ -703,7 +749,7 @@ class LightCurve:
             fig = plt.figure(figsize=(14,10))
             for i in range(len(t)): 
                 filt = str(sources["filter"].data[i])
-                color, form = self.plot_instructions[filt]
+                color, form = self.__plot_instructions[filt]
                 if filt in plotted_filts:
                     plt.errorbar(t[i], mag[i], mag_err[i], fmt=form, mfc=color, 
                                  mec="black", mew=2.0, ls="", color="black", 
@@ -716,16 +762,16 @@ class LightCurve:
             
             if connect:
                 for f in plotted_filts:
-                    mask = self.mags["filter"] == f
-                    color, __ = self.plot_instructions[f]
+                    mask = self.__mags["filter"] == f
+                    color, __ = self.__plot_instructions[f]
                     trelevant = np.array(t)[mask]
                     magrelevant = np.array(mag)[mask]
                     plt.plot(trelevant, magrelevant, marker="", ls="-", 
                              lw=2.0, zorder=0, color=color, alpha=0.6)
         
         ## plot limiting magnitudes 
-        if len(self.lim_mags) > 0:
-            lims = self.lim_mags
+        if len(self.__lim_mags) > 0:
+            lims = self.__lim_mags
             
             if filters: # if a filters argument is given
                 mask = (lims["filter"] == filters[0])
@@ -750,7 +796,7 @@ class LightCurve:
             # plot them
             for i in range(len(lims)): 
                 filt = str(lims["filter"].data[i])
-                color, form = self.plot_instructions_lim_mags[filt]
+                color, form = self.__plot_instructions_lim_mags[filt]
                 if filt in plotted_filts:
                     plt.plot(t[i], mag[i], marker=form, mfc=color, mec="black", 
                              mew=2.0, ls="", ms=24.0, zorder=3)     
@@ -760,8 +806,8 @@ class LightCurve:
                 plotted_filts.append(filt)    
 
         ## plot reference magnitudes 
-        if len(self.ref_mags) > 0:
-            refs = self.ref_mags
+        if len(self.__ref_mags) > 0:
+            refs = self.__ref_mags
             
             if filters: # if a filters argument is given
                 mask = (refs["filter"] == filters[0])
@@ -787,7 +833,7 @@ class LightCurve:
             # plot them          
             for i in range(len(t)): 
                 filt = str(refs["filter"].data[i])
-                color = self.plot_instructions_ref_mags[filt]
+                color = self.__plot_instructions_ref_mags[filt]
                 if filt in plotted_filts:
                     plt.axhline(mag[i], color=color, ls="-", lw=3.0, zorder=2)
                 else:
