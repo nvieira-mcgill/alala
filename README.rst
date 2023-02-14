@@ -36,14 +36,7 @@ Installation
 
 Currently, needs to be installed directly from github. May be install-able with ``conda`` and/or ``pip`` in the future.
 
-
-**Non-Python:**
-
-- [``astrometry.net``](http://astrometry.net/use.html)
-- [``iraf``](http://ast.noao.edu/data/software) (only for stacking)
-
 The code will be migrated from ``iraf`` to some other software (e.g. ``swarp``) in the future.
-
 
 **Dependencies:**
 

@@ -4,3 +4,5 @@ matplotlib==3.6.2
 astropy==5.2.1
 photutils==1.6.0
 astroquery==0.4.6
+
+sphinx-jsonschema==1.19.1
