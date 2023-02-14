@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>alala &mdash; alala 0.1.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> alala
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">alala</a><ul>
+<li><a class="reference internal" href="#documentation">Documentation</a></li>
+<li><a class="reference internal" href="#installation">Installation</a></li>
+<li><a class="reference internal" href="#contact">Contact</a></li>
+<li><a class="reference internal" href="#acknowledgements">Acknowledgements</a></li>
+<li><a class="reference internal" href="#credits">Credits</a></li>
+</ul>
+</li>
+</ul>
+</div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">alala</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active">alala</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/readme.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="alala">
+<h1>alala<a class="headerlink" href="#alala" title="Permalink to this heading"></a></h1>
+<a class="reference external image-reference" href="https://pypi.python.org/pypi/alala"><img alt="https://img.shields.io/pypi/v/alala.svg" src="https://img.shields.io/pypi/v/alala.svg" /></a>
+<a class="reference external image-reference" href="https://travis-ci.com/nvieira-mcgill/alala"><img alt="https://img.shields.io/travis/nvieira-mcgill/alala.svg" src="https://img.shields.io/travis/nvieira-mcgill/alala.svg" /></a>
+<a class="reference external image-reference" href="https://alala.readthedocs.io/en/latest/?version=latest"><img alt="Documentation Status" src="https://readthedocs.org/projects/alala/badge/?version=latest" /></a>
+<p>A pipeline for the MegaCam (a.k.a. MegaPrime) and Wide-field Infra-Red Camera (WIRCam) instruments of the Canada-France-Hawaii Telescope (CFHT). Includes the following:</p>
+<ul class="simple">
+<li><p>Stacking (co-addition) of individual exposures</p></li>
+<li><p>Obtaining astrometric solutions</p></li>
+<li><p>Point-Spread Function (PSF) photometry</p></li>
+<li><p>Aperture photometry</p></li>
+<li><p>Putting PSF/aperture photometry together to produce light curves</p></li>
+</ul>
+<p>The code is named after the ʻalalā, the Hawaiian crow.</p>
+<section id="documentation">
+<h2>Documentation<a class="headerlink" href="#documentation" title="Permalink to this heading"></a></h2>
+<p>Detailed documentation (WIP) for all modules can be found [here](<a class="reference external" href="https://alala.readthedocs.io/en/latest/">https://alala.readthedocs.io/en/latest/</a>). In the future, example scripts/notebooks will be added.</p>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<p>Currently, needs to be installed directly from github. May be install-able with <code class="docutils literal notranslate"><span class="pre">conda</span></code> and/or <code class="docutils literal notranslate"><span class="pre">pip</span></code> in the future.</p>
+<p><strong>Non-Python:</strong></p>
+<ul class="simple">
+<li><p>[<code class="docutils literal notranslate"><span class="pre">astrometry.net</span></code>](<a class="reference external" href="http://astrometry.net/use.html">http://astrometry.net/use.html</a>)</p></li>
+<li><p>[<code class="docutils literal notranslate"><span class="pre">iraf</span></code>](<a class="reference external" href="http://ast.noao.edu/data/software">http://ast.noao.edu/data/software</a>) (only for stacking)</p></li>
+</ul>
+<p>The code will be migrated from <code class="docutils literal notranslate"><span class="pre">iraf</span></code> to some other software (e.g. <code class="docutils literal notranslate"><span class="pre">swarp</span></code>) in the future.</p>
+<p><strong>Dependencies:</strong></p>
+<ul class="simple">
+<li><p>numpy</p></li>
+<li><p>scipy</p></li>
+<li><p>matplotlib</p></li>
+<li><p><a class="reference external" href="https://docs.astropy.org/en/stable/">astropy</a></p></li>
+<li><p><a class="reference external" href="https://photutils.readthedocs.io/en/stable/">photutils</a></p></li>
+<li><p><a class="reference external" href="https://astroquery.readthedocs.io/en/latest/">astroquery</a></p></li>
+<li><p><a class="reference external" href="https://pypi.org/project/pyraf/">pyraf</a> (python wrapper for <code class="docutils literal notranslate"><span class="pre">iraf</span></code>, for stacking)</p></li>
+<li><p><a class="reference external" href="https://github.com/spacetelescope/stsci.tools">stsci.tools</a> (for stacking)</p></li>
+</ul>
+<p><strong>Non-Python:</strong></p>
+<ul class="simple">
+<li><p><a class="reference external" href="http://astrometry.net/use.html">astrometry.net</a> (can however be ignored in favour of source detection with the image segmentation methods of <code class="docutils literal notranslate"><span class="pre">photutils</span></code> instead)</p></li>
+<li><p><a class="reference external" href="http://ast.noao.edu/data/software">iraf</a> (only for stacking)</p></li>
+</ul>
+</section>
+<section id="contact">
+<h2>Contact<a class="headerlink" href="#contact" title="Permalink to this heading"></a></h2>
+<p><a class="reference external" href="mailto:nicholas&#46;vieira&#37;&#52;&#48;mail&#46;mcgill&#46;ca">nicholas<span>&#46;</span>vieira<span>&#64;</span>mail<span>&#46;</span>mcgill<span>&#46;</span>ca</a></p>
+</section>
+<section id="acknowledgements">
+<h2>Acknowledgements<a class="headerlink" href="#acknowledgements" title="Permalink to this heading"></a></h2>
+<p>This project was begun in May 2019 by Nicholas Vieira, working under the supervision of Dr. Daryl Haggard and Dr. John Ruan at the McGill Space Institute. Thanks go to Dr. Daryl Haggard, Dr. John Ruan, and the rest of the Haggard research group. We are very grateful for assistance from Dr. Laurie Rousseau-Nepton, instrument specialist for WIRCam, and Dr. Dustin Lang for his assistance with <cite>astrometry.net</cite>.</p>
+</section>
+<section id="credits">
+<h2>Credits<a class="headerlink" href="#credits" title="Permalink to this heading"></a></h2>
+<p>Free software: MIT license</p>
+<p>This package was created with <a class="reference external" href="https://github.com/audreyr/cookiecutter">Cookiecutter</a> and the <a class="reference external" href="https://github.com/audreyr/cookiecutter-pypackage">audreyr/cookiecutter-pypackage</a> project template.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Nicholas Vieira.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -5,7 +5,16 @@ __pycache__/
 # Sphinx documentation
 #docs/_build/
 
+# setup
+alala.egg-info/
+dist/
+build/
+
 # Particular to alala
 
 # token for working on repo
 TOKEN
+
+# cookiecutter stuff, will be fixed later
+Makefile
+requirements_dev.txt
