@@ -1,5 +1,5 @@
 numpy==1.22.3
-scipy==1.9.3
+scipy==1.10.0
 matplotlib==3.6.2
 astropy==5.2.1
 photutils==1.6.0
